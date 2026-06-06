@@ -4,6 +4,7 @@ const User = require('../models/User');
 const Order = require('../models/Order');
 const Payment = require('../models/Payment');
 const Address = require('../models/Address');
+const Package = require('../models/Package');
 
 /**
  * GET /api/admin/stats
@@ -428,6 +429,103 @@ const updatePayment = async (req, res, next) => {
     }
 };
 
+/**
+ * GET /api/admin/packages
+ * Retrieve all packages.
+ */
+const getAdminPackages = async (req, res, next) => {
+    try {
+        const packages = await Package.find().sort({ createdAt: -1 });
+        res.status(200).json({ success: true, count: packages.length, data: packages });
+    } catch (err) {
+        next(err);
+    }
+};
+
+/**
+ * POST /api/admin/packages
+ * Create a new package.
+ */
+const createPackage = async (req, res, next) => {
+    try {
+        const { type, title, subtitle, tagline, icon, accentColor, startingPrice, features, plans } = req.body;
+
+        if (!type || !title || !icon || !accentColor || startingPrice === undefined) {
+            return res.status(400).json({ success: false, message: 'Missing required fields' });
+        }
+
+        const existing = await Package.findOne({ type });
+        if (existing) {
+            return res.status(400).json({ success: false, message: `Package type '${type}' already exists` });
+        }
+
+        const pkg = await Package.create({
+            type,
+            title,
+            subtitle: subtitle || '',
+            tagline: tagline || '',
+            icon,
+            accentColor,
+            startingPrice,
+            features: features || [],
+            plans: plans || {}
+        });
+
+        res.status(201).json({ success: true, message: 'Package created successfully', data: pkg });
+    } catch (err) {
+        next(err);
+    }
+};
+
+/**
+ * PUT /api/admin/packages/:id
+ * Update an existing package.
+ */
+const updatePackage = async (req, res, next) => {
+    try {
+        const { type, title, subtitle, tagline, icon, accentColor, startingPrice, features, plans } = req.body;
+        const pkg = await Package.findById(req.params.id);
+
+        if (!pkg) {
+            return res.status(404).json({ success: false, message: 'Package not found' });
+        }
+
+        if (type !== undefined) pkg.type = type;
+        if (title !== undefined) pkg.title = title;
+        if (subtitle !== undefined) pkg.subtitle = subtitle;
+        if (tagline !== undefined) pkg.tagline = tagline;
+        if (icon !== undefined) pkg.icon = icon;
+        if (accentColor !== undefined) pkg.accentColor = accentColor;
+        if (startingPrice !== undefined) pkg.startingPrice = startingPrice;
+        if (features !== undefined) pkg.features = features;
+        if (plans !== undefined) pkg.plans = plans;
+
+        await pkg.save();
+
+        res.status(200).json({ success: true, message: 'Package updated successfully', data: pkg });
+    } catch (err) {
+        next(err);
+    }
+};
+
+/**
+ * DELETE /api/admin/packages/:id
+ * Delete a package.
+ */
+const deletePackage = async (req, res, next) => {
+    try {
+        const pkg = await Package.findById(req.params.id);
+        if (!pkg) {
+            return res.status(404).json({ success: false, message: 'Package not found' });
+        }
+
+        await Package.findByIdAndDelete(req.params.id);
+        res.status(200).json({ success: true, message: 'Package deleted successfully' });
+    } catch (err) {
+        next(err);
+    }
+};
+
 module.exports = {
     getStats,
     getUsers,
@@ -437,5 +535,10 @@ module.exports = {
     updateOrder,
     deleteOrder,
     getPayments,
-    updatePayment
+    updatePayment,
+    getAdminPackages,
+    createPackage,
+    updatePackage,
+    deletePackage
 };
+

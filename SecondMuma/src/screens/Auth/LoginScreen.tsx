@@ -15,6 +15,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../types/navigation';
 import { Routes } from '../../constants/routes';
 import { Colors } from '../../constants/theme';
+import { API_BASE_URL } from '../../config';
 import {
     useAppDispatch,
     useAppSelector,
@@ -34,23 +35,29 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
 
     const isValid = mobile.length === 10 && /^[6-9]\d{9}$/.test(mobile);
 
-    const handleSendOtp = () => {
+    const handleSendOtp = async () => {
         if (!isValid) {
             return;
         }
         dispatch(clearError());
         dispatch(sendOtpStart());
 
-        // TODO: Replace with real API call
-        setTimeout(() => {
-            const apiSuccess = true;
-            if (apiSuccess) {
+        try {
+            const res = await fetch(`${API_BASE_URL}/auth/send-otp`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ mobile }),
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
                 dispatch(sendOtpSuccess());
                 navigation.navigate(Routes.OTP, { mobile });
             } else {
-                dispatch(sendOtpFailure('Failed to send OTP. Please try again.'));
+                dispatch(sendOtpFailure(data.message || 'Failed to send OTP. Please try again.'));
             }
-        }, 1200);
+        } catch {
+            dispatch(sendOtpFailure('Network error. Failed to send OTP.'));
+        }
     };
 
     return (

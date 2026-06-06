@@ -32,7 +32,7 @@ const orderSchema = new mongoose.Schema(
             type: Number,
             required: true,
         },
-        emoji: {
+        icon: {
             type: String,
             default: '',
         },

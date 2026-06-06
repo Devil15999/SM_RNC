@@ -25,14 +25,16 @@ import {
   Calendar,
   CheckCircle,
   AlertTriangle,
-  RefreshCw
+  RefreshCw,
+  Package,
+  Menu
 } from 'lucide-react';
 import './App.css';
 
 // Register Chart.js components
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement);
 
-const API_BASE_URL = '/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
 function App() {
   // Authentication State
@@ -41,6 +43,12 @@ function App() {
   
   // Navigation
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    setMobileMenuOpen(false);
+  };
   
   // Data States
   const [stats, setStats] = useState(null);
@@ -61,6 +69,11 @@ function App() {
   const [editUser, setEditUser] = useState(null);
   const [editOrder, setEditOrder] = useState(null);
   const [editPayment, setEditPayment] = useState(null);
+
+  // Package Management States
+  const [packages, setPackages] = useState([]);
+  const [editPackage, setEditPackage] = useState(null);
+  const [showAddPackageModal, setShowAddPackageModal] = useState(false);
 
   // Login Form States
   const [loginIdentifier, setLoginIdentifier] = useState('');
@@ -243,6 +256,73 @@ function App() {
     }
   };
 
+  // Fetch Packages
+  const fetchPackages = async () => {
+    setIsLoading(true);
+    try {
+      const res = await apiFetch('/admin/packages');
+      if (res.success) {
+        setPackages(res.data);
+      }
+    } catch (err) {
+      showToast(err.message || 'Failed to fetch packages', 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Create Package Handler
+  const handleCreatePackage = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await apiFetch('/admin/packages', {
+        method: 'POST',
+        body: JSON.stringify(editPackage)
+      });
+      if (res.success) {
+        showToast('Package created successfully');
+        setEditPackage(null);
+        setShowAddPackageModal(false);
+        fetchPackages();
+      }
+    } catch (err) {
+      showToast(err.message || 'Creation failed', 'error');
+    }
+  };
+
+  // Update Package Handler
+  const handleUpdatePackage = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await apiFetch(`/admin/packages/${editPackage._id}`, {
+        method: 'PUT',
+        body: JSON.stringify(editPackage)
+      });
+      if (res.success) {
+        showToast('Package updated successfully');
+        setEditPackage(null);
+        fetchPackages();
+      }
+    } catch (err) {
+      showToast(err.message || 'Update failed', 'error');
+    }
+  };
+
+  // Delete Package Handler
+  const handleDeletePackage = async (id) => {
+    if (window.confirm('Are you sure you want to delete this package? This cannot be undone.')) {
+      try {
+        const res = await apiFetch(`/admin/packages/${id}`, { method: 'DELETE' });
+        if (res.success) {
+          showToast('Package deleted successfully');
+          fetchPackages();
+        }
+      } catch (err) {
+        showToast(err.message || 'Deletion failed', 'error');
+      }
+    }
+  };
+
   // Trigger data reload on tab change or filters change
   useEffect(() => {
     if (token) {
@@ -250,6 +330,7 @@ function App() {
       if (activeTab === 'users') fetchUsers(1);
       if (activeTab === 'orders') fetchOrders(1);
       if (activeTab === 'payments') fetchPayments(1);
+      if (activeTab === 'packages') fetchPackages();
     }
   }, [token, activeTab]);
 
@@ -431,8 +512,14 @@ function App() {
   // Render Admin Dashboard layout
   return (
     <div className="admin-layout">
+      {/* Sidebar Overlay */}
+      <div 
+        className={`sidebar-overlay ${mobileMenuOpen ? 'open' : ''}`}
+        onClick={() => setMobileMenuOpen(false)}
+      />
+
       {/* Sidebar */}
-      <aside className="sidebar">
+      <aside className={`sidebar ${mobileMenuOpen ? 'open' : ''}`}>
         <div className="sidebar-brand">
           <div>
             <div className="brand-logo">Second Muma</div>
@@ -443,7 +530,7 @@ function App() {
         <nav className="sidebar-menu">
           <button 
             className={`menu-item ${activeTab === 'dashboard' ? 'active' : ''}`}
-            onClick={() => setActiveTab('dashboard')}
+            onClick={() => handleTabChange('dashboard')}
           >
             <LayoutDashboard size={20} />
             <span>Dashboard</span>
@@ -451,7 +538,7 @@ function App() {
           
           <button 
             className={`menu-item ${activeTab === 'users' ? 'active' : ''}`}
-            onClick={() => setActiveTab('users')}
+            onClick={() => handleTabChange('users')}
           >
             <Users size={20} />
             <span>Users</span>
@@ -459,7 +546,7 @@ function App() {
           
           <button 
             className={`menu-item ${activeTab === 'orders' ? 'active' : ''}`}
-            onClick={() => setActiveTab('orders')}
+            onClick={() => handleTabChange('orders')}
           >
             <ShoppingCart size={20} />
             <span>Orders</span>
@@ -467,10 +554,18 @@ function App() {
           
           <button 
             className={`menu-item ${activeTab === 'payments' ? 'active' : ''}`}
-            onClick={() => setActiveTab('payments')}
+            onClick={() => handleTabChange('payments')}
           >
             <CreditCard size={20} />
             <span>Payments</span>
+          </button>
+
+          <button 
+            className={`menu-item ${activeTab === 'packages' ? 'active' : ''}`}
+            onClick={() => handleTabChange('packages')}
+          >
+            <Package size={20} />
+            <span>Packages</span>
           </button>
         </nav>
         
@@ -485,8 +580,13 @@ function App() {
       {/* Main Container */}
       <main className="main-content">
         <header className="admin-header">
-          <div className="header-title">
-            <h1>{activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}</h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <button className="menu-toggle-btn" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
+              {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+            </button>
+            <div className="header-title">
+              <h1>{activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}</h1>
+            </div>
           </div>
           
           <div className="header-user">
@@ -636,7 +736,7 @@ function App() {
                                   <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{order.user?.mobile}</div>
                                 </td>
                                 <td>
-                                  <span style={{ fontSize: '1.1rem', marginRight: '6px' }}>{order.emoji}</span>
+                                  <i className={`fa-solid ${order.icon || 'fa-box'}`} style={{ marginRight: '8px', color: order.accentColor }}></i>
                                   {order.packageTitle} ({order.planLabel})
                                 </td>
                                 <td>{formatCurrency(order.price)}</td>
@@ -898,7 +998,7 @@ function App() {
                               <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{order.user?.mobile}</div>
                             </td>
                             <td>
-                              <span style={{ fontSize: '1.2rem', marginRight: '6px' }}>{order.emoji}</span>
+                               <i className={`fa-solid ${order.icon || 'fa-box'}`} style={{ marginRight: '8px', color: order.accentColor }}></i>
                               {order.packageTitle} ({order.planLabel})
                             </td>
                             <td>{formatCurrency(order.price)}</td>
@@ -1068,6 +1168,95 @@ function App() {
                   </div>
                 </div>
               )}
+              {/* Tab 5: Packages */}
+              {activeTab === 'packages' && (
+                <div className="animate-fade-in">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                    <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 'bold' }}>Manage Packages</h2>
+                    <button 
+                      className="btn btn-primary" 
+                      onClick={() => {
+                        setEditPackage({
+                          type: '',
+                          title: '',
+                          subtitle: '',
+                          tagline: '',
+                          icon: 'fa-box',
+                          accentColor: '#E91E8A',
+                          startingPrice: 0,
+                          features: [''],
+                          plans: {
+                            '1month': { key: '1month', label: '1 Month', price: 0, originalPrice: 0, savings: '', badge: '', features: [''] },
+                            '3month': { key: '3month', label: '3 Months', price: 0, originalPrice: 0, savings: '', badge: '', features: [''] },
+                            '6month': { key: '6month', label: '6 Months', price: 0, originalPrice: 0, savings: '', badge: '', features: [''] },
+                          }
+                        });
+                        setShowAddPackageModal(true);
+                      }}
+                    >
+                      + Add New Package
+                    </button>
+                  </div>
+
+                  <div className="packages-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '24px' }}>
+                    {packages.map(pkg => (
+                      <div key={pkg._id} className="glass-panel" style={{ borderTop: `4px solid ${pkg.accentColor}`, padding: '24px', display: 'flex', flexDirection: 'column', height: '100%' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                          <div style={{ fontSize: '2.5rem', color: pkg.accentColor }}><i className={`fa-solid ${pkg.icon || 'fa-box'}`}></i></div>
+                          <span className="badge" style={{ backgroundColor: `${pkg.accentColor}20`, color: pkg.accentColor, fontWeight: 'bold' }}>{pkg.type.toUpperCase()}</span>
+                        </div>
+                        
+                        <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold', margin: '0 0 8px 0', color: 'var(--text)' }}>{pkg.title}</h3>
+                        <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: '0 0 16px 0', lineHeight: '1.4' }}>{pkg.subtitle}</p>
+                        
+                        <div style={{ marginBottom: '16px' }}>
+                          <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 'bold', marginBottom: '8px' }}>Core Features</div>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                            {pkg.features.map((f, i) => (
+                              <span key={i} className="badge" style={{ backgroundColor: 'rgba(255,255,255,0.05)', color: 'var(--text-muted)', fontSize: '0.75rem' }}>{f}</span>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div style={{ marginTop: 'auto', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '16px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                            <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Starting from</span>
+                            <span style={{ fontSize: '1.25rem', fontWeight: 'bold', color: 'var(--success)' }}>{formatCurrency(pkg.startingPrice)}</span>
+                          </div>
+                          
+                          <div style={{ display: 'flex', gap: '10px' }}>
+                            <button 
+                              className="btn btn-secondary" 
+                              style={{ flex: 1, padding: '8px 12px', fontSize: '0.85rem' }}
+                              onClick={() => {
+                                const safePkg = {
+                                  ...pkg,
+                                  features: pkg.features || [],
+                                  plans: {
+                                    '1month': { ...pkg.plans?.['1month'], features: pkg.plans?.['1month']?.features || [] },
+                                    '3month': { ...pkg.plans?.['3month'], features: pkg.plans?.['3month']?.features || [] },
+                                    '6month': { ...pkg.plans?.['6month'], features: pkg.plans?.['6month']?.features || [] },
+                                  }
+                                };
+                                setEditPackage(safePkg);
+                              }}
+                            >
+                              Edit details & plans
+                            </button>
+                            <button 
+                              className="btn btn-danger btn-icon" 
+                              style={{ padding: '8px 12px' }}
+                              onClick={() => handleDeletePackage(pkg._id)}
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </>
           )}
         </div>
@@ -1157,7 +1346,7 @@ function App() {
             <form onSubmit={handleUpdateOrder}>
               <div className="modal-body">
                 <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', padding: '12px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                  <span style={{ fontSize: '1.8rem' }}>{editOrder.emoji}</span>
+                   <div style={{ fontSize: '1.8rem', color: editOrder.accentColor }}><i className={`fa-solid ${editOrder.icon || 'fa-box'}`}></i></div>
                   <div>
                     <div style={{ fontWeight: 'bold' }}>{editOrder.packageTitle}</div>
                     <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{editOrder.planLabel} Plan — ID: {editOrder._id}</div>
@@ -1309,6 +1498,265 @@ function App() {
                 </button>
                 <button type="submit" className="btn btn-primary">
                   Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit/Add Package Modal */}
+      {editPackage && (
+        <div className="modal-overlay" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div className="glass-panel modal-content animate-fade-in" style={{ maxWidth: '800px', width: '90%', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div className="modal-header">
+              <h3 className="modal-title">
+                {editPackage._id ? 'Edit Package & Plans' : 'Create New Package'}
+              </h3>
+              <button 
+                className="modal-close" 
+                onClick={() => {
+                  setEditPackage(null);
+                  setShowAddPackageModal(false);
+                }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            <form onSubmit={editPackage._id ? handleUpdatePackage : handleCreatePackage}>
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                
+                {/* Basic Details Section */}
+                <div>
+                  <h4 style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '6px', marginBottom: '14px', fontSize: '0.95rem', color: 'var(--accent-pink)', fontWeight: 'bold' }}>Basic Package Info</h4>
+                  <div className="grid-2-col">
+                    <div className="form-group">
+                      <label className="form-label">Package ID / Type Key (e.g., mother)</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        placeholder="mother"
+                        required
+                        disabled={!!editPackage._id}
+                        value={editPackage.type || ''}
+                        onChange={(e) => setEditPackage(prev => ({ ...prev, type: e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '') }))}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Package Title (e.g., Mother Care)</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        placeholder="Mother Care"
+                        required
+                        value={editPackage.title || ''}
+                        onChange={(e) => setEditPackage(prev => ({ ...prev, title: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid-2-col" style={{ marginTop: '10px' }}>
+                    <div className="form-group">
+                      <label className="form-label">Subtitle</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        placeholder="Expert health support tailored for new mothers"
+                        value={editPackage.subtitle || ''}
+                        onChange={(e) => setEditPackage(prev => ({ ...prev, subtitle: e.target.value }))}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Tagline</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        placeholder="Expert support for expecting & new mothers"
+                        value={editPackage.tagline || ''}
+                        onChange={(e) => setEditPackage(prev => ({ ...prev, tagline: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid-3-col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '15px', marginTop: '10px' }}>
+                    <div className="form-group">
+                      <label className="form-label">FontAwesome Icon (e.g., fa-baby)</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        placeholder="fa-baby"
+                        required
+                        value={editPackage.icon || ''}
+                        onChange={(e) => setEditPackage(prev => ({ ...prev, icon: e.target.value }))}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Accent Theme Color</label>
+                      <input
+                        type="color"
+                        className="form-control"
+                        style={{ height: '42px', padding: '4px' }}
+                        required
+                        value={editPackage.accentColor || '#E91E8A'}
+                        onChange={(e) => setEditPackage(prev => ({ ...prev, accentColor: e.target.value }))}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Starting Price (₹)</label>
+                      <input
+                        type="number"
+                        className="form-control"
+                        placeholder="999"
+                        required
+                        value={editPackage.startingPrice || 0}
+                        onChange={(e) => setEditPackage(prev => ({ ...prev, startingPrice: parseInt(e.target.value, 10) || 0 }))}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="form-group" style={{ marginTop: '10px' }}>
+                    <label className="form-label">Core Features (comma separated list)</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="OB-GYN Consultations, Nutrition Plans, Postpartum Recovery"
+                      value={editPackage.features ? editPackage.features.join(', ') : ''}
+                      onChange={(e) => {
+                        const vals = e.target.value.split(',').map(s => s.trim()).filter(Boolean);
+                        setEditPackage(prev => ({ ...prev, features: vals }));
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* Nested Plans Settings */}
+                <div>
+                  <h4 style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '6px', marginBottom: '14px', fontSize: '0.95rem', color: 'var(--accent-pink)', fontWeight: 'bold' }}>Subscription Plans</h4>
+                  
+                  {['1month', '3month', '6month'].map((key) => {
+                    const plan = editPackage.plans?.[key] || { key, label: key === '1month' ? '1 Month' : key === '3month' ? '3 Months' : '6 Months', price: 0, originalPrice: 0, savings: '', badge: '', features: [] };
+                    return (
+                      <div key={key} style={{ background: 'rgba(255, 255, 255, 0.02)', padding: '16px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)', marginBottom: '16px' }}>
+                        <div style={{ fontWeight: 'bold', marginBottom: '12px', color: 'var(--text)', textTransform: 'capitalize' }}>
+                          {plan.label} Plan Details
+                        </div>
+                        <div className="grid-3-col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '15px' }}>
+                          <div className="form-group">
+                            <label className="form-label">Actual Price (₹)</label>
+                            <input
+                              type="number"
+                              className="form-control"
+                              required
+                              value={plan.price || 0}
+                              onChange={(e) => {
+                                const val = parseInt(e.target.value, 10) || 0;
+                                setEditPackage(prev => ({
+                                  ...prev,
+                                  plans: {
+                                    ...prev.plans,
+                                    [key]: { ...prev.plans[key], price: val }
+                                  }
+                                }));
+                              }}
+                            />
+                          </div>
+                          <div className="form-group">
+                            <label className="form-label">Original Price (₹)</label>
+                            <input
+                              type="number"
+                              className="form-control"
+                              required
+                              value={plan.originalPrice || 0}
+                              onChange={(e) => {
+                                const val = parseInt(e.target.value, 10) || 0;
+                                setEditPackage(prev => ({
+                                  ...prev,
+                                  plans: {
+                                    ...prev.plans,
+                                    [key]: { ...prev.plans[key], originalPrice: val }
+                                  }
+                                }));
+                              }}
+                            />
+                          </div>
+                          <div className="form-group">
+                            <label className="form-label">Promo Badge (e.g. Most Popular)</label>
+                            <input
+                              type="text"
+                              className="form-control"
+                              placeholder="Best Value"
+                              value={plan.badge || ''}
+                              onChange={(e) => {
+                                setEditPackage(prev => ({
+                                  ...prev,
+                                  plans: {
+                                    ...prev.plans,
+                                    [key]: { ...prev.plans[key], badge: e.target.value || null }
+                                  }
+                                }));
+                              }}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid-2-col" style={{ marginTop: '10px' }}>
+                          <div className="form-group">
+                            <label className="form-label">Savings Text (e.g., Save ₹300)</label>
+                            <input
+                              type="text"
+                              className="form-control"
+                              placeholder="Save ₹300"
+                              value={plan.savings || ''}
+                              onChange={(e) => {
+                                setEditPackage(prev => ({
+                                  ...prev,
+                                  plans: {
+                                    ...prev.plans,
+                                    [key]: { ...prev.plans[key], savings: e.target.value }
+                                  }
+                                }));
+                              }}
+                            />
+                          </div>
+                          <div className="form-group">
+                            <label className="form-label">Plan Features (comma separated list)</label>
+                            <input
+                              type="text"
+                              className="form-control"
+                              placeholder="Feature 1, Feature 2, Feature 3"
+                              value={plan.features ? plan.features.join(', ') : ''}
+                              onChange={(e) => {
+                                const vals = e.target.value.split(',').map(s => s.trim()).filter(Boolean);
+                                setEditPackage(prev => ({
+                                  ...prev,
+                                  plans: {
+                                    ...prev.plans,
+                                    [key]: { ...prev.plans[key], features: vals }
+                                  }
+                                }));
+                              }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="modal-footer" style={{ marginTop: '10px' }}>
+                <button 
+                  type="button" 
+                  className="btn btn-secondary" 
+                  onClick={() => {
+                    setEditPackage(null);
+                    setShowAddPackageModal(false);
+                  }}
+                >
+                  Cancel
+                </button>
+                <button type="submit" className="btn btn-primary">
+                  {editPackage._id ? 'Save Changes' : 'Create Package'}
                 </button>
               </div>
             </form>

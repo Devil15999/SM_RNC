@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     SafeAreaView,
     ScrollView,
@@ -9,8 +9,10 @@ import {
     View,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import Icon from 'react-native-vector-icons/FontAwesome5';
 import { RootStackParamList } from '../../types/navigation';
 import { Colors } from '../../constants/theme';
+import { API_BASE_URL } from '../../config';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PackageDetail'>;
 
@@ -30,7 +32,7 @@ interface Plan {
 interface PackageInfo {
     title: string;
     subtitle: string;
-    emoji: string;
+    icon: string;
     accentColor: string;
     plans: Record<PlanKey, Plan>;
 }
@@ -39,7 +41,7 @@ const PACKAGES: Record<string, PackageInfo> = {
     mother: {
         title: 'Mother Care',
         subtitle: 'Expert health support tailored for new & expecting mothers',
-        emoji: '🤰',
+        icon: 'user-pregnant',
         accentColor: '#E91E8A',
         plans: {
             '1month': {
@@ -92,7 +94,7 @@ const PACKAGES: Record<string, PackageInfo> = {
     baby: {
         title: 'Baby Care',
         subtitle: 'Complete new-born care & milestone tracking for your little one',
-        emoji: '👶',
+        icon: 'baby',
         accentColor: '#1FBDBD',
         plans: {
             '1month': {
@@ -145,7 +147,7 @@ const PACKAGES: Record<string, PackageInfo> = {
     muma: {
         title: 'Muma Care',
         subtitle: 'The ultimate care bundle for both mother & baby together',
-        emoji: '💝',
+        icon: 'hand-holding-heart',
         accentColor: '#7B2D8B',
         plans: {
             '1month': {
@@ -203,9 +205,35 @@ const PLAN_KEYS: PlanKey[] = ['1month', '3month', '6month'];
 
 const PackageDetailScreen: React.FC<Props> = ({ navigation, route }) => {
     const { packageType } = route.params;
-    const pkg = PACKAGES[packageType];
+    const [fetchedPkg, setFetchedPkg] = useState<PackageInfo | null>(null);
     const [selectedPlan, setSelectedPlan] = useState<PlanKey>('3month');
 
+    useEffect(() => {
+        let isMounted = true;
+        const fetchPackageDetail = async () => {
+            try {
+                const res = await fetch(`${API_BASE_URL}/packages/${packageType}`);
+                const data = await res.json();
+                if (res.ok && data.success && isMounted) {
+                    const fetched = data.data;
+                    const cleaned: PackageInfo = {
+                        title: fetched.title,
+                        subtitle: fetched.subtitle || fetched.tagline || '',
+                        icon: fetched.icon.replace(/^fa-/, ''),
+                        accentColor: fetched.accentColor,
+                        plans: fetched.plans,
+                    };
+                    setFetchedPkg(cleaned);
+                }
+            } catch (err) {
+                console.log('Error fetching package detail:', err);
+            }
+        };
+        fetchPackageDetail();
+        return () => { isMounted = false; };
+    }, [packageType]);
+
+    const pkg = fetchedPkg || PACKAGES[packageType];
     const plan = pkg.plans[selectedPlan];
     const accent = pkg.accentColor;
 
@@ -219,7 +247,7 @@ const PackageDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                     <Text style={styles.backText}>← Back</Text>
                 </TouchableOpacity>
                 <View style={styles.headerContent}>
-                    <Text style={styles.headerEmoji}>{pkg.emoji}</Text>
+                    <Icon name={pkg.icon} size={42} color={Colors.WHITE} style={{ marginBottom: 10 }} />
                     <Text style={styles.headerTitle}>{pkg.title}</Text>
                     <Text style={styles.headerSubtitle}>{pkg.subtitle}</Text>
                 </View>
@@ -262,7 +290,9 @@ const PackageDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                 <View style={[styles.pricingCard, { borderColor: accent + '44' }]}>
                     {/* Savings ribbon */}
                     <View style={[styles.savingsTag, { backgroundColor: accent + '1A' }]}>
-                        <Text style={[styles.savingsText, { color: accent }]}>🎉 {plan.savings}</Text>
+                        <Text style={[styles.savingsText, { color: accent }]}>
+                            <Icon name="gift" size={12} color={accent} /> {plan.savings}
+                        </Text>
                     </View>
 
                     <View style={styles.priceRow}>
@@ -281,14 +311,22 @@ const PackageDetailScreen: React.FC<Props> = ({ navigation, route }) => {
 
                     {/* Features */}
                     <Text style={styles.featuresTitle}>What's included</Text>
-                    {plan.features.map((f, i) => (
-                        <Text key={i} style={styles.featureItem}>{f}</Text>
-                    ))}
+                    {plan.features.map((f, i) => {
+                        const cleanFeature = f.replace(/^✅\s*/, '');
+                        return (
+                            <View key={i} style={styles.featureRow}>
+                                <Icon name="check-circle" size={14} color={accent} style={styles.featureIcon} />
+                                <Text style={styles.featureText}>{cleanFeature}</Text>
+                            </View>
+                        );
+                    })}
                 </View>
 
                 {/* Guarantee strip */}
                 <View style={styles.guarantee}>
-                    <Text style={styles.guaranteeText}>🛡 30-day money-back guarantee · No hidden charges</Text>
+                    <Text style={styles.guaranteeText}>
+                        <Icon name="shield-alt" size={12} color="#276749" /> 30-day money-back guarantee · No hidden charges
+                    </Text>
                 </View>
 
                 <TouchableOpacity
@@ -301,7 +339,7 @@ const PackageDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                             planKey: selectedPlan,
                             planLabel: plan.label,
                             price: plan.price,
-                            emoji: pkg.emoji,
+                            icon: pkg.icon,
                             accentColor: accent,
                         });
                     }}>
@@ -466,10 +504,19 @@ const styles = StyleSheet.create({
         letterSpacing: 0.9,
         marginBottom: 12,
     },
-    featureItem: {
+    featureRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 10,
+    },
+    featureIcon: {
+        marginRight: 10,
+    },
+    featureText: {
         fontSize: 14,
         color: Colors.TEXT_PRIMARY,
-        lineHeight: 26,
+        flex: 1,
+        lineHeight: 20,
     },
 
     // Guarantee

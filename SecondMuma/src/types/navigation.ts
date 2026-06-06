@@ -4,7 +4,6 @@
  */
 
 export type RootStackParamList = {
-    Splash: undefined;
     Login: undefined;
     Register: undefined;
     /**
@@ -26,14 +25,16 @@ export type RootStackParamList = {
         planKey: '1month' | '3month' | '6month';
         planLabel: string;
         price: number;
-        emoji: string;
+        icon: string;
         accentColor: string;
     };
     Payment: {
+        packageType: 'mother' | 'baby' | 'muma';
+        planKey: '1month' | '3month' | '6month';
         packageTitle: string;
         planLabel: string;
         price: number;
-        emoji: string;
+        icon: string;
         accentColor: string;
         address: {
             fullName: string;
@@ -44,5 +45,10 @@ export type RootStackParamList = {
             state: string;
             pincode: string;
         };
+    };
+    Profile: undefined;
+    CompleteProfile: {
+        mobile: string;
+        token: string;
     };
 };

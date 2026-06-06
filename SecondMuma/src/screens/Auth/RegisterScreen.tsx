@@ -15,6 +15,8 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../types/navigation';
 import { Routes } from '../../constants/routes';
 import { Colors } from '../../constants/theme';
+import Icon from 'react-native-vector-icons/FontAwesome5';
+import { API_BASE_URL } from '../../config';
 import {
     useAppDispatch,
     useAppSelector,
@@ -64,15 +66,23 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
     };
 
     // ── Submit ─────────────────────────────────────────────────────────────────
-    const handleContinue = () => {
+    const handleContinue = async () => {
         if (!validate()) { return; }
         dispatch(clearError());
         dispatch(sendOtpStart());
 
-        // TODO: Replace with real Register + Send OTP API call
-        setTimeout(() => {
-            const apiSuccess = true;
-            if (apiSuccess) {
+        try {
+            const res = await fetch(`${API_BASE_URL}/auth/register`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: name.trim(),
+                    email: email.trim().toLowerCase(),
+                    mobile,
+                }),
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
                 dispatch(sendOtpSuccess());
                 navigation.navigate(Routes.OTP, {
                     mobile,
@@ -80,9 +90,11 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
                     email: email.trim().toLowerCase(),
                 });
             } else {
-                dispatch(sendOtpFailure('Failed to send OTP. Please try again.'));
+                dispatch(sendOtpFailure(data.message || 'Registration failed. Please try again.'));
             }
-        }, 1200);
+        } catch {
+            dispatch(sendOtpFailure('Network error. Registration failed.'));
+        }
     };
 
     // ── Reusable input builder ─────────────────────────────────────────────────
@@ -168,7 +180,7 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
                 {/* Header */}
                 <View style={styles.header}>
                     <View style={styles.iconBadge}>
-                        <Text style={styles.iconText}>👶</Text>
+                        <Icon name="baby" size={30} color={Colors.PRIMARY} />
                     </View>
                     <Text style={styles.title}>Create Account</Text>
                     <Text style={styles.subtitle}>

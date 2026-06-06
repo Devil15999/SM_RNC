@@ -15,6 +15,8 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../types/navigation';
 import { Routes } from '../../constants/routes';
 import { Colors } from '../../constants/theme';
+import Icon from 'react-native-vector-icons/FontAwesome5';
+import { API_BASE_URL } from '../../config';
 import {
     useAppDispatch,
     useAppSelector,
@@ -23,9 +25,9 @@ import {
     verifyOtpFailure,
     sendOtpStart,
     sendOtpSuccess,
-    sendOtpFailure,
     clearError,
 } from '../../store';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'OTP'>;
 
@@ -33,7 +35,7 @@ const OTP_LENGTH = 6;
 
 const OTPScreen: React.FC<Props> = ({ navigation, route }) => {
     // Params: mobile always present; name & email only from Register flow
-    const { mobile, name, email } = route.params;
+    const { mobile, name } = route.params;
     const isRegisterFlow = Boolean(name);
 
     const dispatch = useAppDispatch();
@@ -72,43 +74,78 @@ const OTPScreen: React.FC<Props> = ({ navigation, route }) => {
     const filledOtp = otp.join('');
     const isComplete = filledOtp.length === OTP_LENGTH;
 
-    const handleVerify = () => {
+    const handleVerify = async () => {
         if (!isComplete) { return; }
         dispatch(verifyOtpStart());
 
-        // TODO: Replace with real API call
-        setTimeout(() => {
-            const correctOtp = '123456';
-            if (filledOtp === correctOtp) {
-                dispatch(
-                    verifyOtpSuccess({
-                        id: 'user-001',
-                        // Register flow uses passed name/email; Login flow uses defaults
-                        name: name ?? 'SecondMuma User',
-                        email: email ?? '',
-                        mobile,
-                        token: 'jwt-token-mock-xyz',
-                    }),
-                );
-                navigation.reset({ index: 0, routes: [{ name: Routes.HOME }] });
+        try {
+            const res = await fetch(`${API_BASE_URL}/auth/verify-otp`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    mobile,
+                    otp: filledOtp,
+                }),
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                const userObj = data.user;
+                const token = data.token;
+
+                if (!userObj.name || userObj.name.trim() === '') {
+                    dispatch(verifyOtpFailure('')); // stop loading spinner
+                    navigation.navigate(Routes.COMPLETE_PROFILE, {
+                        mobile: userObj.mobile,
+                        token: token,
+                    });
+                } else {
+                    const session = {
+                        id: userObj.id,
+                        name: userObj.name,
+                        email: userObj.email,
+                        mobile: userObj.mobile,
+                        token: token,
+                    };
+                    try {
+                        await AsyncStorage.setItem('@session', JSON.stringify(session));
+                    } catch (e) {
+                        console.log('Error saving session:', e);
+                    }
+                    dispatch(verifyOtpSuccess(session));
+                }
             } else {
-                dispatch(verifyOtpFailure('Invalid OTP. Please try again.'));
+                dispatch(verifyOtpFailure(data.message || 'Invalid OTP. Please try again.'));
                 setOtp(Array(OTP_LENGTH).fill(''));
                 inputRefs.current[0]?.focus();
             }
-        }, 1200);
+        } catch {
+            dispatch(verifyOtpFailure('Network error. Failed to verify OTP.'));
+        }
     };
 
     // ── Resend ─────────────────────────────────────────────────────────────────
-    const handleResend = () => {
+    const handleResend = async () => {
         if (resendTimer > 0) { return; }
         dispatch(clearError());
         dispatch(sendOtpStart());
         setOtp(Array(OTP_LENGTH).fill(''));
-        setTimeout(() => {
-            dispatch(sendOtpSuccess());
-            setResendTimer(30);
-        }, 800);
+
+        try {
+            const res = await fetch(`${API_BASE_URL}/auth/resend-otp`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ mobile }),
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                dispatch(sendOtpSuccess());
+                setResendTimer(30);
+            } else {
+                dispatch(verifyOtpFailure(data.message || 'Failed to resend OTP.'));
+            }
+        } catch {
+            dispatch(verifyOtpFailure('Network error. Failed to resend OTP.'));
+        }
     };
 
     return (
@@ -131,14 +168,17 @@ const OTPScreen: React.FC<Props> = ({ navigation, route }) => {
                 {/* Header */}
                 <View style={styles.header}>
                     <View style={styles.iconBadge}>
-                        <Text style={styles.iconText}>🔐</Text>
+                        <Icon name="lock" size={28} color={Colors.PRIMARY} />
                     </View>
                     <Text style={styles.title}>OTP Verification</Text>
 
                     {/* Show user info if from register */}
                     {isRegisterFlow && (
                         <View style={styles.userChip}>
-                            <Text style={styles.userChipText}>👤 {name}</Text>
+                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                <Icon name="user" size={12} color={Colors.TEXT_PRIMARY} style={{ marginRight: 6 }} />
+                                <Text style={styles.userChipText}>{name}</Text>
+                            </View>
                         </View>
                     )}
 

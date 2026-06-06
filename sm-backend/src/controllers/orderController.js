@@ -3,7 +3,7 @@
 const { validationResult } = require('express-validator');
 const Order = require('../models/Order');
 const Payment = require('../models/Payment');
-const { PACKAGES } = require('../data/packages');
+const Package = require('../models/Package');
 const { createError } = require('../middleware/errorHandler');
 
 // ─── Helper: compute subscription window ─────────────────────────────────────
@@ -32,7 +32,7 @@ const createOrder = async (req, res, next) => {
 
         const { packageType, planKey, address } = req.body;
 
-        const pkg = PACKAGES[packageType];
+        const pkg = await Package.findOne({ type: packageType });
         if (!pkg) {
             return res.status(400).json({ success: false, message: `Invalid packageType: ${packageType}` });
         }
@@ -48,7 +48,7 @@ const createOrder = async (req, res, next) => {
             planKey,
             planLabel: plan.label,
             price: plan.price,
-            emoji: pkg.emoji,
+            icon: pkg.icon,
             accentColor: pkg.accentColor,
             address,
         });

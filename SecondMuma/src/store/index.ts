@@ -17,6 +17,7 @@ export {
     verifyOtpFailure,
     logout,
     clearError,
+    updateProfileSuccess,
 } from './slices/authSlice';
 export type { User } from './slices/authSlice';
 

@@ -11,7 +11,11 @@ const {
     updateOrder,
     deleteOrder,
     getPayments,
-    updatePayment
+    updatePayment,
+    getAdminPackages,
+    createPackage,
+    updatePackage,
+    deletePackage
 } = require('../controllers/adminController');
 
 const router = express.Router();
@@ -81,5 +85,33 @@ router.get('/payments', getPayments);
  * @access  Private (Admin)
  */
 router.put('/payments/:id', updatePayment);
+
+/**
+ * @route   GET /api/admin/packages
+ * @desc    Get all packages
+ * @access  Private (Admin)
+ */
+router.get('/packages', getAdminPackages);
+
+/**
+ * @route   POST /api/admin/packages
+ * @desc    Create a new package
+ * @access  Private (Admin)
+ */
+router.post('/packages', createPackage);
+
+/**
+ * @route   PUT /api/admin/packages/:id
+ * @desc    Update package details
+ * @access  Private (Admin)
+ */
+router.put('/packages/:id', updatePackage);
+
+/**
+ * @route   DELETE /api/admin/packages/:id
+ * @desc    Delete package
+ * @access  Private (Admin)
+ */
+router.delete('/packages/:id', deletePackage);
 
 module.exports = router;

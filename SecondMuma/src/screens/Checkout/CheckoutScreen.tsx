@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     SafeAreaView,
     ScrollView,
@@ -12,25 +12,52 @@ import {
     Platform,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import Icon from 'react-native-vector-icons/FontAwesome5';
 import { RootStackParamList } from '../../types/navigation';
 import { Colors } from '../../constants/theme';
 import { Routes } from '../../constants/routes';
+import { useAppSelector } from '../../store';
+import { API_BASE_URL } from '../../config';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Checkout'>;
 
 const CheckoutScreen: React.FC<Props> = ({ navigation, route }) => {
-    const { packageTitle, planLabel, price, emoji, accentColor } = route.params;
+    const { packageType, planKey, packageTitle, planLabel, price, icon, accentColor } = route.params;
+
+    const token = useAppSelector(state => state.auth.user?.token);
+    const user = useAppSelector(state => state.auth.user);
 
     // Address form state
-    const [fullName, setFullName] = useState('');
-    const [mobile, setMobile] = useState('');
+    const [fullName, setFullName] = useState(user?.name || '');
+    const [mobile, setMobile] = useState(user?.mobile || '');
     const [flatNo, setFlatNo] = useState('');
     const [street, setStreet] = useState('');
     const [city, setCity] = useState('');
     const [state, setState] = useState('');
     const [pincode, setPincode] = useState('');
 
+    const [savedAddresses, setSavedAddresses] = useState<any[]>([]);
     const [errors, setErrors] = useState<Record<string, string>>({});
+
+    useEffect(() => {
+        if (!token) return;
+        let isMounted = true;
+        const fetchAddresses = async () => {
+            try {
+                const res = await fetch(`${API_BASE_URL}/addresses`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if (res.ok && data.success && isMounted) {
+                    setSavedAddresses(data.data);
+                }
+            } catch (err) {
+                console.log('Error fetching addresses:', err);
+            }
+        };
+        fetchAddresses();
+        return () => { isMounted = false; };
+    }, [token]);
 
     const validate = () => {
         const newErrors: Record<string, string> = {};
@@ -49,10 +76,12 @@ const CheckoutScreen: React.FC<Props> = ({ navigation, route }) => {
     const handleProceedToPay = () => {
         if (!validate()) return;
         navigation.navigate(Routes.PAYMENT, {
+            packageType,
+            planKey,
             packageTitle,
             planLabel,
             price,
-            emoji,
+            icon,
             accentColor,
             address: {
                 fullName,
@@ -114,7 +143,7 @@ const CheckoutScreen: React.FC<Props> = ({ navigation, route }) => {
                     <View style={styles.summaryCard}>
                         <View style={styles.summaryRow}>
                             <View style={styles.summaryLeft}>
-                                <Text style={styles.summaryEmoji}>{emoji}</Text>
+                                <Icon name={icon} size={28} color={accentColor} style={{ marginRight: 12 }} />
                                 <View>
                                     <Text style={styles.summaryTitle}>{packageTitle}</Text>
                                     <Text style={styles.summaryPlan}>{planLabel} Plan</Text>
@@ -133,6 +162,45 @@ const CheckoutScreen: React.FC<Props> = ({ navigation, route }) => {
 
                     {/* Address Details */}
                     <Text style={styles.sectionTitle}>Delivery / Billing Address</Text>
+
+                    {/* Saved Addresses Selector */}
+                    {savedAddresses.length > 0 && (
+                        <View style={{ marginBottom: 16 }}>
+                            <Text style={styles.sectionSubTitle}>Select from Saved Addresses</Text>
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 4 }}>
+                                {savedAddresses.map(addr => (
+                                    <TouchableOpacity
+                                        key={addr._id}
+                                        style={[
+                                            styles.addressChip,
+                                            flatNo === addr.flatNo && street === addr.street ? styles.addressChipActive : null
+                                        ]}
+                                        onPress={() => {
+                                            setFullName(addr.fullName);
+                                            setMobile(addr.mobile);
+                                            setFlatNo(addr.flatNo);
+                                            setStreet(addr.street);
+                                            setCity(addr.city);
+                                            setState(addr.state);
+                                            setPincode(addr.pincode);
+                                        }}
+                                        activeOpacity={0.8}
+                                    >
+                                        <Icon
+                                            name="map-marker-alt"
+                                            size={11}
+                                            color={flatNo === addr.flatNo && street === addr.street ? Colors.WHITE : Colors.PRIMARY}
+                                            style={{ marginRight: 6 }}
+                                        />
+                                        <Text style={[styles.addressChipText, flatNo === addr.flatNo && street === addr.street ? styles.addressChipTextActive : null]}>
+                                            {addr.flatNo}, {addr.street}
+                                        </Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </ScrollView>
+                        </View>
+                    )}
+
                     <View style={styles.formCard}>
                         {renderInput('Full Name', fullName, setFullName, 'fullName')}
                         {renderInput('Mobile Number', mobile, (t) => setMobile(t.replace(/[^0-9]/g, '')), 'mobile', { keyboardType: 'number-pad', maxLength: 10 })}
@@ -268,6 +336,38 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     btnText: { color: Colors.WHITE, fontSize: 16, fontWeight: '800' },
+
+    sectionSubTitle: {
+        fontSize: 11,
+        fontWeight: '700',
+        color: Colors.TEXT_SECONDARY,
+        marginBottom: 6,
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+    },
+    addressChip: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: Colors.SURFACE,
+        borderWidth: 1.5,
+        borderColor: Colors.BORDER,
+        borderRadius: 20,
+        paddingHorizontal: 12,
+        paddingVertical: 7,
+    },
+    addressChipActive: {
+        backgroundColor: Colors.PRIMARY,
+        borderColor: Colors.PRIMARY,
+    },
+    addressChipText: {
+        fontSize: 12,
+        color: Colors.TEXT_PRIMARY,
+        fontWeight: '600',
+    },
+    addressChipTextActive: {
+        color: Colors.WHITE,
+        fontWeight: '700',
+    },
 });
 
 export default CheckoutScreen;

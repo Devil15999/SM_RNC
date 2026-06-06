@@ -4,7 +4,6 @@
  */
 
 export const Routes = {
-    SPLASH: 'Splash',
     LOGIN: 'Login',
     REGISTER: 'Register',
     OTP: 'OTP',
@@ -12,4 +11,6 @@ export const Routes = {
     PACKAGE_DETAIL: 'PackageDetail',
     CHECKOUT: 'Checkout',
     PAYMENT: 'Payment',
+    PROFILE: 'Profile',
+    COMPLETE_PROFILE: 'CompleteProfile',
 } as const;

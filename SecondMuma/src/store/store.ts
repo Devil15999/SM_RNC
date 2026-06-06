@@ -12,7 +12,7 @@ export const store = configureStore({
     // Add any additional middleware here if needed (e.g. redux-logger in dev)
     middleware: getDefaultMiddleware =>
         getDefaultMiddleware({
-            serializabilityCheck: true, // Warn if non-serializable values are dispatched
+            serializableCheck: true, // Warn if non-serializable values are dispatched
         }),
 });
 

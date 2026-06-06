@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     SafeAreaView,
     ScrollView,
@@ -9,10 +9,13 @@ import {
     View,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import Icon from 'react-native-vector-icons/FontAwesome5';
 import { RootStackParamList } from '../../types/navigation';
 import { Colors } from '../../constants/theme';
 import { useAppDispatch, useAppSelector, logout } from '../../store';
 import { Routes } from '../../constants/routes';
+import { API_BASE_URL } from '../../config';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
@@ -24,7 +27,7 @@ interface PackageCard {
     type: PackageType;
     title: string;
     tagline: string;
-    emoji: string;
+    icon: string;
     accentColor: string;
     startingPrice: string;
     features: string[];
@@ -35,7 +38,7 @@ const PACKAGE_CARDS: PackageCard[] = [
         type: 'mother',
         title: 'Mother Care',
         tagline: 'Expert support for expecting & new mothers',
-        emoji: '🤰',
+        icon: 'user-pregnant',
         accentColor: '#E91E8A',
         startingPrice: '₹999',
         features: ['OB-GYN Consultations', 'Nutrition Plans', 'Postpartum Recovery'],
@@ -44,7 +47,7 @@ const PACKAGE_CARDS: PackageCard[] = [
         type: 'baby',
         title: 'Baby Care',
         tagline: 'Complete new-born care & milestone tracking',
-        emoji: '👶',
+        icon: 'baby',
         accentColor: '#1FBDBD',
         startingPrice: '₹799',
         features: ['Paediatrician Consultations', 'Vaccination Schedule', 'Growth Tracking'],
@@ -53,7 +56,7 @@ const PACKAGE_CARDS: PackageCard[] = [
         type: 'muma',
         title: 'Muma Care',
         tagline: 'The ultimate bundle for mother & baby together',
-        emoji: '💝',
+        icon: 'hand-holding-heart',
         accentColor: '#7B2D8B',
         startingPrice: '₹1,699',
         features: ['Mother + Baby Combined', 'Family Health Reports', 'Home Visits'],
@@ -65,10 +68,41 @@ const PACKAGE_CARDS: PackageCard[] = [
 const HomeScreen: React.FC<Props> = ({ navigation }) => {
     const dispatch = useAppDispatch();
     const user = useAppSelector(state => state.auth.user);
+    const [packages, setPackages] = useState<PackageCard[]>([]);
 
-    const handleLogout = () => {
+    useEffect(() => {
+        let isMounted = true;
+        const fetchPackages = async () => {
+            try {
+                const res = await fetch(`${API_BASE_URL}/packages`);
+                const data = await res.json();
+                if (res.ok && data.success && isMounted) {
+                    const formatted = data.data.map((p: any) => ({
+                        type: p.type,
+                        title: p.title,
+                        tagline: p.tagline,
+                        icon: p.icon.replace(/^fa-/, ''),
+                        accentColor: p.accentColor,
+                        startingPrice: `₹${p.startingPrice}`,
+                        features: p.features,
+                    }));
+                    setPackages(formatted);
+                }
+            } catch (err) {
+                console.log('Error fetching packages:', err);
+            }
+        };
+        fetchPackages();
+        return () => { isMounted = false; };
+    }, []);
+
+    const handleLogout = async () => {
+        try {
+            await AsyncStorage.removeItem('@session');
+        } catch (e) {
+            console.log('Error clearing session:', e);
+        }
         dispatch(logout());
-        navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
     };
 
     const initials = (user?.name ?? 'U')
@@ -85,7 +119,9 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                 {/* Top Bar */}
                 <View style={styles.topBar}>
                     <View>
-                        <Text style={styles.welcome}>Good day 👋</Text>
+                        <Text style={styles.welcome}>
+                            Good day <Icon name="hand-peace" size={14} color="#FFD54F" solid />
+                        </Text>
                         <Text style={styles.name}>{user?.name ?? 'User'}</Text>
                     </View>
                     <View style={styles.avatar}>
@@ -98,7 +134,9 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                     <View style={styles.heroBadge}>
                         <Text style={styles.heroBadgeText}>BABY CARE</Text>
                     </View>
-                    <Text style={styles.heroTitle}>Your baby's health,{'\n'}our top priority 💛</Text>
+                    <Text style={styles.heroTitle}>
+                        Your baby's health,{'\n'}our top priority <Icon name="heart" size={18} color="#FFD54F" solid />
+                    </Text>
                     <Text style={styles.heroSub}>Track, monitor &amp; care — all in one place</Text>
                 </View>
 
@@ -108,7 +146,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                     <Text style={styles.sectionSub}>Choose a plan that works best for you</Text>
                 </View>
 
-                {PACKAGE_CARDS.map(pkg => (
+                {(packages.length > 0 ? packages : PACKAGE_CARDS).map(pkg => (
                     <TouchableOpacity
                         key={pkg.type}
                         style={[styles.pkgCard, { borderTopColor: pkg.accentColor }]}
@@ -119,7 +157,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                         {/* Card Header */}
                         <View style={styles.pkgCardHeader}>
                             <View style={[styles.pkgEmojiBox, { backgroundColor: pkg.accentColor + '18' }]}>
-                                <Text style={styles.pkgEmoji}>{pkg.emoji}</Text>
+                                <Icon name={pkg.icon} size={22} color={pkg.accentColor} />
                             </View>
                             <View style={styles.pkgTitleBlock}>
                                 <Text style={styles.pkgTitle}>{pkg.title}</Text>
@@ -172,13 +210,22 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                 <Text style={styles.quickTitle}>Quick Actions</Text>
                 <View style={styles.tileGrid}>
                     {[
-                        { label: 'Profile', emoji: '👤' },
-                        { label: 'Baby Tracker', emoji: '🍼' },
-                        { label: 'Appointments', emoji: '📅' },
-                        { label: 'Support', emoji: '💬' },
+                        { label: 'Profile', icon: 'user' },
+                        { label: 'Baby Tracker', icon: 'baby' },
+                        { label: 'Appointments', icon: 'calendar-alt' },
+                        { label: 'Support', icon: 'comments' },
                     ].map(item => (
-                        <TouchableOpacity key={item.label} style={styles.tile} activeOpacity={0.75}>
-                            <Text style={styles.tileEmoji}>{item.emoji}</Text>
+                        <TouchableOpacity
+                            key={item.label}
+                            style={styles.tile}
+                            activeOpacity={0.75}
+                            onPress={() => {
+                                if (item.label === 'Profile') {
+                                    navigation.navigate(Routes.PROFILE);
+                                }
+                            }}
+                        >
+                            <Icon name={item.icon} size={24} color={Colors.PRIMARY} style={{ marginBottom: 8 }} />
                             <Text style={styles.tileText}>{item.label}</Text>
                         </TouchableOpacity>
                     ))}

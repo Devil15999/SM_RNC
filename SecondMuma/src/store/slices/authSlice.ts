@@ -73,6 +73,12 @@ const authSlice = createSlice({
         clearError(state) {
             state.error = null;
         },
+        updateProfileSuccess(state, action: PayloadAction<{ name: string; email: string }>) {
+            if (state.user) {
+                state.user.name = action.payload.name;
+                state.user.email = action.payload.email;
+            }
+        },
     },
 });
 
@@ -85,6 +91,7 @@ export const {
     verifyOtpFailure,
     logout,
     clearError,
+    updateProfileSuccess,
 } = authSlice.actions;
 
 export default authSlice.reducer;

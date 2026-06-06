@@ -14,11 +14,16 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../types/navigation';
 import { Colors } from '../../constants/theme';
 import { Routes } from '../../constants/routes';
+import Icon from 'react-native-vector-icons/FontAwesome5';
+import { useAppSelector } from '../../store';
+import { API_BASE_URL } from '../../config';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Payment'>;
 
 const PaymentScreen: React.FC<Props> = ({ navigation, route }) => {
-    const { packageTitle, price, accentColor } = route.params;
+    const { packageType, planKey, packageTitle, price, accentColor, address } = route.params;
+
+    const token = useAppSelector(state => state.auth.user?.token);
 
     const [isProcessing, setIsProcessing] = useState(false);
     const [success, setSuccess] = useState(false);
@@ -38,25 +43,44 @@ const PaymentScreen: React.FC<Props> = ({ navigation, route }) => {
 
             if (canOpen) {
                 await Linking.openURL(uri);
-
-                // Simulation: In reality you would use Deep Linking/Webhooks to verify payment status
-                setIsProcessing(true);
-                setTimeout(() => {
-                    setIsProcessing(false);
-                    setSuccess(true);
-
-                    // Redirect to home after showing success tick
-                    setTimeout(() => {
-                        navigation.reset({ index: 0, routes: [{ name: Routes.HOME }] });
-                    }, 2500);
-                }, 4000); // 4 seconds delay simulating time spent in the external UPI popup
             } else {
-                Alert.alert(
-                    'No UPI App Found',
-                    'We could not find any UPI payment apps installed on your device. Please install Google Pay, PhonePe, or Paytm and try again.'
-                );
+                console.log('No UPI app found. Simulating payment directly for testing/development...');
             }
-        } catch (error) {
+
+            setIsProcessing(true);
+
+            // Simulation + Order Submission
+            setTimeout(async () => {
+                try {
+                    const res = await fetch(`${API_BASE_URL}/orders`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({
+                            packageType,
+                            planKey,
+                            address
+                        })
+                    });
+                    const data = await res.json();
+                    setIsProcessing(false);
+                    if (res.ok && data.success) {
+                        setSuccess(true);
+                        // Redirect to home after showing success tick
+                        setTimeout(() => {
+                            navigation.reset({ index: 0, routes: [{ name: Routes.HOME }] });
+                        }, 2500);
+                    } else {
+                        Alert.alert('Order Placement Failed', data.message || 'Failed to record your order on the server.');
+                    }
+                } catch {
+                    setIsProcessing(false);
+                    Alert.alert('Network Error', 'Failed to save order to the server.');
+                }
+            }, 3000); // 3 seconds delay simulating time spent in external transaction
+        } catch {
             Alert.alert('Payment Error', 'Failed to trigger the payment request.');
         }
     };
@@ -66,7 +90,7 @@ const PaymentScreen: React.FC<Props> = ({ navigation, route }) => {
             <View style={styles.successScreen}>
                 <StatusBar barStyle="dark-content" backgroundColor="#F4FFF8" />
                 <View style={[styles.successBadge, { borderColor: Colors.SUCCESS }]}>
-                    <Text style={styles.successEmoji}>🎉</Text>
+                    <Icon name="check" size={36} color={Colors.SUCCESS} />
                 </View>
                 <Text style={styles.successTitle}>Payment Successful!</Text>
                 <Text style={styles.successSub}>
@@ -117,7 +141,10 @@ const PaymentScreen: React.FC<Props> = ({ navigation, route }) => {
                             <Text style={styles.payBtnText}>Choose UPI App & Pay →</Text>
                         </TouchableOpacity>
 
-                        <Text style={styles.secureNote}>🔒 100% Safe & Secure Payments</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+                            <Icon name="lock" size={12} color={Colors.TEXT_HINT} style={{ marginRight: 6 }} />
+                            <Text style={styles.secureNote}>100% Safe & Secure Payments</Text>
+                        </View>
                     </View>
                 )}
             </View>
