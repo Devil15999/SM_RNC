@@ -1,0 +1,193 @@
+'use strict';
+
+/**
+ * Package catalogue — single source of truth shared by the API.
+ * Matches the data used in the React Native app exactly.
+ */
+const PACKAGES = {
+    mother: {
+        type: 'mother',
+        title: 'Mother Care',
+        subtitle: 'Expert health support tailored for new & expecting mothers',
+        tagline: 'Expert support for expecting & new mothers',
+        emoji: '🤰',
+        accentColor: '#E91E8A',
+        startingPrice: 999,
+        features: ['OB-GYN Consultations', 'Nutrition Plans', 'Postpartum Recovery'],
+        plans: {
+            '1month': {
+                key: '1month',
+                label: '1 Month',
+                price: 999,
+                originalPrice: 1299,
+                savings: 'Save ₹300',
+                badge: null,
+                features: [
+                    'Prenatal diet consultation',
+                    '2 video consultations with OB-GYN',
+                    'Weekly health check reminders',
+                    'Postpartum recovery guide',
+                    '24/7 chat support',
+                ],
+            },
+            '3month': {
+                key: '3month',
+                label: '3 Months',
+                price: 2499,
+                originalPrice: 3897,
+                savings: 'Save ₹1,398',
+                badge: 'Most Popular',
+                features: [
+                    'Everything in 1-Month plan',
+                    '8 video consultations with OB-GYN',
+                    'Personalised nutrition plan',
+                    'Yoga & wellness sessions',
+                    'Mental health check-ins',
+                    'Emergency helpline access',
+                ],
+            },
+            '6month': {
+                key: '6month',
+                label: '6 Months',
+                price: 4499,
+                originalPrice: 7794,
+                savings: 'Save ₹3,295',
+                badge: 'Best Value',
+                features: [
+                    'Everything in 3-Month plan',
+                    '20 video consultations with OB-GYN',
+                    'Home visit (1 per month)',
+                    'Lactation consultant support',
+                    'Dedicated care coordinator',
+                    'Lab report analysis',
+                    'Priority appointment booking',
+                ],
+            },
+        },
+    },
+    baby: {
+        type: 'baby',
+        title: 'Baby Care',
+        subtitle: 'Complete new-born care & milestone tracking for your little one',
+        tagline: 'Complete new-born care & milestone tracking',
+        emoji: '👶',
+        accentColor: '#1FBDBD',
+        startingPrice: 799,
+        features: ['Paediatrician Consultations', 'Vaccination Schedule', 'Growth Tracking'],
+        plans: {
+            '1month': {
+                key: '1month',
+                label: '1 Month',
+                price: 799,
+                originalPrice: 1099,
+                savings: 'Save ₹300',
+                badge: null,
+                features: [
+                    'New-born vaccination schedule',
+                    '2 paediatrician consultations',
+                    'Growth & weight tracking',
+                    'Sleep & feeding log',
+                    '24/7 chat support',
+                ],
+            },
+            '3month': {
+                key: '3month',
+                label: '3 Months',
+                price: 1999,
+                originalPrice: 3297,
+                savings: 'Save ₹1,298',
+                badge: 'Most Popular',
+                features: [
+                    'Everything in 1-Month plan',
+                    '8 paediatrician consultations',
+                    'Milestone development tracker',
+                    'Baby massage & activity guides',
+                    'Allergy & nutrition guidance',
+                    'Emergency helpline access',
+                ],
+            },
+            '6month': {
+                key: '6month',
+                label: '6 Months',
+                price: 3799,
+                originalPrice: 6594,
+                savings: 'Save ₹2,795',
+                badge: 'Best Value',
+                features: [
+                    'Everything in 3-Month plan',
+                    '20 paediatrician consultations',
+                    'Home visit (1 per month)',
+                    'Developmental assessment report',
+                    'Speech & motor milestone alerts',
+                    'Dedicated baby care coordinator',
+                    'Priority appointment booking',
+                ],
+            },
+        },
+    },
+    muma: {
+        type: 'muma',
+        title: 'Muma Care',
+        subtitle: 'The ultimate care bundle for both mother & baby together',
+        tagline: 'The ultimate bundle for mother & baby together',
+        emoji: '💝',
+        accentColor: '#7B2D8B',
+        startingPrice: 1699,
+        features: ['Mother + Baby Combined', 'Family Health Reports', 'Home Visits'],
+        plans: {
+            '1month': {
+                key: '1month',
+                label: '1 Month',
+                price: 1699,
+                originalPrice: 2398,
+                savings: 'Save ₹699',
+                badge: null,
+                features: [
+                    'Full Mother Care – 1 Month',
+                    'Full Baby Care – 1 Month',
+                    'Joint family health report',
+                    '24/7 chat support',
+                    'Exclusive Muma app dashboard',
+                ],
+            },
+            '3month': {
+                key: '3month',
+                label: '3 Months',
+                price: 3999,
+                originalPrice: 6194,
+                savings: 'Save ₹2,195',
+                badge: 'Most Popular',
+                features: [
+                    'Full Mother Care – 3 Months',
+                    'Full Baby Care – 3 Months',
+                    'Combined health progress reports',
+                    'Family yoga & wellness sessions',
+                    'Mental health & bonding guide',
+                    'Emergency helpline access',
+                ],
+            },
+            '6month': {
+                key: '6month',
+                label: '6 Months',
+                price: 7499,
+                originalPrice: 14388,
+                savings: 'Save ₹6,889',
+                badge: 'Best Value',
+                features: [
+                    'Full Mother Care – 6 Months',
+                    'Full Baby Care – 6 Months',
+                    '2 home visits per month',
+                    'Dedicated family care coordinator',
+                    'Monthly family health analytics',
+                    'Lab report analysis for both',
+                    'Priority booking & concierge support',
+                ],
+            },
+        },
+    },
+};
+
+const PLAN_KEYS = ['1month', '3month', '6month'];
+const PACKAGE_TYPES = Object.keys(PACKAGES);
+
+module.exports = { PACKAGES, PLAN_KEYS, PACKAGE_TYPES };
