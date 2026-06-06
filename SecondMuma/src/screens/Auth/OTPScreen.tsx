@@ -162,7 +162,7 @@ const OTPScreen: React.FC<Props> = ({ navigation, route }) => {
                 <TouchableOpacity
                     style={styles.backBtn}
                     onPress={() => navigation.goBack()}>
-                    <Text style={styles.backText}>← Back</Text>
+                    <Icon name="chevron-left" size={18} color={Colors.TEXT_SECONDARY} />
                 </TouchableOpacity>
 
                 {/* Header */}
@@ -199,7 +199,7 @@ const OTPScreen: React.FC<Props> = ({ navigation, route }) => {
                             <Text style={styles.stepActiveText}>2</Text>
                         </View>
                         {/* <View style={styles.stepLabel}>
-                            <Text style={styles.stepDesc}>Details → OTP Verify</Text>
+                            <Text style={styles.stepDesc}>Details · OTP Verify</Text>
                         </View> */}
                     </View>
                 )}
@@ -240,7 +240,7 @@ const OTPScreen: React.FC<Props> = ({ navigation, route }) => {
                         <ActivityIndicator color={Colors.WHITE} />
                     ) : (
                         <Text style={styles.buttonText}>
-                            {isRegisterFlow ? 'Verify & Create Account →' : 'Verify & Continue →'}
+                            {isRegisterFlow ? 'Verify & Create Account' : 'Verify & Continue'}
                         </Text>
                     )}
                 </TouchableOpacity>

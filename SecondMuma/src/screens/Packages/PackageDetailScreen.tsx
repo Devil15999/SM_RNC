@@ -244,7 +244,7 @@ const PackageDetailScreen: React.FC<Props> = ({ navigation, route }) => {
             {/* Header */}
             <View style={[styles.header, { backgroundColor: accent }]}>
                 <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-                    <Text style={styles.backText}>← Back</Text>
+                    <Icon name="chevron-left" size={20} color={Colors.WHITE} />
                 </TouchableOpacity>
                 <View style={styles.headerContent}>
                     <Icon name={pkg.icon} size={42} color={Colors.WHITE} style={{ marginBottom: 10 }} />
@@ -343,7 +343,7 @@ const PackageDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                             accentColor: accent,
                         });
                     }}>
-                    <Text style={styles.ctaText}>Get {plan.label} Plan  →</Text>
+                    <Text style={styles.ctaText}>Get {plan.label} Plan</Text>
                 </TouchableOpacity>
 
                 <Text style={styles.footerNote}>

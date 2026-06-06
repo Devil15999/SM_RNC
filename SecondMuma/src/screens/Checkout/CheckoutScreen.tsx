@@ -130,7 +130,7 @@ const CheckoutScreen: React.FC<Props> = ({ navigation, route }) => {
                 {/* Header */}
                 <View style={styles.header}>
                     <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-                        <Text style={styles.backText}>← Back</Text>
+                        <Icon name="chevron-left" size={18} color={Colors.TEXT_SECONDARY} />
                     </TouchableOpacity>
                     <Text style={styles.headerTitle}>Checkout</Text>
                     <View style={styles.backBtnPlaceholder} />
@@ -233,7 +233,7 @@ const CheckoutScreen: React.FC<Props> = ({ navigation, route }) => {
                         style={[styles.btn, { backgroundColor: accentColor }]}
                         activeOpacity={0.85}
                         onPress={handleProceedToPay}>
-                        <Text style={styles.btnText}>Proceed to Payment →</Text>
+                        <Text style={styles.btnText}>Proceed to Payment</Text>
                     </TouchableOpacity>
                 </ScrollView>
             </SafeAreaView>

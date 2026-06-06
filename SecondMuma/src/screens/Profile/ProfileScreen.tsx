@@ -17,7 +17,8 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import { RootStackParamList } from '../../types/navigation';
 import { Colors } from '../../constants/theme';
-import { useAppDispatch, useAppSelector, updateProfileSuccess } from '../../store';
+import { useAppDispatch, useAppSelector, updateProfileSuccess, logout } from '../../store';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_BASE_URL } from '../../config';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Profile'>;
@@ -37,14 +38,20 @@ interface SavedAddress {
 interface OrderItem {
     _id: string;
     packageType: 'mother' | 'baby' | 'muma';
+    packageTitle: string;
     planKey: '1month' | '3month' | '6month';
-    amountPaid: number;
-    status: 'created' | 'paid' | 'completed' | 'cancelled';
+    planLabel: string;
+    price: number;
+    paymentStatus: 'pending' | 'processing' | 'success' | 'failed' | 'refunded';
+    status: 'created' | 'active' | 'completed' | 'cancelled';
     address: {
         fullName: string;
+        mobile: string;
         flatNo: string;
         street: string;
         city: string;
+        state: string;
+        pincode: string;
     };
     createdAt: string;
 }
@@ -125,6 +132,16 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [activeTab]);
+
+    // Logout
+    const handleLogout = async () => {
+        try {
+            await AsyncStorage.removeItem('@session');
+        } catch (e) {
+            console.log('Error clearing session:', e);
+        }
+        dispatch(logout());
+    };
 
     // Handle Edit Profile
     const handleUpdateProfile = async () => {
@@ -303,7 +320,7 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                 {/* Header */}
                 <View style={styles.header}>
                     <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-                        <Text style={styles.backText}>← Back</Text>
+                        <Icon name="chevron-left" size={18} color={Colors.TEXT_SECONDARY} />
                     </TouchableOpacity>
                     <Text style={styles.headerTitle}>My Account</Text>
                     <View style={styles.backBtnPlaceholder} />
@@ -332,29 +349,78 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
 
                     {/* PROFILE TAB */}
                     {activeTab === 'profile' && (
-                        <View style={styles.card}>
-                            <Text style={styles.cardHeader}>Personal Details</Text>
-                            {renderInput('Full Name', name, setName, 'name', {})}
-                            {renderInput('Email Address', email, setEmail, 'email', {}, { keyboardType: 'email-address', autoCapitalize: 'none' })}
+                        <View>
+                            <View style={styles.card}>
+                                <Text style={styles.cardHeader}>Personal Details</Text>
+                                {renderInput('Full Name', name, setName, 'name', {})}
+                                {renderInput('Email Address', email, setEmail, 'email', {}, { keyboardType: 'email-address', autoCapitalize: 'none' })}
 
-                            <View style={styles.inputGroup}>
-                                <Text style={styles.label}>Mobile Number (Linked)</Text>
-                                <View style={[styles.input, styles.disabledInput]}>
-                                    <Text style={styles.disabledInputText}>+91 {user?.mobile}</Text>
+                                <View style={styles.inputGroup}>
+                                    <Text style={styles.label}>Mobile Number (Linked)</Text>
+                                    <View style={[styles.input, styles.disabledInput]}>
+                                        <Text style={styles.disabledInputText}>+91 {user?.mobile}</Text>
+                                    </View>
                                 </View>
+
+                                <TouchableOpacity
+                                    style={[styles.btn, isUpdatingProfile && styles.btnDisabled]}
+                                    activeOpacity={0.85}
+                                    onPress={handleUpdateProfile}
+                                    disabled={isUpdatingProfile}
+                                >
+                                    {isUpdatingProfile ? (
+                                        <ActivityIndicator color={Colors.WHITE} />
+                                    ) : (
+                                        <Text style={styles.btnText}>Save Changes</Text>
+                                    )}
+                                </TouchableOpacity>
                             </View>
 
+                            {/* Account Details */}
+                            {/* <View style={styles.accountCard}>
+                                <Text style={styles.accountCardHeader}>Account Details</Text>
+                                <View style={styles.accountRow}>
+                                    <Text style={styles.accountLabel}>Mobile</Text>
+                                    <Text style={styles.accountValue}>+91 {user?.mobile ?? '—'}</Text>
+                                </View>
+                                <View style={styles.accountDivider} />
+                                <View style={styles.accountRow}>
+                                    <Text style={styles.accountLabel}>User ID</Text>
+                                    <Text style={styles.accountValue}>{user?.id ?? '—'}</Text>
+                                </View>
+                            </View> */}
+
+                            {/* Quick Actions */}
+                            <Text style={styles.quickTitle}>Quick Actions</Text>
+                            <View style={styles.tileGrid}>
+                                {[
+                                    { label: 'Baby Tracker', icon: 'baby' },
+                                    { label: 'Appointments', icon: 'calendar-alt' },
+                                    { label: 'Support', icon: 'comments' },
+                                    { label: 'Orders', icon: 'box-open' },
+                                ].map(item => (
+                                    <TouchableOpacity
+                                        key={item.label}
+                                        style={styles.tile}
+                                        activeOpacity={0.75}
+                                        onPress={() => {
+                                            if (item.label === 'Orders') {
+                                                setActiveTab('orders');
+                                            }
+                                        }}
+                                    >
+                                        <Icon name={item.icon} size={22} color={Colors.PRIMARY} style={{ marginBottom: 8 }} />
+                                        <Text style={styles.tileText}>{item.label}</Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+
+                            {/* Sign Out */}
                             <TouchableOpacity
-                                style={[styles.btn, isUpdatingProfile && styles.btnDisabled]}
-                                activeOpacity={0.85}
-                                onPress={handleUpdateProfile}
-                                disabled={isUpdatingProfile}
-                            >
-                                {isUpdatingProfile ? (
-                                    <ActivityIndicator color={Colors.WHITE} />
-                                ) : (
-                                    <Text style={styles.btnText}>Save Changes</Text>
-                                )}
+                                style={styles.logoutBtn}
+                                onPress={handleLogout}
+                                activeOpacity={0.8}>
+                                <Text style={styles.logoutText}>Log Out</Text>
                             </TouchableOpacity>
                         </View>
                     )}
@@ -488,8 +554,8 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                                                         <Text style={styles.orderPlan}>{getPlanLabel(order.planKey)} Plan</Text>
                                                     </View>
                                                 </View>
-                                                <View style={[styles.statusBadge, order.status === 'paid' && styles.statusPaid, order.status === 'completed' && styles.statusCompleted]}>
-                                                    <Text style={[styles.statusText, order.status === 'paid' && styles.statusTextPaid, order.status === 'completed' && styles.statusTextCompleted]}>
+                                                <View style={[styles.statusBadge, order.status === 'active' && styles.statusPaid, order.status === 'completed' && styles.statusCompleted]}>
+                                                    <Text style={[styles.statusText, order.status === 'active' && styles.statusTextPaid, order.status === 'completed' && styles.statusTextCompleted]}>
                                                         {order.status.toUpperCase()}
                                                     </Text>
                                                 </View>
@@ -499,24 +565,28 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
 
                                             <View style={styles.orderRow}>
                                                 <Text style={styles.orderLabel}>Amount Paid</Text>
-                                                <Text style={styles.orderValue}>₹{order.amountPaid.toLocaleString('en-IN')}</Text>
+                                                <Text style={styles.orderValue}>₹{order.price != null ? order.price.toLocaleString('en-IN') : '—'}</Text>
                                             </View>
 
                                             <View style={styles.orderRow}>
                                                 <Text style={styles.orderLabel}>Date</Text>
                                                 <Text style={styles.orderValue}>
-                                                    {new Date(order.createdAt).toLocaleDateString('en-IN', {
-                                                        day: 'numeric',
-                                                        month: 'short',
-                                                        year: 'numeric'
-                                                    })}
+                                                    {order.createdAt
+                                                        ? new Date(order.createdAt).toLocaleDateString('en-IN', {
+                                                            day: 'numeric',
+                                                            month: 'short',
+                                                            year: 'numeric'
+                                                        })
+                                                        : '—'}
                                                 </Text>
                                             </View>
 
                                             <View style={styles.orderRow}>
                                                 <Text style={styles.orderLabel}>Deliver to</Text>
                                                 <Text style={styles.orderValue} numberOfLines={1}>
-                                                    {order.address.fullName} - {order.address.flatNo}, {order.address.street}
+                                                    {order.address
+                                                        ? `${order.address.fullName ?? ''} - ${order.address.flatNo ?? ''}, ${order.address.street ?? ''}`
+                                                        : '—'}
                                                 </Text>
                                             </View>
                                         </View>
@@ -812,6 +882,84 @@ const styles = StyleSheet.create({
         color: Colors.TEXT_PRIMARY,
         fontWeight: '600',
         maxWidth: '70%',
+    },
+
+    // Account Details card
+    accountCard: {
+        backgroundColor: Colors.WHITE,
+        borderRadius: 16,
+        padding: 16,
+        marginBottom: 24,
+        borderWidth: 1,
+        borderColor: Colors.BORDER,
+    },
+    accountCardHeader: {
+        fontSize: 12,
+        fontWeight: '700',
+        color: Colors.TEXT_SECONDARY,
+        marginBottom: 12,
+        textTransform: 'uppercase',
+        letterSpacing: 0.8,
+    },
+    accountRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingVertical: 4,
+    },
+    accountLabel: { color: Colors.TEXT_HINT, fontSize: 13 },
+    accountValue: { color: Colors.TEXT_PRIMARY, fontSize: 14, fontWeight: '600' },
+    accountDivider: {
+        height: 1,
+        backgroundColor: Colors.DIVIDER,
+        marginVertical: 10,
+    },
+
+    // Quick Actions
+    quickTitle: {
+        color: Colors.TEXT_SECONDARY,
+        fontSize: 12,
+        fontWeight: '700',
+        marginBottom: 12,
+        textTransform: 'uppercase',
+        letterSpacing: 1,
+    },
+    tileGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 12,
+        marginBottom: 24,
+    },
+    tile: {
+        width: '47%',
+        backgroundColor: Colors.SURFACE,
+        borderRadius: 16,
+        paddingVertical: 20,
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: Colors.BORDER,
+    },
+    tileText: {
+        color: Colors.TEXT_PRIMARY,
+        fontSize: 13,
+        fontWeight: '600',
+    },
+
+    // Sign Out
+    logoutBtn: {
+        height: 50,
+        borderRadius: 14,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1.5,
+        borderColor: Colors.ERROR,
+        backgroundColor: '#FFF5F5',
+        marginBottom: 8,
+    },
+    logoutText: {
+        color: Colors.ERROR,
+        fontSize: 15,
+        fontWeight: '700',
     },
 });
 

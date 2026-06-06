@@ -174,7 +174,7 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
                 <TouchableOpacity
                     style={styles.backBtn}
                     onPress={() => navigation.goBack()}>
-                    <Text style={styles.backText}>← Back</Text>
+                    <Icon name="chevron-left" size={18} color={Colors.TEXT_SECONDARY} />
                 </TouchableOpacity>
 
                 {/* Header */}
@@ -198,7 +198,7 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
                         <Text style={styles.stepInactiveText}>2</Text>
                     </View>
                     {/* <View style={styles.stepLabel}>
-                        <Text style={styles.stepDesc}>Details → OTP Verify</Text>
+                        <Text style={styles.stepDesc}>Details · OTP Verify</Text>
                     </View> */}
                 </View>
 
@@ -248,7 +248,7 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
                     {isLoading ? (
                         <ActivityIndicator color={Colors.WHITE} />
                     ) : (
-                        <Text style={styles.buttonText}>Continue</Text>
+                        <Text style={styles.buttonText}>Complete & Proceed</Text>
                     )}
                 </TouchableOpacity>
 

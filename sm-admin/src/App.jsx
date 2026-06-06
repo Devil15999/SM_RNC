@@ -40,27 +40,27 @@ function App() {
   // Authentication State
   const [token, setToken] = useState(localStorage.getItem('admin_token') || '');
   const [adminUser, setAdminUser] = useState(JSON.parse(localStorage.getItem('admin_user')) || null);
-  
+
   // Navigation
   const [activeTab, setActiveTab] = useState('dashboard');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  
+
   const handleTabChange = (tab) => {
     setActiveTab(tab);
     setMobileMenuOpen(false);
   };
-  
+
   // Data States
   const [stats, setStats] = useState(null);
-  
+
   const [users, setUsers] = useState([]);
   const [usersPagination, setUsersPagination] = useState({ total: 0, page: 1, limit: 8, pages: 1 });
   const [usersFilters, setUsersFilters] = useState({ search: '', role: '', isVerified: '' });
-  
+
   const [orders, setOrders] = useState([]);
   const [ordersPagination, setOrdersPagination] = useState({ total: 0, page: 1, limit: 8, pages: 1 });
   const [ordersFilters, setOrdersFilters] = useState({ search: '', status: '', paymentStatus: '', packageType: '' });
-  
+
   const [payments, setPayments] = useState([]);
   const [paymentsPagination, setPaymentsPagination] = useState({ total: 0, page: 1, limit: 8, pages: 1 });
   const [paymentsFilters, setPaymentsFilters] = useState({ search: '', status: '' });
@@ -74,6 +74,8 @@ function App() {
   const [packages, setPackages] = useState([]);
   const [editPackage, setEditPackage] = useState(null);
   const [showAddPackageModal, setShowAddPackageModal] = useState(false);
+  const [pkgFeatureInput, setPkgFeatureInput] = useState('');
+  const [planFeatureInputs, setPlanFeatureInputs] = useState({});
 
   // Login Form States
   const [loginIdentifier, setLoginIdentifier] = useState('');
@@ -450,7 +452,7 @@ function App() {
             <h2>Second Muma</h2>
             <p className="brand-subtitle">Admin Workspace</p>
           </div>
-          
+
           {loginError && (
             <div className="badge badge-danger" style={{ width: '100%', padding: '10px', marginBottom: '20px', borderRadius: '8px', justifyContent: 'center' }}>
               <AlertTriangle size={16} style={{ marginRight: '6px' }} /> {loginError}
@@ -495,7 +497,7 @@ function App() {
             </button>
           </form>
         </div>
-        
+
         {/* Toast Container */}
         <div className="toast-container">
           {toasts.map(toast => (
@@ -513,7 +515,7 @@ function App() {
   return (
     <div className="admin-layout">
       {/* Sidebar Overlay */}
-      <div 
+      <div
         className={`sidebar-overlay ${mobileMenuOpen ? 'open' : ''}`}
         onClick={() => setMobileMenuOpen(false)}
       />
@@ -526,33 +528,33 @@ function App() {
             <div className="brand-subtitle">Control Center</div>
           </div>
         </div>
-        
+
         <nav className="sidebar-menu">
-          <button 
+          <button
             className={`menu-item ${activeTab === 'dashboard' ? 'active' : ''}`}
             onClick={() => handleTabChange('dashboard')}
           >
             <LayoutDashboard size={20} />
             <span>Dashboard</span>
           </button>
-          
-          <button 
+
+          <button
             className={`menu-item ${activeTab === 'users' ? 'active' : ''}`}
             onClick={() => handleTabChange('users')}
           >
             <Users size={20} />
             <span>Users</span>
           </button>
-          
-          <button 
+
+          <button
             className={`menu-item ${activeTab === 'orders' ? 'active' : ''}`}
             onClick={() => handleTabChange('orders')}
           >
             <ShoppingCart size={20} />
             <span>Orders</span>
           </button>
-          
-          <button 
+
+          <button
             className={`menu-item ${activeTab === 'payments' ? 'active' : ''}`}
             onClick={() => handleTabChange('payments')}
           >
@@ -560,7 +562,7 @@ function App() {
             <span>Payments</span>
           </button>
 
-          <button 
+          <button
             className={`menu-item ${activeTab === 'packages' ? 'active' : ''}`}
             onClick={() => handleTabChange('packages')}
           >
@@ -568,7 +570,7 @@ function App() {
             <span>Packages</span>
           </button>
         </nav>
-        
+
         <div className="sidebar-footer">
           <button onClick={handleLogout} className="logout-btn">
             <LogOut size={20} />
@@ -588,7 +590,7 @@ function App() {
               <h1>{activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}</h1>
             </div>
           </div>
-          
+
           <div className="header-user">
             <div className="user-info" style={{ textAlign: 'right' }}>
               <div className="user-name">{adminUser?.name || 'Administrator'}</div>
@@ -741,11 +743,10 @@ function App() {
                                 </td>
                                 <td>{formatCurrency(order.price)}</td>
                                 <td>
-                                  <span className={`badge badge-${
-                                    order.status === 'active' ? 'success' :
-                                    order.status === 'completed' ? 'info' :
-                                    order.status === 'cancelled' ? 'danger' : 'warning'
-                                  }`}>{order.status}</span>
+                                  <span className={`badge badge-${order.status === 'active' ? 'success' :
+                                      order.status === 'completed' ? 'info' :
+                                        order.status === 'cancelled' ? 'danger' : 'warning'
+                                    }`}>{order.status}</span>
                                 </td>
                               </tr>
                             ))}
@@ -772,10 +773,9 @@ function App() {
                                 <td style={{ fontFamily: 'monospace', fontSize: '0.85rem' }}>{pay.transactionId.substring(0, 16)}...</td>
                                 <td>{formatCurrency(pay.amount)}</td>
                                 <td>
-                                  <span className={`badge badge-${
-                                    pay.status === 'success' ? 'success' :
-                                    pay.status === 'failed' ? 'danger' : 'warning'
-                                  }`}>{pay.status}</span>
+                                  <span className={`badge badge-${pay.status === 'success' ? 'success' :
+                                      pay.status === 'failed' ? 'danger' : 'warning'
+                                    }`}>{pay.status}</span>
                                 </td>
                                 <td>{new Date(pay.createdAt).toLocaleDateString('en-IN')}</td>
                               </tr>
@@ -804,7 +804,7 @@ function App() {
                         onKeyDown={(e) => e.key === 'Enter' && fetchUsers(1)}
                       />
                     </div>
-                    
+
                     <select
                       className="form-control filter-select"
                       value={usersFilters.role}
@@ -998,23 +998,21 @@ function App() {
                               <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{order.user?.mobile}</div>
                             </td>
                             <td>
-                               <i className={`fa-solid ${order.icon || 'fa-box'}`} style={{ marginRight: '8px', color: order.accentColor }}></i>
+                              <i className={`fa-solid ${order.icon || 'fa-box'}`} style={{ marginRight: '8px', color: order.accentColor }}></i>
                               {order.packageTitle} ({order.planLabel})
                             </td>
                             <td>{formatCurrency(order.price)}</td>
                             <td>
-                              <span className={`badge badge-${
-                                order.status === 'active' ? 'success' :
-                                order.status === 'completed' ? 'info' :
-                                order.status === 'cancelled' ? 'danger' : 'warning'
-                              }`}>{order.status}</span>
+                              <span className={`badge badge-${order.status === 'active' ? 'success' :
+                                  order.status === 'completed' ? 'info' :
+                                    order.status === 'cancelled' ? 'danger' : 'warning'
+                                }`}>{order.status}</span>
                             </td>
                             <td>
-                              <span className={`badge badge-${
-                                order.paymentStatus === 'success' ? 'success' :
-                                order.paymentStatus === 'failed' ? 'danger' :
-                                order.paymentStatus === 'pending' ? 'warning' : 'info'
-                              }`}>{order.paymentStatus}</span>
+                              <span className={`badge badge-${order.paymentStatus === 'success' ? 'success' :
+                                  order.paymentStatus === 'failed' ? 'danger' :
+                                    order.paymentStatus === 'pending' ? 'warning' : 'info'
+                                }`}>{order.paymentStatus}</span>
                             </td>
                             <td style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
                               <div><strong>Start:</strong> {formatDate(order.activatedAt)}</div>
@@ -1127,10 +1125,9 @@ function App() {
                               <div style={{ fontSize: '0.85rem' }}><strong>Ref No:</strong> {pay.upiRef || '—'}</div>
                             </td>
                             <td>
-                              <span className={`badge badge-${
-                                pay.status === 'success' ? 'success' :
-                                pay.status === 'failed' ? 'danger' : 'warning'
-                              }`}>{pay.status}</span>
+                              <span className={`badge badge-${pay.status === 'success' ? 'success' :
+                                  pay.status === 'failed' ? 'danger' : 'warning'
+                                }`}>{pay.status}</span>
                             </td>
                             <td>{formatDate(pay.paidAt || pay.createdAt)}</td>
                             <td className="actions-cell">
@@ -1173,8 +1170,8 @@ function App() {
                 <div className="animate-fade-in">
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                     <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 'bold' }}>Manage Packages</h2>
-                    <button 
-                      className="btn btn-primary" 
+                    <button
+                      className="btn btn-primary"
                       onClick={() => {
                         setEditPackage({
                           type: '',
@@ -1205,10 +1202,10 @@ function App() {
                           <div style={{ fontSize: '2.5rem', color: pkg.accentColor }}><i className={`fa-solid ${pkg.icon || 'fa-box'}`}></i></div>
                           <span className="badge" style={{ backgroundColor: `${pkg.accentColor}20`, color: pkg.accentColor, fontWeight: 'bold' }}>{pkg.type.toUpperCase()}</span>
                         </div>
-                        
+
                         <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold', margin: '0 0 8px 0', color: 'var(--text)' }}>{pkg.title}</h3>
                         <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: '0 0 16px 0', lineHeight: '1.4' }}>{pkg.subtitle}</p>
-                        
+
                         <div style={{ marginBottom: '16px' }}>
                           <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 'bold', marginBottom: '8px' }}>Core Features</div>
                           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
@@ -1223,10 +1220,10 @@ function App() {
                             <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Starting from</span>
                             <span style={{ fontSize: '1.25rem', fontWeight: 'bold', color: 'var(--success)' }}>{formatCurrency(pkg.startingPrice)}</span>
                           </div>
-                          
+
                           <div style={{ display: 'flex', gap: '10px' }}>
-                            <button 
-                              className="btn btn-secondary" 
+                            <button
+                              className="btn btn-secondary"
                               style={{ flex: 1, padding: '8px 12px', fontSize: '0.85rem' }}
                               onClick={() => {
                                 const safePkg = {
@@ -1243,8 +1240,8 @@ function App() {
                             >
                               Edit details & plans
                             </button>
-                            <button 
-                              className="btn btn-danger btn-icon" 
+                            <button
+                              className="btn btn-danger btn-icon"
                               style={{ padding: '8px 12px' }}
                               onClick={() => handleDeletePackage(pkg._id)}
                             >
@@ -1283,7 +1280,7 @@ function App() {
                     onChange={(e) => setEditUser(prev => ({ ...prev, name: e.target.value }))}
                   />
                 </div>
-                
+
                 <div className="form-group">
                   <label className="form-label">Email Address</label>
                   <input
@@ -1346,7 +1343,7 @@ function App() {
             <form onSubmit={handleUpdateOrder}>
               <div className="modal-body">
                 <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', padding: '12px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                   <div style={{ fontSize: '1.8rem', color: editOrder.accentColor }}><i className={`fa-solid ${editOrder.icon || 'fa-box'}`}></i></div>
+                  <div style={{ fontSize: '1.8rem', color: editOrder.accentColor }}><i className={`fa-solid ${editOrder.icon || 'fa-box'}`}></i></div>
                   <div>
                     <div style={{ fontWeight: 'bold' }}>{editOrder.packageTitle}</div>
                     <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{editOrder.planLabel} Plan — ID: {editOrder._id}</div>
@@ -1513,8 +1510,8 @@ function App() {
               <h3 className="modal-title">
                 {editPackage._id ? 'Edit Package & Plans' : 'Create New Package'}
               </h3>
-              <button 
-                className="modal-close" 
+              <button
+                className="modal-close"
                 onClick={() => {
                   setEditPackage(null);
                   setShowAddPackageModal(false);
@@ -1523,10 +1520,10 @@ function App() {
                 <X size={20} />
               </button>
             </div>
-            
+
             <form onSubmit={editPackage._id ? handleUpdatePackage : handleCreatePackage}>
               <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                
+
                 {/* Basic Details Section */}
                 <div>
                   <h4 style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '6px', marginBottom: '14px', fontSize: '0.95rem', color: 'var(--accent-pink)', fontWeight: 'bold' }}>Basic Package Info</h4>
@@ -1579,7 +1576,7 @@ function App() {
                     </div>
                   </div>
 
-                  <div className="grid-3-col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '15px', marginTop: '10px' }}>
+                  <div className="grid-3-col" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '15px', marginTop: '10px' }}>
                     <div className="form-group">
                       <label className="form-label">FontAwesome Icon (e.g., fa-baby)</label>
                       <input
@@ -1616,24 +1613,54 @@ function App() {
                   </div>
 
                   <div className="form-group" style={{ marginTop: '10px' }}>
-                    <label className="form-label">Core Features (comma separated list)</label>
-                    <input
-                      type="text"
-                      className="form-control"
-                      placeholder="OB-GYN Consultations, Nutrition Plans, Postpartum Recovery"
-                      value={editPackage.features ? editPackage.features.join(', ') : ''}
-                      onChange={(e) => {
-                        const vals = e.target.value.split(',').map(s => s.trim()).filter(Boolean);
-                        setEditPackage(prev => ({ ...prev, features: vals }));
-                      }}
-                    />
+                    <label className="form-label">Core Features</label>
+                    {/* Feature chips */}
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '10px', minHeight: '32px' }}>
+                      {(editPackage.features || []).map((f, i) => (
+                        <span key={i} style={{
+                          display: 'inline-flex', alignItems: 'center', gap: '6px',
+                          backgroundColor: 'var(--primary-light, #fce4f3)', color: 'var(--primary, #E91E8A)',
+                          borderRadius: '20px', padding: '4px 12px', fontSize: '13px', fontWeight: 600,
+                          border: '1px solid var(--primary, #E91E8A)'
+                        }}>
+                          {f}
+                          <button type="button" onClick={() => setEditPackage(prev => ({ ...prev, features: prev.features.filter((_, idx) => idx !== i) }))}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: 'inherit', lineHeight: 1, fontSize: '14px' }}>✕</button>
+                        </span>
+                      ))}
+                    </div>
+                    {/* Add feature input */}
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <input
+                        type="text"
+                        className="form-control"
+                        placeholder="Type a feature and press Add"
+                        value={pkgFeatureInput}
+                        onChange={(e) => setPkgFeatureInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && pkgFeatureInput.trim()) {
+                            e.preventDefault();
+                            setEditPackage(prev => ({ ...prev, features: [...(prev.features || []), pkgFeatureInput.trim()] }));
+                            setPkgFeatureInput('');
+                          }
+                        }}
+                        style={{ flex: 1 }}
+                      />
+                      <button type="button" className="btn btn-secondary" style={{ whiteSpace: 'nowrap', padding: '0 16px' }}
+                        onClick={() => {
+                          if (pkgFeatureInput.trim()) {
+                            setEditPackage(prev => ({ ...prev, features: [...(prev.features || []), pkgFeatureInput.trim()] }));
+                            setPkgFeatureInput('');
+                          }
+                        }}>+ Add</button>
+                    </div>
                   </div>
                 </div>
 
                 {/* Nested Plans Settings */}
                 <div>
                   <h4 style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '6px', marginBottom: '14px', fontSize: '0.95rem', color: 'var(--accent-pink)', fontWeight: 'bold' }}>Subscription Plans</h4>
-                  
+
                   {['1month', '3month', '6month'].map((key) => {
                     const plan = editPackage.plans?.[key] || { key, label: key === '1month' ? '1 Month' : key === '3month' ? '3 Months' : '6 Months', price: 0, originalPrice: 0, savings: '', badge: '', features: [] };
                     return (
@@ -1641,7 +1668,7 @@ function App() {
                         <div style={{ fontWeight: 'bold', marginBottom: '12px', color: 'var(--text)', textTransform: 'capitalize' }}>
                           {plan.label} Plan Details
                         </div>
-                        <div className="grid-3-col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '15px' }}>
+                        <div className="grid-3-col" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '15px' }}>
                           <div className="form-group">
                             <label className="form-label">Actual Price (₹)</label>
                             <input
@@ -1719,24 +1746,72 @@ function App() {
                               }}
                             />
                           </div>
-                          <div className="form-group">
-                            <label className="form-label">Plan Features (comma separated list)</label>
+                        </div>
+                        <div className="form-group" style={{ marginTop: '12px' }}>
+                          <label className="form-label">Plan Features</label>
+                          {/* Feature chips */}
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '10px', minHeight: '32px' }}>
+                            {(plan.features || []).map((f, i) => (
+                              <span key={i} style={{
+                                display: 'inline-flex', alignItems: 'center', gap: '6px',
+                                backgroundColor: 'rgba(100,100,255,0.08)', color: 'var(--text)',
+                                borderRadius: '20px', padding: '4px 12px', fontSize: '13px', fontWeight: 600,
+                                border: '1px solid var(--border)'
+                              }}>
+                                {f}
+                                <button type="button"
+                                  onClick={() => setEditPackage(prev => ({
+                                    ...prev,
+                                    plans: {
+                                      ...prev.plans,
+                                      [key]: { ...prev.plans[key], features: (prev.plans[key].features || []).filter((_, idx) => idx !== i) }
+                                    }
+                                  }))}
+                                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: 'inherit', lineHeight: 1, fontSize: '14px' }}>✕</button>
+                              </span>
+                            ))}
+                            {(plan.features || []).length === 0 && (
+                              <span style={{ fontSize: '13px', color: 'var(--text-muted)', fontStyle: 'italic' }}>No features added yet</span>
+                            )}
+                          </div>
+                          {/* Add feature input */}
+                          <div style={{ display: 'flex', gap: '8px' }}>
                             <input
                               type="text"
                               className="form-control"
-                              placeholder="Feature 1, Feature 2, Feature 3"
-                              value={plan.features ? plan.features.join(', ') : ''}
-                              onChange={(e) => {
-                                const vals = e.target.value.split(',').map(s => s.trim()).filter(Boolean);
-                                setEditPackage(prev => ({
-                                  ...prev,
-                                  plans: {
-                                    ...prev.plans,
-                                    [key]: { ...prev.plans[key], features: vals }
-                                  }
-                                }));
+                              placeholder="Type a feature and press Add or Enter"
+                              value={planFeatureInputs[key] || ''}
+                              onChange={(e) => setPlanFeatureInputs(prev => ({ ...prev, [key]: e.target.value }))}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' && (planFeatureInputs[key] || '').trim()) {
+                                  e.preventDefault();
+                                  const val = planFeatureInputs[key].trim();
+                                  setEditPackage(prev => ({
+                                    ...prev,
+                                    plans: {
+                                      ...prev.plans,
+                                      [key]: { ...prev.plans[key], features: [...(prev.plans[key].features || []), val] }
+                                    }
+                                  }));
+                                  setPlanFeatureInputs(prev => ({ ...prev, [key]: '' }));
+                                }
                               }}
+                              style={{ flex: 1 }}
                             />
+                            <button type="button" className="btn btn-secondary" style={{ whiteSpace: 'nowrap', padding: '0 16px' }}
+                              onClick={() => {
+                                const val = (planFeatureInputs[key] || '').trim();
+                                if (val) {
+                                  setEditPackage(prev => ({
+                                    ...prev,
+                                    plans: {
+                                      ...prev.plans,
+                                      [key]: { ...prev.plans[key], features: [...(prev.plans[key].features || []), val] }
+                                    }
+                                  }));
+                                  setPlanFeatureInputs(prev => ({ ...prev, [key]: '' }));
+                                }
+                              }}>+ Add</button>
                           </div>
                         </div>
                       </div>
@@ -1745,9 +1820,9 @@ function App() {
                 </div>
               </div>
               <div className="modal-footer" style={{ marginTop: '10px' }}>
-                <button 
-                  type="button" 
-                  className="btn btn-secondary" 
+                <button
+                  type="button"
+                  className="btn btn-secondary"
                   onClick={() => {
                     setEditPackage(null);
                     setShowAddPackageModal(false);

@@ -106,7 +106,7 @@ const PaymentScreen: React.FC<Props> = ({ navigation, route }) => {
 
             <View style={styles.header}>
                 <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()} disabled={isProcessing}>
-                    <Text style={styles.backText}>← Back</Text>
+                    <Icon name="chevron-left" size={18} color={Colors.TEXT_SECONDARY} />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Complete Payment</Text>
                 <View style={styles.backBtnPlaceholder} />
@@ -138,7 +138,7 @@ const PaymentScreen: React.FC<Props> = ({ navigation, route }) => {
                             activeOpacity={0.85}
                             onPress={handlePayment}
                         >
-                            <Text style={styles.payBtnText}>Choose UPI App & Pay →</Text>
+                            <Text style={styles.payBtnText}>Choose UPI App & Pay</Text>
                         </TouchableOpacity>
 
                         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>

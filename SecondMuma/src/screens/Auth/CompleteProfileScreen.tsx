@@ -188,7 +188,7 @@ const CompleteProfileScreen: React.FC<Props> = ({ route }) => {
                     {isLoading ? (
                         <ActivityIndicator color={Colors.WHITE} />
                     ) : (
-                        <Text style={styles.buttonText}>Complete & Proceed →</Text>
+                        <Text style={styles.buttonText}>Complete & Proceed</Text>
                     )}
                 </TouchableOpacity>
             </ScrollView>

@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
+    ActivityIndicator,
     SafeAreaView,
     ScrollView,
     StatusBar,
@@ -12,14 +13,13 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import { RootStackParamList } from '../../types/navigation';
 import { Colors } from '../../constants/theme';
-import { useAppDispatch, useAppSelector, logout } from '../../store';
+import { useAppSelector } from '../../store';
 import { Routes } from '../../constants/routes';
 import { API_BASE_URL } from '../../config';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
-// ── Package data ────────────────────────────────────────────────────────────────
+// ── Types ────────────────────────────────────────────────────────────────────────
 
 type PackageType = 'mother' | 'baby' | 'muma';
 
@@ -33,77 +33,45 @@ interface PackageCard {
     features: string[];
 }
 
-const PACKAGE_CARDS: PackageCard[] = [
-    {
-        type: 'mother',
-        title: 'Mother Care',
-        tagline: 'Expert support for expecting & new mothers',
-        icon: 'user-pregnant',
-        accentColor: '#E91E8A',
-        startingPrice: '₹999',
-        features: ['OB-GYN Consultations', 'Nutrition Plans', 'Postpartum Recovery'],
-    },
-    {
-        type: 'baby',
-        title: 'Baby Care',
-        tagline: 'Complete new-born care & milestone tracking',
-        icon: 'baby',
-        accentColor: '#1FBDBD',
-        startingPrice: '₹799',
-        features: ['Paediatrician Consultations', 'Vaccination Schedule', 'Growth Tracking'],
-    },
-    {
-        type: 'muma',
-        title: 'Muma Care',
-        tagline: 'The ultimate bundle for mother & baby together',
-        icon: 'hand-holding-heart',
-        accentColor: '#7B2D8B',
-        startingPrice: '₹1,699',
-        features: ['Mother + Baby Combined', 'Family Health Reports', 'Home Visits'],
-    },
-];
-
 // ── Component ───────────────────────────────────────────────────────────────────
 
 const HomeScreen: React.FC<Props> = ({ navigation }) => {
-    const dispatch = useAppDispatch();
     const user = useAppSelector(state => state.auth.user);
-    const [packages, setPackages] = useState<PackageCard[]>([]);
 
-    useEffect(() => {
-        let isMounted = true;
-        const fetchPackages = async () => {
-            try {
-                const res = await fetch(`${API_BASE_URL}/packages`);
-                const data = await res.json();
-                if (res.ok && data.success && isMounted) {
-                    const formatted = data.data.map((p: any) => ({
-                        type: p.type,
-                        title: p.title,
-                        tagline: p.tagline,
-                        icon: p.icon.replace(/^fa-/, ''),
-                        accentColor: p.accentColor,
-                        startingPrice: `₹${p.startingPrice}`,
-                        features: p.features,
-                    }));
-                    setPackages(formatted);
-                }
-            } catch (err) {
-                console.log('Error fetching packages:', err);
+    const [packages, setPackages] = useState<PackageCard[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [fetchError, setFetchError] = useState(false);
+
+    const fetchPackages = useCallback(async () => {
+        setIsLoading(true);
+        setFetchError(false);
+        try {
+            const res = await fetch(`${API_BASE_URL}/packages`);
+            const data = await res.json();
+            if (res.ok && data.success) {
+                const formatted: PackageCard[] = data.data.map((p: any) => ({
+                    type: p.type as PackageType,
+                    title: p.title,
+                    tagline: p.tagline,
+                    icon: (p.icon ?? '').replace(/^fa-/, ''),
+                    accentColor: p.accentColor,
+                    startingPrice: `₹${p.startingPrice}`,
+                    features: p.features ?? [],
+                }));
+                setPackages(formatted);
+            } else {
+                setFetchError(true);
             }
-        };
-        fetchPackages();
-        return () => { isMounted = false; };
+        } catch {
+            setFetchError(true);
+        } finally {
+            setIsLoading(false);
+        }
     }, []);
 
-    const handleLogout = async () => {
-        try {
-            await AsyncStorage.removeItem('@session');
-        } catch (e) {
-            console.log('Error clearing session:', e);
-        }
-        dispatch(logout());
-    };
+    useEffect(() => {
+        fetchPackages();
+    }, [fetchPackages]);
 
     const initials = (user?.name ?? 'U')
         .split(' ')
@@ -112,10 +80,30 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         .toUpperCase()
         .slice(0, 2);
 
+    // ── Package card skeleton ────────────────────────────────────────────────────
+    const PackageSkeleton = () => (
+        <View style={styles.skeletonCard}>
+            <View style={styles.skeletonRow}>
+                <View style={styles.skeletonIcon} />
+                <View style={styles.skeletonLines}>
+                    <View style={[styles.skeletonLine, { width: '60%' }]} />
+                    <View style={[styles.skeletonLine, { width: '85%', marginTop: 6 }]} />
+                </View>
+            </View>
+            <View style={styles.skeletonPills}>
+                {[1, 2, 3].map(i => (
+                    <View key={i} style={styles.skeletonPill} />
+                ))}
+            </View>
+            <View style={[styles.skeletonLine, { width: '40%', marginTop: 8 }]} />
+        </View>
+    );
+
     return (
         <SafeAreaView style={styles.safe}>
             <StatusBar barStyle="dark-content" backgroundColor={Colors.BACKGROUND} />
             <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+
                 {/* Top Bar */}
                 <View style={styles.topBar}>
                     <View>
@@ -124,20 +112,24 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                         </Text>
                         <Text style={styles.name}>{user?.name ?? 'User'}</Text>
                     </View>
-                    <View style={styles.avatar}>
+                    <TouchableOpacity
+                        style={styles.avatar}
+                        activeOpacity={0.8}
+                        onPress={() => navigation.navigate(Routes.PROFILE)}
+                    >
                         <Text style={styles.avatarText}>{initials}</Text>
-                    </View>
+                    </TouchableOpacity>
                 </View>
 
                 {/* Hero banner */}
                 <View style={styles.heroBanner}>
                     <View style={styles.heroBadge}>
-                        <Text style={styles.heroBadgeText}>BABY CARE</Text>
+                        <Text style={styles.heroBadgeText}>SECOND MUMA</Text>
                     </View>
                     <Text style={styles.heroTitle}>
                         Your baby's health,{'\n'}our top priority <Icon name="heart" size={18} color="#FFD54F" solid />
                     </Text>
-                    <Text style={styles.heroSub}>Track, monitor &amp; care — all in one place</Text>
+                    <Text style={styles.heroSub}>Track, monitor & care — all in one place</Text>
                 </View>
 
                 {/* ── Packages Section ── */}
@@ -146,7 +138,29 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                     <Text style={styles.sectionSub}>Choose a plan that works best for you</Text>
                 </View>
 
-                {(packages.length > 0 ? packages : PACKAGE_CARDS).map(pkg => (
+                {/* Loading skeletons */}
+                {isLoading && (
+                    <>
+                        <PackageSkeleton />
+                        <PackageSkeleton />
+                        <PackageSkeleton />
+                    </>
+                )}
+
+                {/* Fetch error */}
+                {!isLoading && fetchError && (
+                    <View style={styles.errorBox}>
+                        <Icon name="wifi" size={32} color={Colors.BORDER} style={{ marginBottom: 12 }} />
+                        <Text style={styles.errorTitle}>Couldn't load packages</Text>
+                        <Text style={styles.errorSub}>Check your connection and try again</Text>
+                        <TouchableOpacity style={styles.retryBtn} onPress={fetchPackages} activeOpacity={0.8}>
+                            <Text style={styles.retryText}>Retry</Text>
+                        </TouchableOpacity>
+                    </View>
+                )}
+
+                {/* BE package cards */}
+                {!isLoading && !fetchError && packages.map(pkg => (
                     <TouchableOpacity
                         key={pkg.type}
                         style={[styles.pkgCard, { borderTopColor: pkg.accentColor }]}
@@ -154,9 +168,10 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                         onPress={() =>
                             navigation.navigate(Routes.PACKAGE_DETAIL, { packageType: pkg.type })
                         }>
+
                         {/* Card Header */}
                         <View style={styles.pkgCardHeader}>
-                            <View style={[styles.pkgEmojiBox, { backgroundColor: pkg.accentColor + '18' }]}>
+                            <View style={[styles.pkgIconBox, { backgroundColor: pkg.accentColor + '18' }]}>
                                 <Icon name={pkg.icon} size={22} color={pkg.accentColor} />
                             </View>
                             <View style={styles.pkgTitleBlock}>
@@ -170,7 +185,10 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                             {pkg.features.map(f => (
                                 <View
                                     key={f}
-                                    style={[styles.pkgPill, { backgroundColor: pkg.accentColor + '14', borderColor: pkg.accentColor + '33' }]}>
+                                    style={[styles.pkgPill, {
+                                        backgroundColor: pkg.accentColor + '14',
+                                        borderColor: pkg.accentColor + '33',
+                                    }]}>
                                     <Text style={[styles.pkgPillText, { color: pkg.accentColor }]}>{f}</Text>
                                 </View>
                             ))}
@@ -186,58 +204,12 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                                 </Text>
                             </View>
                             <View style={[styles.pkgCta, { backgroundColor: pkg.accentColor }]}>
-                                <Text style={styles.pkgCtaText}>View Plans →</Text>
+                                <Text style={styles.pkgCtaText}>View Plans</Text>
                             </View>
                         </View>
                     </TouchableOpacity>
                 ))}
 
-                {/* Info Card */}
-                <View style={styles.card}>
-                    <Text style={styles.cardHeader}>Account Details</Text>
-                    <View style={styles.cardRow}>
-                        <Text style={styles.cardLabel}>Mobile</Text>
-                        <Text style={styles.cardValue}>+91 {user?.mobile ?? '—'}</Text>
-                    </View>
-                    <View style={styles.divider} />
-                    <View style={styles.cardRow}>
-                        <Text style={styles.cardLabel}>User ID</Text>
-                        <Text style={styles.cardValue}>{user?.id ?? '—'}</Text>
-                    </View>
-                </View>
-
-                {/* Quick Actions */}
-                <Text style={styles.quickTitle}>Quick Actions</Text>
-                <View style={styles.tileGrid}>
-                    {[
-                        { label: 'Profile', icon: 'user' },
-                        { label: 'Baby Tracker', icon: 'baby' },
-                        { label: 'Appointments', icon: 'calendar-alt' },
-                        { label: 'Support', icon: 'comments' },
-                    ].map(item => (
-                        <TouchableOpacity
-                            key={item.label}
-                            style={styles.tile}
-                            activeOpacity={0.75}
-                            onPress={() => {
-                                if (item.label === 'Profile') {
-                                    navigation.navigate(Routes.PROFILE);
-                                }
-                            }}
-                        >
-                            <Icon name={item.icon} size={24} color={Colors.PRIMARY} style={{ marginBottom: 8 }} />
-                            <Text style={styles.tileText}>{item.label}</Text>
-                        </TouchableOpacity>
-                    ))}
-                </View>
-
-                {/* Logout */}
-                <TouchableOpacity
-                    style={styles.logoutBtn}
-                    onPress={handleLogout}
-                    activeOpacity={0.8}>
-                    <Text style={styles.logoutText}>Sign Out</Text>
-                </TouchableOpacity>
             </ScrollView>
         </SafeAreaView>
     );
@@ -330,7 +302,81 @@ const styles = StyleSheet.create({
         marginTop: 3,
     },
 
-    // Package cards
+    // ── Skeleton loader ──────────────────────────────────────────────────────────
+    skeletonCard: {
+        backgroundColor: Colors.SURFACE,
+        borderRadius: 18,
+        borderWidth: 1,
+        borderColor: Colors.BORDER,
+        borderTopWidth: 4,
+        borderTopColor: Colors.DIVIDER,
+        padding: 18,
+        marginBottom: 16,
+    },
+    skeletonRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 14,
+        gap: 12,
+    },
+    skeletonIcon: {
+        width: 52,
+        height: 52,
+        borderRadius: 16,
+        backgroundColor: Colors.DIVIDER,
+    },
+    skeletonLines: { flex: 1 },
+    skeletonLine: {
+        height: 12,
+        borderRadius: 6,
+        backgroundColor: Colors.DIVIDER,
+    },
+    skeletonPills: {
+        flexDirection: 'row',
+        gap: 8,
+        marginBottom: 14,
+    },
+    skeletonPill: {
+        height: 22,
+        width: 90,
+        borderRadius: 20,
+        backgroundColor: Colors.DIVIDER,
+    },
+
+    // ── Error state ──────────────────────────────────────────────────────────────
+    errorBox: {
+        alignItems: 'center',
+        paddingVertical: 48,
+        backgroundColor: Colors.SURFACE,
+        borderRadius: 18,
+        borderWidth: 1,
+        borderColor: Colors.BORDER,
+        marginBottom: 16,
+    },
+    errorTitle: {
+        fontSize: 15,
+        fontWeight: '700',
+        color: Colors.TEXT_PRIMARY,
+        marginBottom: 4,
+    },
+    errorSub: {
+        fontSize: 13,
+        color: Colors.TEXT_SECONDARY,
+        marginBottom: 20,
+    },
+    retryBtn: {
+        paddingHorizontal: 28,
+        paddingVertical: 10,
+        backgroundColor: Colors.PRIMARY,
+        borderRadius: 12,
+    },
+    retryText: {
+        color: Colors.WHITE,
+        fontSize: 13,
+        fontWeight: '700',
+    },
+
+    // ── Package cards ────────────────────────────────────────────────────────────
     pkgCard: {
         backgroundColor: Colors.SURFACE,
         borderRadius: 18,
@@ -351,14 +397,13 @@ const styles = StyleSheet.create({
         marginBottom: 14,
         gap: 12,
     },
-    pkgEmojiBox: {
+    pkgIconBox: {
         width: 52,
         height: 52,
         borderRadius: 16,
         justifyContent: 'center',
         alignItems: 'center',
     },
-    pkgEmoji: { fontSize: 26 },
     pkgTitleBlock: { flex: 1 },
     pkgTitle: {
         fontSize: 16,
@@ -390,7 +435,7 @@ const styles = StyleSheet.create({
         fontWeight: '600',
     },
 
-    // Footer
+    // Card footer
     pkgFooter: {
         flexDirection: 'row',
         justifyContent: 'space-between',
@@ -418,85 +463,6 @@ const styles = StyleSheet.create({
     pkgCtaText: {
         color: Colors.WHITE,
         fontSize: 13,
-        fontWeight: '700',
-    },
-
-    // Account card
-    card: {
-        backgroundColor: Colors.SURFACE,
-        borderRadius: 16,
-        padding: 16,
-        marginBottom: 24,
-        marginTop: 4,
-        borderWidth: 1,
-        borderColor: Colors.BORDER,
-    },
-    cardHeader: {
-        fontSize: 13,
-        fontWeight: '700',
-        color: Colors.TEXT_SECONDARY,
-        marginBottom: 12,
-        textTransform: 'uppercase',
-        letterSpacing: 0.8,
-    },
-    cardRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingVertical: 4,
-    },
-    cardLabel: { color: Colors.TEXT_HINT, fontSize: 13 },
-    cardValue: { color: Colors.TEXT_PRIMARY, fontSize: 14, fontWeight: '600' },
-    divider: {
-        height: 1,
-        backgroundColor: Colors.DIVIDER,
-        marginVertical: 10,
-    },
-
-    // Quick actions
-    quickTitle: {
-        color: Colors.TEXT_SECONDARY,
-        fontSize: 12,
-        fontWeight: '700',
-        marginBottom: 12,
-        textTransform: 'uppercase',
-        letterSpacing: 1,
-    },
-    tileGrid: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 12,
-        marginBottom: 32,
-    },
-    tile: {
-        width: '47%',
-        backgroundColor: Colors.SURFACE,
-        borderRadius: 16,
-        paddingVertical: 20,
-        alignItems: 'center',
-        borderWidth: 1,
-        borderColor: Colors.BORDER,
-    },
-    tileEmoji: { fontSize: 26, marginBottom: 8 },
-    tileText: {
-        color: Colors.TEXT_PRIMARY,
-        fontSize: 13,
-        fontWeight: '600',
-    },
-
-    // Logout
-    logoutBtn: {
-        height: 50,
-        borderRadius: 14,
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderWidth: 1.5,
-        borderColor: Colors.ERROR,
-        backgroundColor: '#FFF5F5',
-    },
-    logoutText: {
-        color: Colors.ERROR,
-        fontSize: 15,
         fontWeight: '700',
     },
 });

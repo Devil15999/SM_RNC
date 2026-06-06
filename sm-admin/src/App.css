@@ -469,6 +469,12 @@
   gap: 16px;
 }
 
+.grid-3-col {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 15px;
+}
+
 /* Log-in Styling */
 .login-wrapper {
   min-height: 100vh;
