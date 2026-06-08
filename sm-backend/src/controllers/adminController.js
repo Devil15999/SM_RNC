@@ -1,10 +1,12 @@
 'use strict';
 
 const User = require('../models/User');
+const Employee = require('../models/Employee');
 const Order = require('../models/Order');
 const Payment = require('../models/Payment');
 const Address = require('../models/Address');
 const Package = require('../models/Package');
+const Appointment = require('../models/Appointment');
 
 /**
  * GET /api/admin/stats
@@ -12,7 +14,9 @@ const Package = require('../models/Package');
  */
 const getStats = async (req, res, next) => {
     try {
-        const totalUsers = await User.countDocuments();
+        const totalUsers = await User.countDocuments({ role: 'user' });
+        const totalEmployees = await Employee.countDocuments();
+        const totalAppointments = await Appointment.countDocuments();
         const totalOrders = await Order.countDocuments();
         const activeOrders = await Order.countDocuments({ status: 'active' });
 
@@ -69,6 +73,8 @@ const getStats = async (req, res, next) => {
             data: {
                 metrics: {
                     totalUsers,
+                    totalEmployees,
+                    totalAppointments,
                     totalOrders,
                     activeOrders,
                     totalRevenue,
@@ -526,6 +532,197 @@ const deletePackage = async (req, res, next) => {
     }
 };
 
+/**
+ * GET /api/admin/employees
+ * List all employees with filters.
+ */
+const getEmployees = async (req, res, next) => {
+    try {
+        const { search, isVerifiedEmployee } = req.query;
+        let filter = {};
+
+        if (search) {
+            filter.$or = [
+                { name: { $regex: search, $options: 'i' } },
+                { email: { $regex: search, $options: 'i' } },
+                { mobile: { $regex: search, $options: 'i' } }
+            ];
+        }
+
+        if (isVerifiedEmployee !== undefined && isVerifiedEmployee !== '') {
+            filter.isVerifiedEmployee = isVerifiedEmployee === 'true';
+        }
+
+        const employees = await Employee.find(filter).sort({ createdAt: -1 });
+        res.status(200).json({ success: true, data: employees });
+    } catch (err) {
+        next(err);
+    }
+};
+
+/**
+ * PUT /api/admin/employees/:id/approve
+ * Approve/Verify an employee.
+ */
+const approveEmployee = async (req, res, next) => {
+    try {
+        const { isVerifiedEmployee } = req.body;
+        const employee = await Employee.findById(req.params.id);
+
+        if (!employee) {
+            return res.status(404).json({ success: false, message: 'Employee not found' });
+        }
+
+        employee.isVerifiedEmployee = isVerifiedEmployee !== undefined ? isVerifiedEmployee : true;
+        if (employee.isVerifiedEmployee) {
+            employee.isVerified = true;
+        }
+        await employee.save();
+
+        res.status(200).json({
+            success: true,
+            message: `Employee approval status updated to ${employee.isVerifiedEmployee}`,
+            data: employee
+        });
+    } catch (err) {
+        next(err);
+    }
+};
+
+/**
+ * GET /api/admin/appointments
+ * Retrieve all appointments.
+ */
+const getAdminAppointments = async (req, res, next) => {
+    try {
+        const { search, status } = req.query;
+        let filter = {};
+
+        if (status) {
+            filter.status = status;
+        }
+
+        if (search) {
+            const matchedEmployees = await Employee.find({
+                name: { $regex: search, $options: 'i' }
+            }).select('_id');
+            const employeeIds = matchedEmployees.map(e => e._id);
+
+            filter.$or = [
+                { customerName: { $regex: search, $options: 'i' } },
+                { customerMobile: { $regex: search, $options: 'i' } },
+                { assignedEmployee: { $in: employeeIds } }
+            ];
+        }
+
+        const appointments = await Appointment.find(filter)
+            .populate('assignedEmployee', 'name email mobile occupation userPhoto')
+            .sort({ dateTime: -1 });
+
+        res.status(200).json({ success: true, data: appointments });
+    } catch (err) {
+        next(err);
+    }
+};
+
+/**
+ * POST /api/admin/appointments
+ * Create and assign an appointment. Generates a random 6-digit OTP.
+ */
+const createAppointment = async (req, res, next) => {
+    try {
+        const { customerName, customerMobile, customerAddress, dateTime, details, assignedEmployee } = req.body;
+
+        if (!customerName || !customerMobile || !customerAddress || !dateTime) {
+            return res.status(400).json({ success: false, message: 'Required fields missing' });
+        }
+
+        if (assignedEmployee) {
+            const employee = await Employee.findById(assignedEmployee);
+            if (!employee) {
+                return res.status(400).json({ success: false, message: 'Assigned user must be an employee' });
+            }
+            if (!employee.isVerifiedEmployee) {
+                return res.status(400).json({ success: false, message: 'Assigned employee is not approved yet' });
+            }
+        }
+
+        const otp = String(Math.floor(100000 + Math.random() * 900000));
+
+        const appointment = await Appointment.create({
+            customerName,
+            customerMobile,
+            customerAddress,
+            dateTime,
+            details: details || '',
+            assignedEmployee: assignedEmployee || null,
+            otp,
+            status: 'pending'
+        });
+
+        res.status(201).json({ success: true, message: 'Appointment created and assigned successfully', data: appointment });
+    } catch (err) {
+        next(err);
+    }
+};
+
+/**
+ * PUT /api/admin/appointments/:id
+ * Update appointment details.
+ */
+const updateAppointment = async (req, res, next) => {
+    try {
+        const { customerName, customerMobile, customerAddress, dateTime, details, assignedEmployee, status } = req.body;
+        const appointment = await Appointment.findById(req.params.id);
+
+        if (!appointment) {
+            return res.status(404).json({ success: false, message: 'Appointment not found' });
+        }
+
+        if (customerName !== undefined) appointment.customerName = customerName;
+        if (customerMobile !== undefined) appointment.customerMobile = customerMobile;
+        if (customerAddress !== undefined) appointment.customerAddress = customerAddress;
+        if (dateTime !== undefined) appointment.dateTime = dateTime;
+        if (details !== undefined) appointment.details = details;
+        if (status !== undefined) appointment.status = status;
+
+        if (assignedEmployee !== undefined) {
+            if (assignedEmployee) {
+                const employee = await Employee.findById(assignedEmployee);
+                if (!employee) {
+                    return res.status(400).json({ success: false, message: 'Assigned user must be an employee' });
+                }
+                appointment.assignedEmployee = assignedEmployee;
+            } else {
+                appointment.assignedEmployee = null;
+            }
+        }
+
+        await appointment.save();
+        res.status(200).json({ success: true, message: 'Appointment updated successfully', data: appointment });
+    } catch (err) {
+        next(err);
+    }
+};
+
+/**
+ * DELETE /api/admin/appointments/:id
+ * Delete appointment.
+ */
+const deleteAppointment = async (req, res, next) => {
+    try {
+        const appointment = await Appointment.findById(req.params.id);
+        if (!appointment) {
+            return res.status(404).json({ success: false, message: 'Appointment not found' });
+        }
+
+        await Appointment.findByIdAndDelete(req.params.id);
+        res.status(200).json({ success: true, message: 'Appointment deleted successfully' });
+    } catch (err) {
+        next(err);
+    }
+};
+
 module.exports = {
     getStats,
     getUsers,
@@ -539,6 +736,12 @@ module.exports = {
     getAdminPackages,
     createPackage,
     updatePackage,
-    deletePackage
+    deletePackage,
+    getEmployees,
+    approveEmployee,
+    getAdminAppointments,
+    createAppointment,
+    updateAppointment,
+    deleteAppointment
 };
 

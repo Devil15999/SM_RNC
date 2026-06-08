@@ -2,6 +2,7 @@
 
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const Employee = require('../models/Employee');
 
 /**
  * Verifies the Bearer JWT from the Authorization header.
@@ -17,7 +18,10 @@ const protect = async (req, res, next) => {
         const token = authHeader.split(' ')[1];
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-        const user = await User.findById(decoded.id).select('-__v');
+        let user = await User.findById(decoded.id).select('-__v');
+        if (!user) {
+            user = await Employee.findById(decoded.id).select('-__v');
+        }
         if (!user) {
             return res.status(401).json({ success: false, message: 'User not found – token invalid' });
         }

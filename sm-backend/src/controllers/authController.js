@@ -3,8 +3,10 @@
 const jwt = require('jsonwebtoken');
 const { validationResult } = require('express-validator');
 const User = require('../models/User');
+const Employee = require('../models/Employee');
 const OTP = require('../models/OTP');
 const { createError } = require('../middleware/errorHandler');
+const { saveBase64Image } = require('../utils/uploadHelper');
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -170,10 +172,13 @@ const verifyOtp = async (req, res, next) => {
         // OTP matched — mark used
         await otpRecord.markUsed();
 
-        // Find or create the user
-        let user = await User.findOne({ mobile });
+        // Find or create the user (checking Employee first, then User)
+        let user = await Employee.findOne({ mobile });
         if (!user) {
-            user = await User.create({ mobile });
+            user = await User.findOne({ mobile });
+            if (!user) {
+                user = await User.create({ mobile });
+            }
         }
         user.isVerified = true;
         await user.save();
@@ -190,6 +195,12 @@ const verifyOtp = async (req, res, next) => {
                 email: user.email,
                 mobile: user.mobile,
                 token,
+                role: user.role,
+                occupation: user.occupation,
+                address: user.address,
+                userPhoto: user.userPhoto,
+                isVerifiedEmployee: user.isVerifiedEmployee,
+                aadharNumber: user.aadharNumber,
             },
         });
     } catch (err) {
@@ -299,4 +310,228 @@ const adminLogin = async (req, res, next) => {
     }
 };
 
-module.exports = { sendOtp, register, verifyOtp, logout, resendOtp, adminLogin };
+/**
+ * POST /api/auth/employee/register
+ * Body: { name, email, mobile, password, address, occupation, aadharNumber, aadharPhoto, userPhoto, certificatesPhoto }
+ */
+const employeeRegister = async (req, res, next) => {
+    try {
+        const { name, email, mobile, password, address, occupation, aadharNumber, aadharPhoto, userPhoto, certificatesPhoto } = req.body;
+
+        if (!mobile || !password || !name || !email || !address || !occupation || !aadharNumber || !aadharPhoto || !userPhoto) {
+            return res.status(400).json({ success: false, message: 'All mandatory fields and photos are required' });
+        }
+
+        // Check if employee already exists
+        const existing = await Employee.findOne({ mobile });
+        if (existing && existing.isVerified) {
+            return res.status(409).json({
+                success: false,
+                message: 'Mobile number already registered. Please log in.',
+            });
+        }
+
+        // Save base64 images to local public directory and get URLs
+        const aadharPhotoUrl = saveBase64Image(aadharPhoto, 'aadhar');
+        const userPhotoUrl = saveBase64Image(userPhoto, 'avatars');
+        const certificatesPhotoUrl = certificatesPhoto ? saveBase64Image(certificatesPhoto, 'certificates') : '';
+
+        // Upsert or create employee shell
+        const employeeData = {
+            name: name.trim(),
+            email: email.trim().toLowerCase(),
+            mobile,
+            password, // Pre-save hook will hash this!
+            role: 'employee',
+            occupation: occupation.trim(),
+            address: address.trim(),
+            aadharNumber: aadharNumber.trim(),
+            aadharPhoto: aadharPhotoUrl,
+            userPhoto: userPhotoUrl,
+            certificatesPhoto: certificatesPhotoUrl,
+            isVerifiedEmployee: false, // Must be approved by admin
+            isVerified: false // Mobile OTP verification pending
+        };
+
+        let user = await Employee.findOne({ mobile });
+        if (user) {
+            user.name = name.trim();
+            user.email = email.trim().toLowerCase();
+            user.password = password;
+            user.role = 'employee';
+            user.occupation = occupation.trim();
+            user.address = address.trim();
+            user.aadharNumber = aadharNumber.trim();
+            user.aadharPhoto = aadharPhotoUrl;
+            user.userPhoto = userPhotoUrl;
+            user.certificatesPhoto = certificatesPhotoUrl;
+            user.isVerifiedEmployee = false;
+            user.isVerified = false;
+            await user.save();
+        } else {
+            await Employee.create(employeeData);
+        }
+
+        // Send OTP
+        await OTP.deleteMany({ mobile, used: false });
+        const otp = generateOTP();
+        const expiryMinutes = parseInt(process.env.OTP_EXPIRY_MINUTES || '10', 10);
+        await OTP.create({
+            mobile,
+            otp,
+            expiresAt: new Date(Date.now() + expiryMinutes * 60 * 1000),
+        });
+        await sendOTPViaSMS(mobile, otp);
+
+        res.status(200).json({
+            success: true,
+            message: `OTP sent to +91 ${mobile}. Please verify to complete registration.`,
+            ...(process.env.NODE_ENV === 'development' && { otp }),
+        });
+    } catch (err) {
+        next(err);
+    }
+};
+
+/**
+ * POST /api/auth/employee/login
+ * Body: { mobile, password }
+ */
+const employeeLogin = async (req, res, next) => {
+    try {
+        const { mobile, password } = req.body;
+        if (!mobile || !password) {
+            return res.status(400).json({ success: false, message: 'Mobile and password are required' });
+        }
+
+        const user = await Employee.findOne({ mobile }).select('+password');
+        if (!user) {
+            return res.status(401).json({ success: false, message: 'Invalid credentials' });
+        }
+
+        if (user.role !== 'employee') {
+            return res.status(403).json({ success: false, message: 'Access denied: Not an employee account' });
+        }
+
+        // Check if mobile OTP was verified
+        if (!user.isVerified) {
+            return res.status(403).json({ success: false, message: 'Mobile number not verified' });
+        }
+
+        // Check if approved by admin
+        if (!user.isVerifiedEmployee) {
+            return res.status(403).json({ success: false, message: 'Account pending admin approval. Please check back later.' });
+        }
+
+        const isMatch = await user.comparePassword(password);
+        if (!isMatch) {
+            return res.status(401).json({ success: false, message: 'Invalid credentials' });
+        }
+
+        const token = signToken(user._id);
+
+        res.status(200).json({
+            success: true,
+            message: 'Logged in successfully',
+            token,
+            user: {
+                id: user._id,
+                name: user.name,
+                email: user.email,
+                mobile: user.mobile,
+                role: user.role,
+                occupation: user.occupation,
+                address: user.address,
+                userPhoto: user.userPhoto,
+                isVerifiedEmployee: user.isVerifiedEmployee
+            }
+        });
+    } catch (err) {
+        next(err);
+    }
+};
+
+/**
+ * POST /api/auth/employee/forgot-password
+ * Body: { mobile }
+ */
+const employeeForgotPassword = async (req, res, next) => {
+    try {
+        const { mobile } = req.body;
+        if (!mobile) {
+            return res.status(400).json({ success: false, message: 'Mobile number is required' });
+        }
+
+        const user = await Employee.findOne({ mobile });
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'No employee account found with this mobile number' });
+        }
+
+        // Send OTP
+        await OTP.deleteMany({ mobile, used: false });
+        const otp = generateOTP();
+        const expiryMinutes = parseInt(process.env.OTP_EXPIRY_MINUTES || '10', 10);
+        await OTP.create({
+            mobile,
+            otp,
+            expiresAt: new Date(Date.now() + expiryMinutes * 60 * 1000),
+        });
+        await sendOTPViaSMS(mobile, otp);
+
+        res.status(200).json({
+            success: true,
+            message: `OTP sent to +91 ${mobile}`,
+            ...(process.env.NODE_ENV === 'development' && { otp }),
+        });
+    } catch (err) {
+        next(err);
+    }
+};
+
+/**
+ * POST /api/auth/employee/reset-password
+ * Body: { mobile, otp, newPassword }
+ */
+const employeeResetPassword = async (req, res, next) => {
+    try {
+        const { mobile, otp, newPassword } = req.body;
+        if (!mobile || !otp || !newPassword) {
+            return res.status(400).json({ success: false, message: 'All fields are required' });
+        }
+
+        // Verify OTP
+        const otpRecord = await OTP.findOne({ mobile, used: false }).sort({ createdAt: -1 });
+        if (!otpRecord) {
+            return res.status(400).json({ success: false, message: 'No active OTP found. Please request a new one.' });
+        }
+
+        if (new Date() > otpRecord.expiresAt) {
+            await otpRecord.deleteOne();
+            return res.status(400).json({ success: false, message: 'OTP has expired.' });
+        }
+
+        if (otpRecord.otp !== otp) {
+            return res.status(400).json({ success: false, message: 'Incorrect OTP.' });
+        }
+
+        await otpRecord.markUsed();
+
+        const user = await Employee.findOne({ mobile });
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'Employee not found.' });
+        }
+
+        user.password = newPassword;
+        user.isVerified = true; // Mark verified if it wasn't
+        await user.save();
+
+        res.status(200).json({
+            success: true,
+            message: 'Password reset successfully. Please log in with your new password.',
+        });
+    } catch (err) {
+        next(err);
+    }
+};
+
+module.exports = { sendOtp, register, verifyOtp, logout, resendOtp, adminLogin, employeeRegister, employeeLogin, employeeForgotPassword, employeeResetPassword };

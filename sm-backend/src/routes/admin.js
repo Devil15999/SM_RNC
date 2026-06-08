@@ -15,7 +15,13 @@ const {
     getAdminPackages,
     createPackage,
     updatePackage,
-    deletePackage
+    deletePackage,
+    getEmployees,
+    approveEmployee,
+    getAdminAppointments,
+    createAppointment,
+    updateAppointment,
+    deleteAppointment
 } = require('../controllers/adminController');
 
 const router = express.Router();
@@ -113,5 +119,47 @@ router.put('/packages/:id', updatePackage);
  * @access  Private (Admin)
  */
 router.delete('/packages/:id', deletePackage);
+
+/**
+ * @route   GET /api/admin/employees
+ * @desc    Get employees list
+ * @access  Private (Admin)
+ */
+router.get('/employees', getEmployees);
+
+/**
+ * @route   PUT /api/admin/employees/:id/approve
+ * @desc    Approve/verify an employee profile
+ * @access  Private (Admin)
+ */
+router.put('/employees/:id/approve', approveEmployee);
+
+/**
+ * @route   GET /api/admin/appointments
+ * @desc    Get all appointments list
+ * @access  Private (Admin)
+ */
+router.get('/appointments', getAdminAppointments);
+
+/**
+ * @route   POST /api/admin/appointments
+ * @desc    Create/assign an appointment
+ * @access  Private (Admin)
+ */
+router.post('/appointments', createAppointment);
+
+/**
+ * @route   PUT /api/admin/appointments/:id
+ * @desc    Update appointment details
+ * @access  Private (Admin)
+ */
+router.put('/appointments/:id', updateAppointment);
+
+/**
+ * @route   DELETE /api/admin/appointments/:id
+ * @desc    Delete appointment
+ * @access  Private (Admin)
+ */
+router.delete('/appointments/:id', deleteAppointment);
 
 module.exports = router;

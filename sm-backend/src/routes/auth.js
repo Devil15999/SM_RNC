@@ -2,7 +2,7 @@
 
 const express = require('express');
 const { body } = require('express-validator');
-const { sendOtp, register, verifyOtp, logout, resendOtp, adminLogin } = require('../controllers/authController');
+const { sendOtp, register, verifyOtp, logout, resendOtp, adminLogin, employeeRegister, employeeLogin, employeeForgotPassword, employeeResetPassword } = require('../controllers/authController');
 const { protect } = require('../middleware/auth');
 
 const router = express.Router();
@@ -75,5 +75,33 @@ router.post(
  * @access  Protected
  */
 router.post('/logout', protect, logout);
+
+/**
+ * @route   POST /api/auth/employee/register
+ * @desc    Register a new employee
+ * @access  Public
+ */
+router.post('/employee/register', employeeRegister);
+
+/**
+ * @route   POST /api/auth/employee/login
+ * @desc    Login employee with mobile + password
+ * @access  Public
+ */
+router.post('/employee/login', employeeLogin);
+
+/**
+ * @route   POST /api/auth/employee/forgot-password
+ * @desc    Send password reset OTP
+ * @access  Public
+ */
+router.post('/employee/forgot-password', employeeForgotPassword);
+
+/**
+ * @route   POST /api/auth/employee/reset-password
+ * @desc    Reset password using OTP
+ * @access  Public
+ */
+router.post('/employee/reset-password', employeeResetPassword);
 
 module.exports = router;
