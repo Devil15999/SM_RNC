@@ -421,11 +421,6 @@ const employeeLogin = async (req, res, next) => {
             return res.status(403).json({ success: false, message: 'Mobile number not verified' });
         }
 
-        // Check if approved by admin
-        if (!user.isVerifiedEmployee) {
-            return res.status(403).json({ success: false, message: 'Account pending admin approval. Please check back later.' });
-        }
-
         const isMatch = await user.comparePassword(password);
         if (!isMatch) {
             return res.status(401).json({ success: false, message: 'Invalid credentials' });
