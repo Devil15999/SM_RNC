@@ -4,7 +4,6 @@ import {
     Alert,
     KeyboardAvoidingView,
     Platform,
-    SafeAreaView,
     ScrollView,
     StatusBar,
     StyleSheet,
@@ -13,6 +12,7 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import { RootStackParamList } from '../../types/navigation';
@@ -545,11 +545,11 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                                     return (
                                         <View key={order._id} style={styles.orderCard}>
                                             <View style={styles.orderHeader}>
-                                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                                <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 12 }}>
                                                     <View style={[styles.orderIconBox, { backgroundColor: details.color + '14' }]}>
                                                         <Icon name={details.icon} size={15} color={details.color} />
                                                     </View>
-                                                    <View style={{ marginLeft: 10 }}>
+                                                    <View style={{ marginLeft: 10, flex: 1 }}>
                                                         <Text style={styles.orderTitle}>{details.label}</Text>
                                                         <Text style={styles.orderPlan}>{getPlanLabel(order.planKey)} Plan</Text>
                                                     </View>

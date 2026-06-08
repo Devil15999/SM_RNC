@@ -11,6 +11,7 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../types/navigation';
 import { Routes } from '../../constants/routes';
@@ -160,15 +161,16 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
     };
 
     return (
-        <KeyboardAvoidingView
-            style={styles.flex}
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-            <StatusBar barStyle="dark-content" backgroundColor={Colors.BACKGROUND} />
+        <SafeAreaView style={styles.flex} edges={['top', 'left', 'right']}>
+            <KeyboardAvoidingView
+                style={styles.flex}
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+                <StatusBar barStyle="dark-content" backgroundColor={Colors.BACKGROUND} />
 
-            <ScrollView
-                contentContainerStyle={styles.scroll}
-                keyboardShouldPersistTaps="handled"
-                showsVerticalScrollIndicator={false}>
+                <ScrollView
+                    contentContainerStyle={styles.scroll}
+                    keyboardShouldPersistTaps="handled"
+                    showsVerticalScrollIndicator={false}>
 
                 {/* Back */}
                 <TouchableOpacity
@@ -261,6 +263,7 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
                 </View>
             </ScrollView>
         </KeyboardAvoidingView>
+        </SafeAreaView>
     );
 };
 
@@ -270,7 +273,7 @@ const styles = StyleSheet.create({
     scroll: {
         flexGrow: 1,
         paddingHorizontal: 24,
-        paddingTop: 56,
+        paddingTop: 16,
         paddingBottom: 48,
     },
     backBtn: { marginBottom: 28 },

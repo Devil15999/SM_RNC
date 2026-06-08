@@ -11,6 +11,7 @@ import {
     StatusBar,
     ScrollView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../types/navigation';
 import { Routes } from '../../constants/routes';
@@ -61,15 +62,16 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
     };
 
     return (
-        <KeyboardAvoidingView
-            style={styles.flex}
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-            <StatusBar barStyle="dark-content" backgroundColor={Colors.BACKGROUND} />
+        <SafeAreaView style={styles.flex}>
+            <KeyboardAvoidingView
+                style={styles.flex}
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+                <StatusBar barStyle="dark-content" backgroundColor={Colors.BACKGROUND} />
 
-            <ScrollView
-                contentContainerStyle={styles.container}
-                keyboardShouldPersistTaps="handled"
-                showsVerticalScrollIndicator={false}>
+                <ScrollView
+                    contentContainerStyle={styles.container}
+                    keyboardShouldPersistTaps="handled"
+                    showsVerticalScrollIndicator={false}>
                 {/* Brand Header */}
                 <View style={styles.brandRow}>
                     <View style={styles.logoMini}>
@@ -145,6 +147,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
                 </View>
             </ScrollView>
         </KeyboardAvoidingView>
+        </SafeAreaView>
     );
 };
 

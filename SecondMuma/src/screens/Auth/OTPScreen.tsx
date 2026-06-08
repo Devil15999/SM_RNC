@@ -11,6 +11,7 @@ import {
     View,
     ScrollView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../types/navigation';
 import { Routes } from '../../constants/routes';
@@ -149,15 +150,16 @@ const OTPScreen: React.FC<Props> = ({ navigation, route }) => {
     };
 
     return (
-        <KeyboardAvoidingView
-            style={styles.flex}
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-            <StatusBar barStyle="dark-content" backgroundColor={Colors.BACKGROUND} />
+        <SafeAreaView style={styles.flex} edges={['top', 'left', 'right']}>
+            <KeyboardAvoidingView
+                style={styles.flex}
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+                <StatusBar barStyle="dark-content" backgroundColor={Colors.BACKGROUND} />
 
-            <ScrollView
-                contentContainerStyle={styles.container}
-                keyboardShouldPersistTaps="handled"
-                showsVerticalScrollIndicator={false}>
+                <ScrollView
+                    contentContainerStyle={styles.container}
+                    keyboardShouldPersistTaps="handled"
+                    showsVerticalScrollIndicator={false}>
                 {/* Back */}
                 <TouchableOpacity
                     style={styles.backBtn}
@@ -258,6 +260,7 @@ const OTPScreen: React.FC<Props> = ({ navigation, route }) => {
                 <Text style={styles.hint}>Use OTP: 123456 for testing</Text>
             </ScrollView>
         </KeyboardAvoidingView>
+        </SafeAreaView>
     );
 };
 
@@ -266,7 +269,7 @@ const styles = StyleSheet.create({
     container: {
         flexGrow: 1,
         paddingHorizontal: 24,
-        paddingTop: 56,
+        paddingTop: 16,
     },
     backBtn: { marginBottom: 28 },
     backText: {

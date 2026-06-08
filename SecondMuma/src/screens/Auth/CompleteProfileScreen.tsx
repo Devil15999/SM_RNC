@@ -11,6 +11,7 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../types/navigation';
 import { Colors } from '../../constants/theme';
@@ -98,15 +99,16 @@ const CompleteProfileScreen: React.FC<Props> = ({ route }) => {
     };
 
     return (
-        <KeyboardAvoidingView
-            style={styles.flex}
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-            <StatusBar barStyle="dark-content" backgroundColor={Colors.BACKGROUND} />
+        <SafeAreaView style={styles.flex} edges={['top', 'left', 'right']}>
+            <KeyboardAvoidingView
+                style={styles.flex}
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+                <StatusBar barStyle="dark-content" backgroundColor={Colors.BACKGROUND} />
 
-            <ScrollView
-                contentContainerStyle={styles.container}
-                keyboardShouldPersistTaps="handled"
-                showsVerticalScrollIndicator={false}>
+                <ScrollView
+                    contentContainerStyle={styles.container}
+                    keyboardShouldPersistTaps="handled"
+                    showsVerticalScrollIndicator={false}>
 
                 {/* Header */}
                 <View style={styles.header}>
@@ -193,6 +195,7 @@ const CompleteProfileScreen: React.FC<Props> = ({ route }) => {
                 </TouchableOpacity>
             </ScrollView>
         </KeyboardAvoidingView>
+        </SafeAreaView>
     );
 };
 
@@ -201,7 +204,7 @@ const styles = StyleSheet.create({
     container: {
         flexGrow: 1,
         paddingHorizontal: 24,
-        paddingTop: 56,
+        paddingTop: 16,
         justifyContent: 'center',
     },
     header: { marginBottom: 32, alignItems: 'center' },

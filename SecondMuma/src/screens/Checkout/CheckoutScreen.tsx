@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import {
-    SafeAreaView,
     ScrollView,
     StatusBar,
     StyleSheet,
@@ -11,6 +10,7 @@ import {
     KeyboardAvoidingView,
     Platform,
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import { RootStackParamList } from '../../types/navigation';
@@ -22,6 +22,7 @@ import { API_BASE_URL } from '../../config';
 type Props = NativeStackScreenProps<RootStackParamList, 'Checkout'>;
 
 const CheckoutScreen: React.FC<Props> = ({ navigation, route }) => {
+    const insets = useSafeAreaInsets();
     const { packageType, planKey, packageTitle, planLabel, price, icon, accentColor } = route.params;
 
     const token = useAppSelector(state => state.auth.user?.token);
@@ -136,7 +137,7 @@ const CheckoutScreen: React.FC<Props> = ({ navigation, route }) => {
                     <View style={styles.backBtnPlaceholder} />
                 </View>
 
-                <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+                <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: Math.max(insets.bottom, 16) + 40 }]} showsVerticalScrollIndicator={false}>
 
                     {/* Order Summary */}
                     <Text style={styles.sectionTitle}>Order Summary</Text>
@@ -144,7 +145,7 @@ const CheckoutScreen: React.FC<Props> = ({ navigation, route }) => {
                         <View style={styles.summaryRow}>
                             <View style={styles.summaryLeft}>
                                 <Icon name={icon} size={28} color={accentColor} style={{ marginRight: 12 }} />
-                                <View>
+                                <View style={{ flex: 1 }}>
                                     <Text style={styles.summaryTitle}>{packageTitle}</Text>
                                     <Text style={styles.summaryPlan}>{planLabel} Plan</Text>
                                 </View>
@@ -288,6 +289,8 @@ const styles = StyleSheet.create({
     summaryLeft: {
         flexDirection: 'row',
         alignItems: 'center',
+        flex: 1,
+        marginRight: 16,
     },
     summaryEmoji: { fontSize: 32, marginRight: 12 },
     summaryTitle: { fontSize: 16, fontWeight: '800', color: Colors.TEXT_PRIMARY },

@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import {
-    SafeAreaView,
     ScrollView,
     StatusBar,
     StyleSheet,
@@ -8,6 +7,7 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import { RootStackParamList } from '../../types/navigation';
@@ -237,12 +237,14 @@ const PackageDetailScreen: React.FC<Props> = ({ navigation, route }) => {
     const plan = pkg.plans[selectedPlan];
     const accent = pkg.accentColor;
 
+    const insets = useSafeAreaInsets();
+
     return (
-        <SafeAreaView style={styles.safe}>
-            <StatusBar barStyle="light-content" backgroundColor={accent} />
+        <View style={styles.safe}>
+            <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
 
             {/* Header */}
-            <View style={[styles.header, { backgroundColor: accent }]}>
+            <View style={[styles.header, { backgroundColor: accent, paddingTop: insets.top }]}>
                 <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
                     <Icon name="chevron-left" size={20} color={Colors.WHITE} />
                 </TouchableOpacity>
@@ -350,7 +352,7 @@ const PackageDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                     Secure payment · Cancel anytime · Instant activation
                 </Text>
             </ScrollView>
-        </SafeAreaView>
+        </View>
     );
 };
 
