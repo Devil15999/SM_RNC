@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import Icon from 'react-native-vector-icons/FontAwesome5';
+import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
 import { RootStackParamList } from '../../types/navigation';
 import { Colors } from '../../constants/theme';
 import { useAppDispatch, useAppSelector, logout, updateUser } from '../../store';
@@ -41,11 +42,102 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
     const [addressInput, setAddressInput] = useState(user?.address || '');
     const [permanentAddressInput, setPermanentAddressInput] = useState(user?.permanentAddress || '');
 
+    // Photo editing state
+    const [pendingUserPhoto, setPendingUserPhoto] = useState<string | null>(null);
+    const [isUploadingCerts, setIsUploadingCerts] = useState(false);
+    const [certPhotos, setCertPhotos] = useState<(string | null)[]>([null, null, null]);
+    const [showCertUpload, setShowCertUpload] = useState(false);
+
+    const existingCerts: string[] = Array.isArray(user?.certificatesPhoto)
+        ? user!.certificatesPhoto.filter(Boolean)
+        : [];
+    const hasCertificates = existingCerts.length > 0;
+
     const startEditing = () => {
         setEmailInput(user?.email || '');
         setAddressInput(user?.address || '');
         setPermanentAddressInput(user?.permanentAddress || '');
         setIsEditing(true);
+    };
+
+    // ── Image picker helper ───────────────────────────────────────────────────
+    const pickImage = (onPicked: (base64: string) => void) => {
+        Alert.alert('Select Photo', 'Choose how to add the photo', [
+            {
+                text: 'Camera',
+                onPress: () => launchCamera(
+                    { mediaType: 'photo', includeBase64: true, quality: 0.8 },
+                    (r) => {
+                        if (r.assets?.[0]) {
+                            const a = r.assets[0];
+                            onPicked(`data:${a.type || 'image/jpeg'};base64,${a.base64}`);
+                        }
+                    }
+                ),
+            },
+            {
+                text: 'Gallery',
+                onPress: () => launchImageLibrary(
+                    { mediaType: 'photo', includeBase64: true, quality: 0.8 },
+                    (r) => {
+                        if (r.assets?.[0]) {
+                            const a = r.assets[0];
+                            onPicked(`data:${a.type || 'image/jpeg'};base64,${a.base64}`);
+                        }
+                    }
+                ),
+            },
+            { text: 'Cancel', style: 'cancel' },
+        ]);
+    };
+
+    const handleEditPhoto = () => pickImage((uri) => setPendingUserPhoto(uri));
+
+    const handlePickCert = (index: number) => {
+        pickImage((uri) => {
+            setCertPhotos(prev => {
+                const next = [...prev];
+                next[index] = uri;
+                return next;
+            });
+        });
+    };
+
+    const handleUploadCerts = async () => {
+        const toUpload = certPhotos.filter(Boolean) as string[];
+        if (toUpload.length === 0) {
+            Alert.alert('No Certificates', 'Please select at least one certificate.');
+            return;
+        }
+        setIsUploadingCerts(true);
+        try {
+            const res = await fetch(`${API_BASE_URL}/users/profile`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({ certificatesPhoto: toUpload }),
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                dispatch(updateUser(data.user));
+                const sessionStr = await AsyncStorage.getItem('@session_employee');
+                if (sessionStr) {
+                    const session = JSON.parse(sessionStr);
+                    await AsyncStorage.setItem('@session_employee', JSON.stringify({ ...session, ...data.user }));
+                }
+                setCertPhotos([null, null, null]);
+                setShowCertUpload(false);
+                Alert.alert('Success', 'Certificates uploaded successfully.');
+            } else {
+                Alert.alert('Error', data.message || 'Failed to upload certificates.');
+            }
+        } catch (err) {
+            Alert.alert('Error', 'Network error uploading certificates.');
+        } finally {
+            setIsUploadingCerts(false);
+        }
     };
 
     const handleSave = async () => {
@@ -60,31 +152,31 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
 
         setIsSaving(true);
         try {
+            const body: Record<string, unknown> = {
+                email: emailInput.trim(),
+                address: addressInput.trim(),
+                permanentAddress: permanentAddressInput.trim(),
+            };
+            // If a new avatar was picked, include it
+            if (pendingUserPhoto) body.userPhoto = pendingUserPhoto;
+
             const res = await fetch(`${API_BASE_URL}/users/profile`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
                     Authorization: `Bearer ${token}`,
                 },
-                body: JSON.stringify({
-                    email: emailInput.trim(),
-                    address: addressInput.trim(),
-                    permanentAddress: permanentAddressInput.trim(),
-                }),
+                body: JSON.stringify(body),
             });
             const data = await res.json();
             if (res.ok && data.success) {
-                // Update local redux state
                 dispatch(updateUser(data.user));
-
-                // Update AsyncStorage session details
                 const sessionStr = await AsyncStorage.getItem('@session_employee');
                 if (sessionStr) {
                     const session = JSON.parse(sessionStr);
-                    const updatedSession = { ...session, ...data.user };
-                    await AsyncStorage.setItem('@session_employee', JSON.stringify(updatedSession));
+                    await AsyncStorage.setItem('@session_employee', JSON.stringify({ ...session, ...data.user }));
                 }
-                
+                setPendingUserPhoto(null);
                 setIsEditing(false);
                 Alert.alert('Success', 'Profile updated successfully.');
             } else {
@@ -130,24 +222,33 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
             <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
                 {/* Profile Card */}
                 <View style={styles.profileCard}>
-                    <View style={styles.avatarContainer}>
-                        {user?.userPhoto ? (
-                            <Image 
-                                source={{ uri: getImageUrl(user.userPhoto) || undefined }} 
+                    {/* Avatar with edit overlay */}
+                    <TouchableOpacity
+                        style={styles.avatarContainer}
+                        onPress={handleEditPhoto}
+                        activeOpacity={0.85}
+                    >
+                        {(pendingUserPhoto || user?.userPhoto) ? (
+                            <Image
+                                source={{ uri: pendingUserPhoto ?? getImageUrl(user!.userPhoto) ?? undefined }}
                                 style={styles.avatarImg}
                             />
                         ) : (
-                            <Image 
-                                source={require('../../assets/user.png')} 
+                            <Image
+                                source={require('../../assets/user.png')}
                                 style={styles.avatarImg}
                             />
                         )}
+                        {/* Camera overlay */}
+                        <View style={styles.avatarEditOverlay}>
+                            <Icon name="camera" size={12} color={Colors.WHITE} />
+                        </View>
                         {user?.isVerifiedEmployee && (
                             <View style={styles.verifiedBadge}>
                                 <Icon name="check" size={10} color={Colors.WHITE} />
                             </View>
                         )}
-                    </View>
+                    </TouchableOpacity>
 
                     <Text style={styles.name}>{user?.name ?? 'Employee Name'}</Text>
                     <Text style={styles.occupation}>{user?.occupation ?? 'Care Professional'}</Text>
@@ -270,16 +371,101 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                     )}
                 </View>
 
-                {/* Quick Info Aadhar */}
+                {/* ID & Document Summary */}
                 <View style={styles.detailsCard}>
                     <Text style={styles.cardHeader}>ID & Document Summary</Text>
-                    
+
                     <View style={styles.infoRow}>
                         <Text style={styles.infoLabel}>Aadhar Card</Text>
                         <Text style={[styles.infoValue, { fontFamily: 'monospace', fontWeight: 'bold' }]}>
                             {user?.aadharNumber ? `XXXX XXXX ${user.aadharNumber.slice(-4)}` : '—'}
                         </Text>
                     </View>
+                </View>
+
+                {/* Certificates Card */}
+                <View style={styles.detailsCard}>
+                    <View style={styles.cardHeaderRow}>
+                        <Text style={styles.cardHeader}>Certificates</Text>
+                        {hasCertificates && (
+                            <TouchableOpacity
+                                onPress={() => setShowCertUpload(!showCertUpload)}
+                                style={styles.cardEditBtn}
+                                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                            >
+                                <Icon name={showCertUpload ? 'times' : 'pen'} size={14} color={Colors.PRIMARY} />
+                            </TouchableOpacity>
+                        )}
+                    </View>
+
+                    {/* Show existing certificates */}
+                    {hasCertificates && !showCertUpload ? (
+                        <View style={styles.certGrid}>
+                            {existingCerts.map((cert, idx) => (
+                                <Image
+                                    key={idx}
+                                    source={{ uri: getImageUrl(cert) || undefined }}
+                                    style={styles.certThumb}
+                                    resizeMode="cover"
+                                />
+                            ))}
+                        </View>
+                    ) : null}
+
+                    {/* Upload prompt when no certs OR when editing */}
+                    {(!hasCertificates || showCertUpload) && (
+                        <>
+                            {!hasCertificates && (
+                                <View style={styles.certEmptyBanner}>
+                                    <Icon name="file-alt" size={22} color="#f59e0b" style={{ marginBottom: 8 }} />
+                                    <Text style={styles.certEmptyTitle}>No Certificates Uploaded</Text>
+                                    <Text style={styles.certEmptySubtitle}>
+                                        Upload up to 3 certificates to strengthen your professional profile.
+                                    </Text>
+                                </View>
+                            )}
+
+                            <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
+                                {[0, 1, 2].map((idx) => (
+                                    <TouchableOpacity
+                                        key={idx}
+                                        style={[styles.certSlot, certPhotos[idx] ? styles.certSlotFilled : null]}
+                                        onPress={() => handlePickCert(idx)}
+                                        activeOpacity={0.8}
+                                    >
+                                        {certPhotos[idx] ? (
+                                            <Image
+                                                source={{ uri: certPhotos[idx]! }}
+                                                style={{ width: '100%', height: '100%', borderRadius: 12 }}
+                                                resizeMode="cover"
+                                            />
+                                        ) : (
+                                            <>
+                                                <Icon name="plus" size={16} color={Colors.TEXT_SECONDARY} />
+                                                <Text style={styles.certSlotLabel}>Cert {idx + 1}</Text>
+                                            </>
+                                        )}
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+
+                            <TouchableOpacity
+                                style={[styles.cardSaveBtn, { marginTop: 14, alignSelf: 'stretch' }, isUploadingCerts && { opacity: 0.7 }]}
+                                onPress={handleUploadCerts}
+                                disabled={isUploadingCerts}
+                                activeOpacity={0.85}
+                            >
+                                {isUploadingCerts ? (
+                                    <ActivityIndicator size="small" color={Colors.WHITE} />
+                                ) : (
+                                    <>
+                                        <Icon name="upload" size={13} color={Colors.WHITE} style={{ marginRight: 8 }} />
+                                        <Text style={styles.cardSaveBtnText}>Upload Certificates</Text>
+                                    </>
+                                )}
+                            </TouchableOpacity>
+                        </>
+                    )}
                 </View>
 
 
@@ -365,6 +551,19 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         borderWidth: 2,
+        borderColor: Colors.WHITE,
+    },
+    avatarEditOverlay: {
+        position: 'absolute',
+        bottom: 2,
+        left: 2,
+        backgroundColor: 'rgba(0,0,0,0.55)',
+        width: 26,
+        height: 26,
+        borderRadius: 13,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1.5,
         borderColor: Colors.WHITE,
     },
     name: {
@@ -514,6 +713,62 @@ const styles = StyleSheet.create({
         color: Colors.WHITE,
         fontSize: 13,
         fontWeight: '700',
+    },
+    // ── Certificates ────────────────────────────────────────────────────────
+    certGrid: {
+        flexDirection: 'row',
+        gap: 8,
+        marginTop: 4,
+    },
+    certThumb: {
+        flex: 1,
+        height: 90,
+        borderRadius: 12,
+        backgroundColor: Colors.SURFACE,
+    },
+    certEmptyBanner: {
+        alignItems: 'center',
+        paddingVertical: 16,
+        paddingHorizontal: 8,
+        backgroundColor: 'rgba(245, 158, 11, 0.06)',
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: 'rgba(245, 158, 11, 0.2)',
+        marginBottom: 4,
+    },
+    certEmptyTitle: {
+        fontSize: 13,
+        fontWeight: '700',
+        color: '#d97706',
+        marginBottom: 4,
+    },
+    certEmptySubtitle: {
+        fontSize: 11,
+        color: Colors.TEXT_SECONDARY,
+        textAlign: 'center',
+        lineHeight: 16,
+    },
+    certSlot: {
+        flex: 1,
+        height: 90,
+        borderRadius: 12,
+        borderWidth: 1.5,
+        borderColor: Colors.BORDER,
+        borderStyle: 'dashed',
+        backgroundColor: Colors.SURFACE,
+        justifyContent: 'center',
+        alignItems: 'center',
+        overflow: 'hidden',
+    },
+    certSlotFilled: {
+        borderStyle: 'solid',
+        borderColor: Colors.PRIMARY,
+    },
+    certSlotLabel: {
+        fontSize: 10,
+        color: Colors.TEXT_SECONDARY,
+        marginTop: 4,
+        fontWeight: '600',
     },
 });
 

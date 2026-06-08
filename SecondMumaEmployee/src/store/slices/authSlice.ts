@@ -14,6 +14,7 @@ export interface User {
     userPhoto?: string;
     aadharNumber?: string;
     isVerifiedEmployee?: boolean;
+    certificatesPhoto?: string[];
 }
 
 interface AuthState {

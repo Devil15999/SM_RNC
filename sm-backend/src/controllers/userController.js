@@ -4,6 +4,7 @@ const { validationResult } = require('express-validator');
 const User = require('../models/User');
 const Employee = require('../models/Employee');
 const { createError } = require('../middleware/errorHandler');
+const { saveBase64Image } = require('../utils/uploadHelper');
 
 /**
  * GET /api/users/profile
@@ -54,13 +55,24 @@ const updateProfile = async (req, res, next) => {
             return res.status(400).json({ success: false, errors: errors.array() });
         }
 
-        const { name, email, avatar, address, permanentAddress } = req.body;
+        const { name, email, avatar, address, permanentAddress, userPhoto, certificatesPhoto } = req.body;
         const updates = {};
         if (name !== undefined) updates.name = name.trim();
         if (email !== undefined) updates.email = email.trim().toLowerCase();
         if (avatar !== undefined) updates.avatar = avatar;
         if (address !== undefined) updates.address = address.trim();
         if (permanentAddress !== undefined) updates.permanentAddress = permanentAddress.trim();
+
+        // Photo updates (employees only)
+        if (userPhoto !== undefined) {
+            updates.userPhoto = saveBase64Image(userPhoto, 'avatars');
+        }
+        if (certificatesPhoto !== undefined && Array.isArray(certificatesPhoto)) {
+            updates.certificatesPhoto = certificatesPhoto
+                .slice(0, 3)
+                .filter(Boolean)
+                .map(img => saveBase64Image(img, 'certificates'));
+        }
 
         let updatedUser;
         if (req.user.role === 'employee') {
@@ -95,6 +107,7 @@ const updateProfile = async (req, res, next) => {
             responseUser.isVerifiedEmployee = updatedUser.isVerifiedEmployee;
             responseUser.userPhoto = updatedUser.userPhoto;
             responseUser.aadharNumber = updatedUser.aadharNumber;
+            responseUser.certificatesPhoto = updatedUser.certificatesPhoto;
         }
 
         res.status(200).json({
