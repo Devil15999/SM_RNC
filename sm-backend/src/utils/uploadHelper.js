@@ -13,47 +13,28 @@ const { v4: uuidv4 } = require('uuid');
 const saveBase64Image = (base64Data, subDir = '') => {
     if (!base64Data) return '';
 
-    // If it's already a URL, return it
-    if (base64Data.startsWith('http://') || base64Data.startsWith('https://') || base64Data.startsWith('/uploads/')) {
+    // If it's already a URL or relative path or Base64 data URI, return it
+    if (
+        base64Data.startsWith('http://') || 
+        base64Data.startsWith('https://') || 
+        base64Data.startsWith('/uploads/') ||
+        base64Data.startsWith('data:image/')
+    ) {
         return base64Data;
     }
 
     try {
-        // Match base64 regex to extract format and data
+        // Check if it is a complete base64 data URI
         const matches = base64Data.match(/^data:image\/([A-Za-z-+0-9]+);base64,(.+)$/);
-        let extension = 'png';
-        let buffer;
-
         if (matches && matches.length === 3) {
-            extension = matches[1];
-            buffer = Buffer.from(matches[2], 'base64');
-        } else {
-            // Assume it's a raw base64 string without header
-            buffer = Buffer.from(base64Data, 'base64');
+            return base64Data;
         }
 
-        // Define upload paths
-        // We'll place the uploads in the project root's 'public/uploads' directory
-        const uploadsDir = path.join(__dirname, '..', '..', 'public', 'uploads', subDir);
-
-        // Ensure directories exist
-        if (!fs.existsSync(uploadsDir)) {
-            fs.mkdirSync(uploadsDir, { recursive: true });
-        }
-
-        // Create a unique filename
-        const filename = `${uuidv4()}.${extension}`;
-        const filePath = path.join(uploadsDir, filename);
-
-        // Write file
-        fs.writeFileSync(filePath, buffer);
-
-        // Return public path
-        const relativeUrl = subDir ? `/uploads/${subDir}/${filename}` : `/uploads/${filename}`;
-        return relativeUrl;
+        // Otherwise, assume raw base64 string and prepend standard png data URI header
+        return `data:image/png;base64,${base64Data}`;
     } catch (err) {
-        console.error('Error saving base64 image:', err);
-        return '';
+        console.error('Error processing base64 image:', err);
+        return base64Data;
     }
 };
 

@@ -38,6 +38,14 @@ ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend,
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
+const getImageUrl = (photoPath) => {
+  if (!photoPath) return '';
+  if (photoPath.startsWith('data:image/') || photoPath.startsWith('http://') || photoPath.startsWith('https://')) {
+    return photoPath;
+  }
+  return `${API_BASE_URL.replace('/api', '')}${photoPath}`;
+};
+
 function App() {
   // Authentication State
   const [token, setToken] = useState(localStorage.getItem('admin_token') || '');
@@ -1449,7 +1457,7 @@ function App() {
                           <tr key={emp._id}>
                             <td>
                               <img
-                                src={emp.userPhoto ? `${API_BASE_URL.replace('/api', '')}${emp.userPhoto}` : '/user.png'}
+                                src={getImageUrl(emp.userPhoto) || '/user.png'}
                                 alt={emp.name}
                                 style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '1px solid rgba(255,255,255,0.1)' }}
                                 onError={(e) => { e.target.src = '/user.png'; }}
@@ -1579,7 +1587,7 @@ function App() {
                               {appt.assignedEmployee ? (
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                   <img
-                                    src={appt.assignedEmployee.userPhoto ? `${API_BASE_URL.replace('/api', '')}${appt.assignedEmployee.userPhoto}` : '/user.png'}
+                                    src={getImageUrl(appt.assignedEmployee.userPhoto) || '/user.png'}
                                     alt={appt.assignedEmployee.name}
                                     style={{ width: '24px', height: '24px', borderRadius: '50%', objectFit: 'cover' }}
                                     onError={(e) => { e.target.src = '/user.png'; }}
@@ -2236,7 +2244,7 @@ function App() {
             <div className="modal-body" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '20px', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '16px' }}>
                 <img
-                  src={viewEmployeeDocs.userPhoto ? `${API_BASE_URL.replace('/api', '')}${viewEmployeeDocs.userPhoto}` : '/user.png'}
+                  src={getImageUrl(viewEmployeeDocs.userPhoto) || '/user.png'}
                   alt={viewEmployeeDocs.name}
                   style={{ width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--accent-pink)' }}
                   onError={(e) => { e.target.src = '/user.png'; }}
@@ -2267,9 +2275,9 @@ function App() {
                 <div>
                   <strong style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Aadhar Photo</strong>
                   <div style={{ marginTop: '6px', height: '140px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.05)' }}>
-                    <a href={viewEmployeeDocs.aadharPhoto ? `${API_BASE_URL.replace('/api', '')}${viewEmployeeDocs.aadharPhoto}` : '#'} target="_blank" rel="noopener noreferrer">
+                    <a href={getImageUrl(viewEmployeeDocs.aadharPhoto) || '#'} target="_blank" rel="noopener noreferrer">
                       <img
-                        src={viewEmployeeDocs.aadharPhoto ? `${API_BASE_URL.replace('/api', '')}${viewEmployeeDocs.aadharPhoto}` : 'https://via.placeholder.com/150'}
+                        src={getImageUrl(viewEmployeeDocs.aadharPhoto) || 'https://via.placeholder.com/150'}
                         alt="Aadhar Card"
                         style={{ width: '100%', height: '100%', objectFit: 'contain' }}
                         onError={(e) => { e.target.src = 'https://via.placeholder.com/150'; }}
@@ -2282,9 +2290,9 @@ function App() {
                   <strong style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Certificates Upload</strong>
                   <div style={{ marginTop: '6px', height: '140px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.05)' }}>
                     {viewEmployeeDocs.certificatesPhoto ? (
-                      <a href={`${API_BASE_URL.replace('/api', '')}${viewEmployeeDocs.certificatesPhoto}`} target="_blank" rel="noopener noreferrer">
+                      <a href={getImageUrl(viewEmployeeDocs.certificatesPhoto) || '#'} target="_blank" rel="noopener noreferrer">
                         <img
-                          src={`${API_BASE_URL.replace('/api', '')}${viewEmployeeDocs.certificatesPhoto}`}
+                          src={getImageUrl(viewEmployeeDocs.certificatesPhoto) || 'https://via.placeholder.com/150'}
                           alt="Certificates"
                           style={{ width: '100%', height: '100%', objectFit: 'contain' }}
                           onError={(e) => { e.target.src = 'https://via.placeholder.com/150'; }}

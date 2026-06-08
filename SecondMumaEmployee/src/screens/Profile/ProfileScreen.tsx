@@ -22,6 +22,14 @@ import { API_BASE_URL } from '../../config';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Profile'>;
 
+const getImageUrl = (photoPath: string | undefined | null) => {
+    if (!photoPath) return null;
+    if (photoPath.startsWith('data:image/') || photoPath.startsWith('http://') || photoPath.startsWith('https://')) {
+        return photoPath;
+    }
+    return `${API_BASE_URL.replace('/api', '')}${photoPath}`;
+};
+
 const ProfileScreen: React.FC<Props> = ({ navigation }) => {
     const dispatch = useAppDispatch();
     const token = useAppSelector(state => state.auth.token);
@@ -116,24 +124,7 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                     <Icon name="chevron-left" size={18} color={Colors.TEXT_SECONDARY} />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>My Profile</Text>
-                {isEditing ? (
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                        <TouchableOpacity onPress={() => setIsEditing(false)} disabled={isSaving}>
-                            <Text style={{ color: Colors.TEXT_SECONDARY, fontSize: 14, fontWeight: '600' }}>Cancel</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity onPress={handleSave} disabled={isSaving}>
-                            {isSaving ? (
-                                <ActivityIndicator size="small" color={Colors.PRIMARY} />
-                            ) : (
-                                <Text style={{ color: Colors.PRIMARY, fontSize: 14, fontWeight: '700' }}>Save</Text>
-                            )}
-                        </TouchableOpacity>
-                    </View>
-                ) : (
-                    <TouchableOpacity style={styles.editBtn} onPress={startEditing}>
-                        <Icon name="edit" size={16} color={Colors.PRIMARY} />
-                    </TouchableOpacity>
-                )}
+                <View style={{ width: 24 }} />
             </View>
 
             <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
@@ -142,7 +133,7 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                     <View style={styles.avatarContainer}>
                         {user?.userPhoto ? (
                             <Image 
-                                source={{ uri: `${API_BASE_URL.replace('/api', '')}${user.userPhoto}` }} 
+                                source={{ uri: getImageUrl(user.userPhoto) || undefined }} 
                                 style={styles.avatarImg}
                             />
                         ) : (
@@ -176,7 +167,19 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
 
                 {/* Account Details */}
                 <View style={styles.detailsCard}>
-                    <Text style={styles.cardHeader}>Work Profile Details</Text>
+                    <View style={styles.cardHeaderRow}>
+                        <Text style={styles.cardHeader}>Work Profile Details</Text>
+                        {!isEditing && (
+                            <TouchableOpacity 
+                                onPress={startEditing} 
+                                style={styles.cardEditBtn}
+                                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                activeOpacity={0.7}
+                            >
+                                <Icon name="pen" size={14} color={Colors.PRIMARY} />
+                            </TouchableOpacity>
+                        )}
+                    </View>
 
                     <View style={styles.infoRow}>
                         <Text style={styles.infoLabel}>Mobile Number</Text>
@@ -234,6 +237,37 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                             <Text style={[styles.infoValue, { lineHeight: 18 }]}>{user?.permanentAddress ?? '—'}</Text>
                         )}
                     </View>
+
+                    {isEditing && (
+                        <>
+                            <View style={styles.divider} />
+                            <View style={styles.cardActionsRow}>
+                                <TouchableOpacity 
+                                    style={[styles.cardCancelBtn, isSaving && { opacity: 0.7 }]} 
+                                    onPress={() => setIsEditing(false)}
+                                    disabled={isSaving}
+                                    activeOpacity={0.8}
+                                >
+                                    <Text style={styles.cardCancelBtnText}>Cancel</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity 
+                                    style={[styles.cardSaveBtn, isSaving && { opacity: 0.7 }]} 
+                                    onPress={handleSave}
+                                    disabled={isSaving}
+                                    activeOpacity={0.8}
+                                >
+                                    {isSaving ? (
+                                        <ActivityIndicator size="small" color={Colors.WHITE} />
+                                    ) : (
+                                        <>
+                                            <Icon name="check" size={12} color={Colors.WHITE} style={{ marginRight: 6 }} />
+                                            <Text style={styles.cardSaveBtnText}>Save</Text>
+                                        </>
+                                    )}
+                                </TouchableOpacity>
+                            </View>
+                        </>
+                    )}
                 </View>
 
                 {/* Quick Info Aadhar */}
@@ -247,6 +281,8 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                         </Text>
                     </View>
                 </View>
+
+
 
                 {/* Sign Out Button */}
                 <TouchableOpacity
@@ -377,13 +413,21 @@ const styles = StyleSheet.create({
         borderColor: Colors.BORDER,
         marginBottom: 20,
     },
+    cardHeaderRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 16,
+    },
     cardHeader: {
         fontSize: 12,
         fontWeight: '800',
         color: Colors.PRIMARY,
-        marginBottom: 16,
         textTransform: 'uppercase',
         letterSpacing: 0.8,
+    },
+    cardEditBtn: {
+        padding: 4,
     },
     infoRow: {
         marginVertical: 4,
@@ -435,6 +479,41 @@ const styles = StyleSheet.create({
     },
     editBtn: {
         padding: 4,
+    },
+    cardActionsRow: {
+        flexDirection: 'row',
+        justifyContent: 'flex-end',
+        gap: 8,
+        marginTop: 4,
+    },
+    cardCancelBtn: {
+        paddingHorizontal: 16,
+        height: 36,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: Colors.BORDER,
+        backgroundColor: Colors.WHITE,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    cardCancelBtnText: {
+        color: Colors.TEXT_SECONDARY,
+        fontSize: 13,
+        fontWeight: '700',
+    },
+    cardSaveBtn: {
+        paddingHorizontal: 20,
+        height: 36,
+        borderRadius: 8,
+        backgroundColor: Colors.PRIMARY,
+        justifyContent: 'center',
+        alignItems: 'center',
+        flexDirection: 'row',
+    },
+    cardSaveBtnText: {
+        color: Colors.WHITE,
+        fontSize: 13,
+        fontWeight: '700',
     },
 });
 

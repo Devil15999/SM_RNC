@@ -40,6 +40,14 @@ interface Appointment {
     checkinTime?: string;
 }
 
+const getImageUrl = (photoPath: string | undefined | null) => {
+    if (!photoPath) return null;
+    if (photoPath.startsWith('data:image/') || photoPath.startsWith('http://') || photoPath.startsWith('https://')) {
+        return photoPath;
+    }
+    return `${API_BASE_URL.replace('/api', '')}${photoPath}`;
+};
+
 const HomeScreen: React.FC<Props> = ({ navigation }) => {
     const dispatch = useAppDispatch();
     const { user, token } = useAppSelector(state => state.auth);
@@ -211,7 +219,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                     >
                         {user?.userPhoto ? (
                             <Image 
-                                source={{ uri: `${API_BASE_URL.replace('/api', '')}${user.userPhoto}` }} 
+                                source={{ uri: getImageUrl(user.userPhoto) || undefined }} 
                                 style={styles.avatarImg}
                             />
                         ) : (
