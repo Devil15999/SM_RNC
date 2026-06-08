@@ -43,6 +43,11 @@ const employeeSchema = new mongoose.Schema(
             type: String,
             default: '',
         },
+        permanentAddress: {
+            type: String,
+            required: [true, 'Permanent address is required'],
+            trim: true,
+        },
         aadharNumber: {
             type: String,
             default: '',

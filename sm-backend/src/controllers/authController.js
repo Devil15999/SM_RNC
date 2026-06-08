@@ -198,6 +198,7 @@ const verifyOtp = async (req, res, next) => {
                 role: user.role,
                 occupation: user.occupation,
                 address: user.address,
+                permanentAddress: user.permanentAddress,
                 userPhoto: user.userPhoto,
                 isVerifiedEmployee: user.isVerifiedEmployee,
                 aadharNumber: user.aadharNumber,
@@ -316,10 +317,10 @@ const adminLogin = async (req, res, next) => {
  */
 const employeeRegister = async (req, res, next) => {
     try {
-        const { name, email, mobile, password, address, occupation, aadharNumber, aadharPhoto, userPhoto, certificatesPhoto } = req.body;
+        const { name, email, mobile, password, address, permanentAddress, occupation, aadharNumber, aadharPhoto, userPhoto, certificatesPhoto } = req.body;
 
-        if (!mobile || !password || !name || !email || !address || !occupation || !aadharNumber || !aadharPhoto || !userPhoto) {
-            return res.status(400).json({ success: false, message: 'All mandatory fields and photos are required' });
+        if (!mobile || !password || !name || !email || !permanentAddress || !occupation || !aadharNumber || !aadharPhoto || !userPhoto) {
+            return res.status(400).json({ success: false, message: 'All mandatory fields (including Permanent Address) and photos are required' });
         }
 
         // Check if employee already exists
@@ -344,7 +345,8 @@ const employeeRegister = async (req, res, next) => {
             password, // Pre-save hook will hash this!
             role: 'employee',
             occupation: occupation.trim(),
-            address: address.trim(),
+            address: address ? address.trim() : '',
+            permanentAddress: permanentAddress.trim(),
             aadharNumber: aadharNumber.trim(),
             aadharPhoto: aadharPhotoUrl,
             userPhoto: userPhotoUrl,
@@ -360,7 +362,8 @@ const employeeRegister = async (req, res, next) => {
             user.password = password;
             user.role = 'employee';
             user.occupation = occupation.trim();
-            user.address = address.trim();
+            user.address = address ? address.trim() : '';
+            user.permanentAddress = permanentAddress.trim();
             user.aadharNumber = aadharNumber.trim();
             user.aadharPhoto = aadharPhotoUrl;
             user.userPhoto = userPhotoUrl;
@@ -442,6 +445,7 @@ const employeeLogin = async (req, res, next) => {
                 role: user.role,
                 occupation: user.occupation,
                 address: user.address,
+                permanentAddress: user.permanentAddress,
                 userPhoto: user.userPhoto,
                 isVerifiedEmployee: user.isVerifiedEmployee
             }

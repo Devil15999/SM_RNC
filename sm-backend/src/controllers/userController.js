@@ -10,17 +10,31 @@ const { createError } = require('../middleware/errorHandler');
  */
 const getProfile = async (req, res, next) => {
     try {
+        const userObj = {
+            id: req.user._id,
+            name: req.user.name,
+            email: req.user.email,
+            mobile: req.user.mobile,
+            avatar: req.user.avatar,
+            role: req.user.role,
+            isVerified: req.user.isVerified,
+            createdAt: req.user.createdAt,
+        };
+
+        if (req.user.role === 'employee') {
+            userObj.occupation = req.user.occupation;
+            userObj.address = req.user.address;
+            userObj.permanentAddress = req.user.permanentAddress;
+            userObj.aadharNumber = req.user.aadharNumber;
+            userObj.isVerifiedEmployee = req.user.isVerifiedEmployee;
+            userObj.userPhoto = req.user.userPhoto;
+            userObj.aadharPhoto = req.user.aadharPhoto;
+            userObj.certificatesPhoto = req.user.certificatesPhoto;
+        }
+
         res.status(200).json({
             success: true,
-            user: {
-                id: req.user._id,
-                name: req.user.name,
-                email: req.user.email,
-                mobile: req.user.mobile,
-                avatar: req.user.avatar,
-                isVerified: req.user.isVerified,
-                createdAt: req.user.createdAt,
-            },
+            user: userObj,
         });
     } catch (err) {
         next(err);
