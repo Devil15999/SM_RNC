@@ -6,7 +6,6 @@ const express    = require('express');
 const cors       = require('cors');
 const morgan     = require('morgan');
 const rateLimit  = require('express-rate-limit');
-const path       = require('path');
 
 
 const connectDB        = require('./config/db');
@@ -45,8 +44,6 @@ app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// Serve uploaded files statically
-app.use('/uploads', express.static(path.join(__dirname, '..', 'public', 'uploads')));
 
 // ── Rate limiter (global) ──────────────────────────────────────────────────────
 const limiter = rateLimit({

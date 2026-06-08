@@ -1,14 +1,10 @@
 'use strict';
 
-const fs = require('fs');
-const path = require('path');
-const { v4: uuidv4 } = require('uuid');
-
 /**
- * Saves a base64 encoded image string to the uploads directory.
+ * Processes a base64 encoded image string for database storage.
  * @param {string} base64Data - The base64 data string (can include data:image/png;base64,... header).
- * @param {string} subDir - Optional subfolder inside uploads (e.g. 'aadhar', 'avatars').
- * @returns {string} The public URL path of the saved file (e.g. '/uploads/aadhar/uuid.png').
+ * @param {string} _subDir - Unused (kept for API compatibility).
+ * @returns {string} The base64 data URI string to store directly in the database.
  */
 const saveBase64Image = (base64Data, subDir = '') => {
     if (!base64Data) return '';
