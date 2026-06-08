@@ -27,7 +27,9 @@ import {
   AlertTriangle,
   RefreshCw,
   Package,
-  Menu
+  Menu,
+  Briefcase,
+  MapPin
 } from 'lucide-react';
 import './App.css';
 
@@ -88,6 +90,15 @@ function App() {
 
   // Alert Toasts
   const [toasts, setToasts] = useState([]);
+
+  // Employees & Appointments States
+  const [employees, setEmployees] = useState([]);
+  const [employeesFilters, setEmployeesFilters] = useState({ search: '', status: '' });
+  const [appointments, setAppointments] = useState([]);
+  const [appointmentsFilters, setAppointmentsFilters] = useState({ search: '', status: '' });
+  const [showAddAppointmentModal, setShowAddAppointmentModal] = useState(false);
+  const [newAppointment, setNewAppointment] = useState({ customerName: '', customerMobile: '', customerAddress: '', dateTime: '', details: '', assignedEmployee: '' });
+  const [viewEmployeeDocs, setViewEmployeeDocs] = useState(null);
 
   // Toast Helper
   const showToast = (message, type = 'success') => {
@@ -273,6 +284,93 @@ function App() {
     }
   };
 
+  const fetchEmployees = async () => {
+    setIsLoading(true);
+    try {
+      const { search, status } = employeesFilters;
+      let query = '';
+      if (search || status) {
+        query = `?search=${encodeURIComponent(search)}&isVerifiedEmployee=${status}`;
+      }
+      const res = await apiFetch(`/admin/employees${query}`);
+      if (res.success) {
+        setEmployees(res.data);
+      }
+    } catch (err) {
+      showToast(err.message || 'Failed to fetch employees', 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchAppointments = async () => {
+    setIsLoading(true);
+    try {
+      const { search, status } = appointmentsFilters;
+      let query = '';
+      const params = [];
+      if (search) params.push(`search=${encodeURIComponent(search)}`);
+      if (status) params.push(`status=${status}`);
+      if (params.length > 0) query = `?${params.join('&')}`;
+
+      const res = await apiFetch(`/admin/appointments${query}`);
+      if (res.success) {
+        setAppointments(res.data);
+      }
+    } catch (err) {
+      showToast(err.message || 'Failed to fetch appointments', 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleApproveEmployee = async (id, isApproved) => {
+    try {
+      const res = await apiFetch(`/admin/employees/${id}/approve`, {
+        method: 'PUT',
+        body: JSON.stringify({ isVerifiedEmployee: isApproved })
+      });
+      if (res.success) {
+        showToast(isApproved ? 'Employee approved successfully' : 'Employee approval status updated');
+        fetchEmployees();
+      }
+    } catch (err) {
+      showToast(err.message || 'Verification update failed', 'error');
+    }
+  };
+
+  const handleCreateAppointment = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await apiFetch('/admin/appointments', {
+        method: 'POST',
+        body: JSON.stringify(newAppointment)
+      });
+      if (res.success) {
+        showToast('Appointment created and assigned successfully');
+        setNewAppointment({ customerName: '', customerMobile: '', customerAddress: '', dateTime: '', details: '', assignedEmployee: '' });
+        setShowAddAppointmentModal(false);
+        fetchAppointments();
+      }
+    } catch (err) {
+      showToast(err.message || 'Failed to create appointment', 'error');
+    }
+  };
+
+  const handleDeleteAppointment = async (id) => {
+    if (window.confirm('Are you sure you want to delete this appointment?')) {
+      try {
+        const res = await apiFetch(`/admin/appointments/${id}`, { method: 'DELETE' });
+        if (res.success) {
+          showToast('Appointment deleted successfully');
+          fetchAppointments();
+        }
+      } catch (err) {
+        showToast(err.message || 'Failed to delete appointment', 'error');
+      }
+    }
+  };
+
   // Create Package Handler
   const handleCreatePackage = async (e) => {
     e.preventDefault();
@@ -333,8 +431,13 @@ function App() {
       if (activeTab === 'orders') fetchOrders(1);
       if (activeTab === 'payments') fetchPayments(1);
       if (activeTab === 'packages') fetchPackages();
+      if (activeTab === 'employees') fetchEmployees();
+      if (activeTab === 'appointments') {
+        fetchAppointments();
+        fetchEmployees();
+      }
     }
-  }, [token, activeTab]);
+  }, [token, activeTab, employeesFilters, appointmentsFilters]);
 
   // Handle Updates
   const handleUpdateUser = async (e) => {
@@ -569,6 +672,22 @@ function App() {
             <Package size={20} />
             <span>Packages</span>
           </button>
+
+          <button
+            className={`menu-item ${activeTab === 'employees' ? 'active' : ''}`}
+            onClick={() => handleTabChange('employees')}
+          >
+            <Briefcase size={20} />
+            <span>Employees</span>
+          </button>
+
+          <button
+            className={`menu-item ${activeTab === 'appointments' ? 'active' : ''}`}
+            onClick={() => handleTabChange('appointments')}
+          >
+            <Calendar size={20} />
+            <span>Appointments</span>
+          </button>
         </nav>
 
         <div className="sidebar-footer">
@@ -596,8 +715,8 @@ function App() {
               <div className="user-name">{adminUser?.name || 'Administrator'}</div>
               <div style={{ fontSize: '0.75rem', color: 'var(--accent-pink)', fontWeight: 'bold' }}>ADMIN</div>
             </div>
-            <div className="user-avatar">
-              {(adminUser?.name || 'A').charAt(0).toUpperCase()}
+            <div className="user-avatar" style={{ overflow: 'hidden' }}>
+              <img src="/user.png" alt="admin" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             </div>
           </div>
         </header>
@@ -652,6 +771,26 @@ function App() {
                       </div>
                       <div className="stat-icon-wrapper" style={{ backgroundColor: 'rgba(245, 158, 11, 0.15)', color: 'var(--warning)' }}>
                         <RefreshCw size={24} className="spin" style={{ animation: 'spin 8s linear infinite' }} />
+                      </div>
+                    </div>
+
+                    <div className="glass-panel stat-card">
+                      <div className="stat-info">
+                        <span className="stat-label">Total Employees</span>
+                        <span className="stat-value">{stats.metrics.totalEmployees || 0}</span>
+                      </div>
+                      <div className="stat-icon-wrapper" style={{ backgroundColor: 'rgba(99, 102, 241, 0.15)', color: '#6366f1' }}>
+                        <Briefcase size={24} />
+                      </div>
+                    </div>
+
+                    <div className="glass-panel stat-card">
+                      <div className="stat-info">
+                        <span className="stat-label">Total Appointments</span>
+                        <span className="stat-value">{stats.metrics.totalAppointments || 0}</span>
+                      </div>
+                      <div className="stat-icon-wrapper" style={{ backgroundColor: 'rgba(236, 72, 153, 0.15)', color: '#ec4899' }}>
+                        <Calendar size={24} />
                       </div>
                     </div>
                   </div>
@@ -1254,6 +1393,251 @@ function App() {
                   </div>
                 </div>
               )}
+
+              {/* Tab 6: Employees */}
+              {activeTab === 'employees' && (
+                <div className="glass-panel animate-fade-in" style={{ padding: '24px' }}>
+                  {/* Filters */}
+                  <div className="filter-bar">
+                    <div className="search-input-wrapper">
+                      <Search size={18} />
+                      <input
+                        type="text"
+                        className="form-control"
+                        placeholder="Search employees by name, email or mobile..."
+                        value={employeesFilters.search}
+                        onChange={(e) => setEmployeesFilters(prev => ({ ...prev, search: e.target.value }))}
+                        onKeyDown={(e) => e.key === 'Enter' && fetchEmployees()}
+                      />
+                    </div>
+
+                    <select
+                      className="form-control filter-select"
+                      value={employeesFilters.status}
+                      onChange={(e) => {
+                        setEmployeesFilters(prev => ({ ...prev, status: e.target.value }));
+                        setTimeout(() => fetchEmployees(), 0);
+                      }}
+                    >
+                      <option value="">All Statuses</option>
+                      <option value="true">Approved</option>
+                      <option value="false">Pending Approval</option>
+                    </select>
+
+                    <button className="btn btn-primary" onClick={fetchEmployees}>
+                      Apply Filters
+                    </button>
+                  </div>
+
+                  {/* Employees Table */}
+                  <div className="table-container">
+                    <table className="admin-table">
+                      <thead>
+                        <tr>
+                          <th>Photo</th>
+                          <th>Name</th>
+                          <th>Email</th>
+                          <th>Mobile</th>
+                          <th>Occupation</th>
+                          <th>Aadhar No</th>
+                          <th>Approval Status</th>
+                          <th>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {employees.map(emp => (
+                          <tr key={emp._id}>
+                            <td>
+                              <img
+                                src={emp.userPhoto ? `${API_BASE_URL.replace('/api', '')}${emp.userPhoto}` : '/user.png'}
+                                alt={emp.name}
+                                style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '1px solid rgba(255,255,255,0.1)' }}
+                                onError={(e) => { e.target.src = '/user.png'; }}
+                              />
+                            </td>
+                            <td style={{ fontWeight: '600' }}>{emp.name || '—'}</td>
+                            <td>{emp.email || '—'}</td>
+                            <td>{emp.mobile}</td>
+                            <td>{emp.occupation || '—'}</td>
+                            <td style={{ fontFamily: 'monospace' }}>{emp.aadharNumber || '—'}</td>
+                            <td>
+                              <span className={`badge ${emp.isVerifiedEmployee ? 'badge-success' : 'badge-danger'}`}>
+                                {emp.isVerifiedEmployee ? 'Approved' : 'Pending Approval'}
+                              </span>
+                            </td>
+                            <td className="actions-cell">
+                              <button className="btn btn-secondary" style={{ padding: '4px 10px', fontSize: '0.8rem' }} onClick={() => setViewEmployeeDocs(emp)}>
+                                View Docs
+                              </button>
+                              {emp.isVerifiedEmployee ? (
+                                <button className="btn btn-danger" style={{ padding: '4px 10px', fontSize: '0.8rem' }} onClick={() => handleApproveEmployee(emp._id, false)}>
+                                  Revoke
+                                </button>
+                              ) : (
+                                <button className="btn btn-success" style={{ padding: '4px 10px', fontSize: '0.8rem' }} onClick={() => handleApproveEmployee(emp._id, true)}>
+                                  Approve
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                        {employees.length === 0 && (
+                          <tr>
+                            <td colSpan="8" style={{ textAlign: 'center', padding: '24px', color: 'var(--text-muted)' }}>
+                              No employees found matching the filters
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Tab 7: Appointments */}
+              {activeTab === 'appointments' && (
+                <div className="glass-panel animate-fade-in" style={{ padding: '24px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                    <div className="filter-bar" style={{ margin: 0, flex: 1 }}>
+                      <div className="search-input-wrapper">
+                        <Search size={18} />
+                        <input
+                          type="text"
+                          className="form-control"
+                          placeholder="Search customer, mobile, or employee..."
+                          value={appointmentsFilters.search}
+                          onChange={(e) => setAppointmentsFilters(prev => ({ ...prev, search: e.target.value }))}
+                          onKeyDown={(e) => e.key === 'Enter' && fetchAppointments()}
+                        />
+                      </div>
+
+                      <select
+                        className="form-control filter-select"
+                        value={appointmentsFilters.status}
+                        onChange={(e) => {
+                          setAppointmentsFilters(prev => ({ ...prev, status: e.target.value }));
+                          setTimeout(() => fetchAppointments(), 0);
+                        }}
+                      >
+                        <option value="">All Statuses</option>
+                        <option value="pending">Pending</option>
+                        <option value="checked_in">Checked In</option>
+                        <option value="completed">Completed</option>
+                      </select>
+
+                      <button className="btn btn-primary" onClick={fetchAppointments}>
+                        Apply Filters
+                      </button>
+                    </div>
+                    
+                    <button
+                      className="btn btn-primary"
+                      onClick={() => {
+                        setNewAppointment({
+                          customerName: '',
+                          customerMobile: '',
+                          customerAddress: '',
+                          dateTime: '',
+                          details: '',
+                          assignedEmployee: ''
+                        });
+                        setShowAddAppointmentModal(true);
+                      }}
+                      style={{ marginLeft: '16px' }}
+                    >
+                      + Create Appointment
+                    </button>
+                  </div>
+
+                  {/* Appointments Table */}
+                  <div className="table-container">
+                    <table className="admin-table">
+                      <thead>
+                        <tr>
+                          <th>Customer</th>
+                          <th>Details</th>
+                          <th>Schedule</th>
+                          <th>Assigned Employee</th>
+                          <th>OTP</th>
+                          <th>Status</th>
+                          <th>Check-in Details</th>
+                          <th>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {appointments.map(appt => (
+                          <tr key={appt._id}>
+                            <td>
+                              <div style={{ fontWeight: '600' }}>{appt.customerName}</div>
+                              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{appt.customerMobile}</div>
+                            </td>
+                            <td style={{ fontSize: '0.85rem', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={appt.details || '—'}>
+                              {appt.details || '—'}
+                            </td>
+                            <td style={{ fontSize: '0.8rem' }}>{formatDate(appt.dateTime)}</td>
+                            <td>
+                              {appt.assignedEmployee ? (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  <img
+                                    src={appt.assignedEmployee.userPhoto ? `${API_BASE_URL.replace('/api', '')}${appt.assignedEmployee.userPhoto}` : '/user.png'}
+                                    alt={appt.assignedEmployee.name}
+                                    style={{ width: '24px', height: '24px', borderRadius: '50%', objectFit: 'cover' }}
+                                    onError={(e) => { e.target.src = '/user.png'; }}
+                                  />
+                                  <div>
+                                    <div style={{ fontWeight: '500', fontSize: '0.85rem' }}>{appt.assignedEmployee.name}</div>
+                                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{appt.assignedEmployee.occupation}</div>
+                                  </div>
+                                </div>
+                              ) : (
+                                <span style={{ color: 'var(--error)', fontStyle: 'italic', fontSize: '0.85rem' }}>Unassigned</span>
+                              )}
+                            </td>
+                            <td style={{ fontFamily: 'monospace', fontWeight: 'bold', fontSize: '0.9rem' }}>{appt.otp}</td>
+                            <td>
+                              <span className={`badge badge-${appt.status === 'checked_in' ? 'success' : appt.status === 'completed' ? 'info' : 'warning'}`}>
+                                {appt.status}
+                              </span>
+                            </td>
+                            <td style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                              {appt.status === 'checked_in' && appt.checkinLocation ? (
+                                <div>
+                                  <div><strong>Time:</strong> {formatDate(appt.checkinTime)}</div>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+                                    <MapPin size={12} style={{ color: 'var(--accent-pink)' }} />
+                                    <a
+                                      href={`https://maps.google.com/?q=${appt.checkinLocation.latitude},${appt.checkinLocation.longitude}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      style={{ color: '#3b82f6', textDecoration: 'none' }}
+                                    >
+                                      {appt.checkinLocation.latitude.toFixed(5)}, {appt.checkinLocation.longitude.toFixed(5)}
+                                    </a>
+                                  </div>
+                                </div>
+                              ) : (
+                                '—'
+                              )}
+                            </td>
+                            <td className="actions-cell">
+                              <button className="btn btn-danger btn-icon" onClick={() => handleDeleteAppointment(appt._id)}>
+                                <Trash2 size={16} />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                        {appointments.length === 0 && (
+                          <tr>
+                            <td colSpan="8" style={{ textAlign: 'center', padding: '24px', color: 'var(--text-muted)' }}>
+                              No appointments found
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
             </>
           )}
         </div>
@@ -1832,6 +2216,222 @@ function App() {
                 </button>
                 <button type="submit" className="btn btn-primary">
                   {editPackage._id ? 'Save Changes' : 'Create Package'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* View Employee Docs Modal */}
+      {viewEmployeeDocs && (
+        <div className="modal-overlay">
+          <div className="glass-panel modal-content animate-fade-in" style={{ maxWidth: '600px', width: '95%' }}>
+            <div className="modal-header">
+              <h3 className="modal-title">Employee Document Verification</h3>
+              <button className="modal-close" onClick={() => setViewEmployeeDocs(null)}>
+                <X size={20} />
+              </button>
+            </div>
+            <div className="modal-body" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '20px', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '16px' }}>
+                <img
+                  src={viewEmployeeDocs.userPhoto ? `${API_BASE_URL.replace('/api', '')}${viewEmployeeDocs.userPhoto}` : '/user.png'}
+                  alt={viewEmployeeDocs.name}
+                  style={{ width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--accent-pink)' }}
+                  onError={(e) => { e.target.src = '/user.png'; }}
+                />
+                <div>
+                  <h4 style={{ fontSize: '1.2rem', margin: 0, fontWeight: 'bold' }}>{viewEmployeeDocs.name}</h4>
+                  <p style={{ color: 'var(--text-muted)', margin: '4px 0 0 0', fontSize: '0.85rem' }}>{viewEmployeeDocs.occupation} • {viewEmployeeDocs.mobile}</p>
+                  <p style={{ color: 'var(--text-muted)', margin: '2px 0 0 0', fontSize: '0.85rem' }}>{viewEmployeeDocs.email}</p>
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '16px' }}>
+                <strong style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>Working Address (Optional)</strong>
+                <p style={{ margin: '4px 0 0 0', fontSize: '0.9rem', lineHeight: '1.4' }}>{viewEmployeeDocs.address || 'Not Provided'}</p>
+              </div>
+
+              <div style={{ marginBottom: '16px' }}>
+                <strong style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>Permanent Address</strong>
+                <p style={{ margin: '4px 0 0 0', fontSize: '0.9rem', lineHeight: '1.4' }}>{viewEmployeeDocs.permanentAddress}</p>
+              </div>
+
+              <div style={{ marginBottom: '16px' }}>
+                <strong style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>Aadhar Number</strong>
+                <p style={{ margin: '4px 0 0 0', fontSize: '0.95rem', fontWeight: 'bold', fontFamily: 'monospace' }}>{viewEmployeeDocs.aadharNumber}</p>
+              </div>
+
+              <div className="grid-2-col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginTop: '20px' }}>
+                <div>
+                  <strong style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Aadhar Photo</strong>
+                  <div style={{ marginTop: '6px', height: '140px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.05)' }}>
+                    <a href={viewEmployeeDocs.aadharPhoto ? `${API_BASE_URL.replace('/api', '')}${viewEmployeeDocs.aadharPhoto}` : '#'} target="_blank" rel="noopener noreferrer">
+                      <img
+                        src={viewEmployeeDocs.aadharPhoto ? `${API_BASE_URL.replace('/api', '')}${viewEmployeeDocs.aadharPhoto}` : 'https://via.placeholder.com/150'}
+                        alt="Aadhar Card"
+                        style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                        onError={(e) => { e.target.src = 'https://via.placeholder.com/150'; }}
+                      />
+                    </a>
+                  </div>
+                </div>
+
+                <div>
+                  <strong style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Certificates Upload</strong>
+                  <div style={{ marginTop: '6px', height: '140px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.05)' }}>
+                    {viewEmployeeDocs.certificatesPhoto ? (
+                      <a href={`${API_BASE_URL.replace('/api', '')}${viewEmployeeDocs.certificatesPhoto}`} target="_blank" rel="noopener noreferrer">
+                        <img
+                          src={`${API_BASE_URL.replace('/api', '')}${viewEmployeeDocs.certificatesPhoto}`}
+                          alt="Certificates"
+                          style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                          onError={(e) => { e.target.src = 'https://via.placeholder.com/150'; }}
+                        />
+                      </a>
+                    ) : (
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)', fontSize: '0.8rem', fontStyle: 'italic' }}>
+                        No certificates uploaded
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="modal-footer" style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '12px' }}>
+              <button type="button" className="btn btn-secondary" onClick={() => setViewEmployeeDocs(null)}>
+                Close
+              </button>
+              {viewEmployeeDocs.isVerifiedEmployee ? (
+                <button
+                  type="button"
+                  className="btn btn-danger"
+                  onClick={() => {
+                    handleApproveEmployee(viewEmployeeDocs._id, false);
+                    setViewEmployeeDocs(null);
+                  }}
+                >
+                  Revoke Verification
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => {
+                    handleApproveEmployee(viewEmployeeDocs._id, true);
+                    setViewEmployeeDocs(null);
+                  }}
+                >
+                  Verify & Approve Employee
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create Appointment Modal */}
+      {showAddAppointmentModal && (
+        <div className="modal-overlay">
+          <div className="glass-panel modal-content animate-fade-in" style={{ maxWidth: '550px', width: '95%' }}>
+            <div className="modal-header">
+              <h3 className="modal-title">Create Appointment</h3>
+              <button className="modal-close" onClick={() => setShowAddAppointmentModal(false)}>
+                <X size={20} />
+              </button>
+            </div>
+            <form onSubmit={handleCreateAppointment}>
+              <div className="modal-body">
+                <div className="form-group">
+                  <label className="form-label">Customer Name</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Enter customer name"
+                    required
+                    value={newAppointment.customerName}
+                    onChange={(e) => setNewAppointment(prev => ({ ...prev, customerName: e.target.value }))}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Customer Mobile</label>
+                  <input
+                    type="tel"
+                    className="form-control"
+                    placeholder="Enter 10-digit mobile number"
+                    required
+                    pattern="[6-9][0-9]{9}"
+                    value={newAppointment.customerMobile}
+                    onChange={(e) => setNewAppointment(prev => ({ ...prev, customerMobile: e.target.value }))}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Appointment Address</label>
+                  <textarea
+                    className="form-control"
+                    placeholder="Enter full site address"
+                    rows="2"
+                    required
+                    value={newAppointment.customerAddress}
+                    onChange={(e) => setNewAppointment(prev => ({ ...prev, customerAddress: e.target.value }))}
+                    style={{ resize: 'none', height: 'auto' }}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Date and Time</label>
+                  <input
+                    type="datetime-local"
+                    className="form-control"
+                    required
+                    value={newAppointment.dateTime}
+                    onChange={(e) => setNewAppointment(prev => ({ ...prev, dateTime: e.target.value }))}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Details / Special Notes</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Enter baby care details or support requirements"
+                    value={newAppointment.details}
+                    onChange={(e) => setNewAppointment(prev => ({ ...prev, details: e.target.value }))}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Assign Employee</label>
+                  <select
+                    className="form-control"
+                    value={newAppointment.assignedEmployee}
+                    onChange={(e) => setNewAppointment(prev => ({ ...prev, assignedEmployee: e.target.value }))}
+                  >
+                    <option value="">Unassigned / Save for later</option>
+                    {employees
+                      .filter(emp => emp.isVerifiedEmployee)
+                      .map(emp => (
+                        <option key={emp._id} value={emp._id}>
+                          {emp.name} ({emp.occupation})
+                        </option>
+                      ))}
+                  </select>
+                  {employees.filter(emp => emp.isVerifiedEmployee).length === 0 && (
+                    <p style={{ margin: '4px 0 0 0', fontSize: '0.75rem', color: 'var(--error)' }}>
+                      No verified employees available. Please verify employees first.
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div className="modal-footer" style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '12px' }}>
+                <button type="button" className="btn btn-secondary" onClick={() => setShowAddAppointmentModal(false)}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn btn-primary">
+                  Create & Save
                 </button>
               </div>
             </form>

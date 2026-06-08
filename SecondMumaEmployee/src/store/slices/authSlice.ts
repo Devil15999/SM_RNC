@@ -6,12 +6,19 @@ export interface User {
     name: string;
     email: string;
     mobile: string;
-    token: string;
-    avatar?: string;
+    token?: string;
+    role?: 'employee' | 'user' | 'admin';
+    occupation?: string;
+    address?: string;
+    permanentAddress?: string;
+    userPhoto?: string;
+    aadharNumber?: string;
+    isVerifiedEmployee?: boolean;
 }
 
 interface AuthState {
     user: User | null;
+    token: string | null;
     isAuthenticated: boolean;
     isOtpSent: boolean;
     isLoading: boolean;
@@ -21,6 +28,7 @@ interface AuthState {
 // ── Initial State ──────────────────────────────────────────────────────────────
 const initialState: AuthState = {
     user: null,
+    token: null,
     isAuthenticated: false,
     isOtpSent: false,
     isLoading: false,
@@ -55,6 +63,7 @@ const authSlice = createSlice({
             state.isLoading = false;
             state.isAuthenticated = true;
             state.user = action.payload;
+            state.token = action.payload.token || null;
             state.isOtpSent = false;
             state.error = null;
         },
@@ -66,6 +75,7 @@ const authSlice = createSlice({
         // ── Session ───────────────────────────────────────────────────────────────
         logout(state) {
             state.user = null;
+            state.token = null;
             state.isAuthenticated = false;
             state.isOtpSent = false;
             state.isLoading = false;
@@ -78,6 +88,11 @@ const authSlice = createSlice({
             if (state.user) {
                 state.user.name = action.payload.name;
                 state.user.email = action.payload.email;
+            }
+        },
+        updateUser(state, action: PayloadAction<Partial<User>>) {
+            if (state.user) {
+                state.user = { ...state.user, ...action.payload };
             }
         },
     },
@@ -93,6 +108,7 @@ export const {
     logout,
     clearError,
     updateProfileSuccess,
+    updateUser,
 } = authSlice.actions;
 
 export default authSlice.reducer;

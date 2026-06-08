@@ -6,6 +6,7 @@ import {
     Text,
     TouchableOpacity,
     View,
+    Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -116,7 +117,17 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                         activeOpacity={0.8}
                         onPress={() => navigation.navigate(Routes.PROFILE)}
                     >
-                        <Text style={styles.avatarText}>{initials}</Text>
+                        {user?.avatar ? (
+                            <Image 
+                                source={{ uri: user.avatar }} 
+                                style={{ width: '100%', height: '100%', borderRadius: 23 }}
+                            />
+                        ) : (
+                            <Image 
+                                source={require('../../assets/user.png')} 
+                                style={{ width: '100%', height: '100%', borderRadius: 23 }}
+                            />
+                        )}
                     </TouchableOpacity>
                 </View>
 
