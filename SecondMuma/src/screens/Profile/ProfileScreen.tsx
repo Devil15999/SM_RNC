@@ -164,13 +164,23 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                 body: JSON.stringify({ name: name.trim(), email: email.trim().toLowerCase() }),
             });
             const data = await res.json();
-            if (res.ok && data.success) {
-                dispatch(updateProfileSuccess({ name: data.data.name, email: data.data.email }));
+            if (res.ok && data.success && data.user) {
+                dispatch(updateProfileSuccess({ name: data.user.name, email: data.user.email }));
+                
+                // Save updated session to AsyncStorage
+                const sessionStr = await AsyncStorage.getItem('@session');
+                if (sessionStr) {
+                    const session = JSON.parse(sessionStr);
+                    const updatedSession = { ...session, name: data.user.name, email: data.user.email };
+                    await AsyncStorage.setItem('@session', JSON.stringify(updatedSession));
+                }
+
                 Alert.alert('Success', 'Profile updated successfully!');
             } else {
                 Alert.alert('Error', data.message || 'Failed to update profile');
             }
-        } catch {
+        } catch (err) {
+            console.log('Error updating profile:', err);
             Alert.alert('Error', 'Network error updating profile');
         } finally {
             setIsUpdatingProfile(false);
