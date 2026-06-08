@@ -2288,22 +2288,34 @@ function App() {
 
                 <div>
                   <strong style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Certificates Upload</strong>
-                  <div style={{ marginTop: '6px', height: '140px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.05)' }}>
-                    {viewEmployeeDocs.certificatesPhoto ? (
-                      <a href={getImageUrl(viewEmployeeDocs.certificatesPhoto) || '#'} target="_blank" rel="noopener noreferrer">
-                        <img
-                          src={getImageUrl(viewEmployeeDocs.certificatesPhoto) || 'https://via.placeholder.com/150'}
-                          alt="Certificates"
-                          style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                          onError={(e) => { e.target.src = 'https://via.placeholder.com/150'; }}
-                        />
-                      </a>
+                  {(() => {
+                    // Normalise: support both legacy string and new array format
+                    const certs = Array.isArray(viewEmployeeDocs.certificatesPhoto)
+                      ? viewEmployeeDocs.certificatesPhoto.filter(Boolean)
+                      : viewEmployeeDocs.certificatesPhoto
+                        ? [viewEmployeeDocs.certificatesPhoto]
+                        : [];
+                    return certs.length > 0 ? (
+                      <div style={{ marginTop: '6px', display: 'grid', gridTemplateColumns: `repeat(${certs.length}, 1fr)`, gap: '8px' }}>
+                        {certs.map((cert, idx) => (
+                          <a key={idx} href={getImageUrl(cert) || '#'} target="_blank" rel="noopener noreferrer"
+                            style={{ display: 'block', height: '140px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.05)' }}>
+                            <img
+                              src={getImageUrl(cert) || 'https://via.placeholder.com/150'}
+                              alt={`Certificate ${idx + 1}`}
+                              style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                              onError={(e) => { e.target.src = 'https://via.placeholder.com/150'; }}
+                            />
+                            <div style={{ textAlign: 'center', fontSize: '0.7rem', color: 'var(--text-muted)', padding: '2px 0' }}>Cert {idx + 1}</div>
+                          </a>
+                        ))}
+                      </div>
                     ) : (
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)', fontSize: '0.8rem', fontStyle: 'italic' }}>
+                      <div style={{ marginTop: '6px', height: '140px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(255,255,255,0.05)', color: 'var(--text-muted)', fontSize: '0.8rem', fontStyle: 'italic' }}>
                         No certificates uploaded
                       </div>
-                    )}
-                  </div>
+                    );
+                  })()}
                 </div>
               </div>
             </div>

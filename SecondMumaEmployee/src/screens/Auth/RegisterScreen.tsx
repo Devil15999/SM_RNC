@@ -49,7 +49,7 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
     // Simulated image states (hold the base64 or URL)
     const [userPhoto, setUserPhoto] = useState<string | null>(null);
     const [aadharPhoto, setAadharPhoto] = useState<string | null>(null);
-    const [certificatePhoto, setCertificatePhoto] = useState<string | null>(null);
+    const [certificatePhotos, setCertificatePhotos] = useState<(string | null)[]>([null, null, null]);
 
     const [focusedField, setFocusedField] = useState<string | null>(null);
 
@@ -111,6 +111,16 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
         );
     };
 
+    const handleSelectCertificate = (index: number) => {
+        handleSelectImage((uri) => {
+            setCertificatePhotos(prev => {
+                const updated = [...prev];
+                updated[index] = uri;
+                return updated;
+            });
+        });
+    };
+
     const isMobileValid = mobile.length === 10 && /^[6-9]\d{9}$/.test(mobile);
     const isAadharValid = aadharNumber.length === 12 && /^\d{12}$/.test(aadharNumber);
     
@@ -147,7 +157,8 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
             aadharNumber,
             aadharPhoto,
             userPhoto,
-            certificatesPhoto: certificatePhoto || '',
+            // Send only non-null entries, up to 3
+            certificatesPhoto: certificatePhotos.filter(Boolean),
         };
 
         try {
@@ -354,16 +365,32 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
 
                     <View style={[styles.photoUploadRow, { marginTop: 10 }]}>
                         <View style={[styles.photoContainer, { width: '100%' }]}>
-                            <Text style={styles.photoLabel}>Certificates Image (Optional)</Text>
-                            <TouchableOpacity
-                                style={[styles.photoBox, { height: 60 }, certificatePhoto ? styles.photoBoxFilled : null]}
-                                onPress={() => handleSelectImage(setCertificatePhoto)}>
-                                {certificatePhoto ? (
-                                    <Text style={styles.photoBoxText}>✓ Selected Certificates Document</Text>
-                                ) : (
-                                    <Text style={styles.photoBoxPlaceholder}>+ Select Certificate File</Text>
-                                )}
-                            </TouchableOpacity>
+                            <Text style={styles.photoLabel}>Certificates (Optional, up to 3)</Text>
+                            <View style={{ flexDirection: 'row', gap: 8 }}>
+                                {[0, 1, 2].map((index) => (
+                                    <TouchableOpacity
+                                        key={index}
+                                        style={[
+                                            styles.certBox,
+                                            certificatePhotos[index] ? styles.photoBoxFilled : null
+                                        ]}
+                                        onPress={() => handleSelectCertificate(index)}
+                                        activeOpacity={0.8}
+                                    >
+                                        {certificatePhotos[index] ? (
+                                            <>
+                                                <Text style={[styles.photoBoxText, { fontSize: 18 }]}>✓</Text>
+                                                <Text style={[styles.photoBoxText, { fontSize: 10, marginTop: 2 }]}>Cert {index + 1}</Text>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Text style={[styles.photoBoxPlaceholder, { fontSize: 20 }]}>+</Text>
+                                                <Text style={[styles.photoBoxPlaceholder, { fontSize: 10, marginTop: 2 }]}>Cert {index + 1}</Text>
+                                            </>
+                                        )}
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
                         </View>
                     </View>
 
@@ -497,6 +524,17 @@ const styles = StyleSheet.create({
         borderStyle: 'solid',
         borderColor: Colors.PRIMARY,
         backgroundColor: Colors.PRIMARY_LIGHT,
+    },
+    certBox: {
+        flex: 1,
+        height: 90,
+        borderRadius: 14,
+        borderWidth: 1.5,
+        borderColor: Colors.BORDER,
+        borderStyle: 'dashed',
+        backgroundColor: Colors.SURFACE,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     photoBoxPlaceholder: {
         fontSize: 13,

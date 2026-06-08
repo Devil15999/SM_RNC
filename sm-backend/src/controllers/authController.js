@@ -332,10 +332,21 @@ const employeeRegister = async (req, res, next) => {
             });
         }
 
-        // Save base64 images to local public directory and get URLs
+        // Process images for DB storage as base64 data URIs
         const aadharPhotoUrl = saveBase64Image(aadharPhoto, 'aadhar');
         const userPhotoUrl = saveBase64Image(userPhoto, 'avatars');
-        const certificatesPhotoUrl = certificatesPhoto ? saveBase64Image(certificatesPhoto, 'certificates') : '';
+
+        // certificatesPhoto may be sent as an array of up to 3 base64 strings
+        let certificatesPhotoUrls = [];
+        if (Array.isArray(certificatesPhoto)) {
+            certificatesPhotoUrls = certificatesPhoto
+                .slice(0, 3)
+                .filter(Boolean)
+                .map(img => saveBase64Image(img, 'certificates'));
+        } else if (certificatesPhoto) {
+            // Legacy: single string fallback
+            certificatesPhotoUrls = [saveBase64Image(certificatesPhoto, 'certificates')];
+        }
 
         // Upsert or create employee shell
         const employeeData = {
@@ -350,7 +361,7 @@ const employeeRegister = async (req, res, next) => {
             aadharNumber: aadharNumber.trim(),
             aadharPhoto: aadharPhotoUrl,
             userPhoto: userPhotoUrl,
-            certificatesPhoto: certificatesPhotoUrl,
+            certificatesPhoto: certificatesPhotoUrls,
             isVerifiedEmployee: false, // Must be approved by admin
             isVerified: false // Mobile OTP verification pending
         };
@@ -367,7 +378,7 @@ const employeeRegister = async (req, res, next) => {
             user.aadharNumber = aadharNumber.trim();
             user.aadharPhoto = aadharPhotoUrl;
             user.userPhoto = userPhotoUrl;
-            user.certificatesPhoto = certificatesPhotoUrl;
+            user.certificatesPhoto = certificatesPhotoUrls;
             user.isVerifiedEmployee = false;
             user.isVerified = false;
             await user.save();

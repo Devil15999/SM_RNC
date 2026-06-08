@@ -61,8 +61,8 @@ const employeeSchema = new mongoose.Schema(
             default: '',
         },
         certificatesPhoto: {
-            type: String,
-            default: '',
+            type: [String],
+            default: [],
         },
         isVerifiedEmployee: {
             type: Boolean,
