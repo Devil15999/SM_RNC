@@ -130,7 +130,7 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
         password.length >= 6 && 
         name.trim().length >= 2 && 
         email.trim().includes('@') && 
-        permanentAddress.trim().length >= 10 && 
+        permanentAddress.trim().length >= 5 && 
         occupation.trim().length >= 2 && 
         isAadharValid && 
         userPhoto !== null && 
@@ -338,28 +338,64 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
                     <View style={styles.photoUploadRow}>
                         <View style={styles.photoContainer}>
                             <Text style={styles.photoLabel}>User Photo *</Text>
-                            <TouchableOpacity
-                                style={[styles.photoBox, userPhoto ? styles.photoBoxFilled : null]}
-                                onPress={() => handleSelectImage(setUserPhoto)}>
+                            <View style={[styles.photoBox, userPhoto ? styles.photoBoxFilled : null]}>
                                 {userPhoto ? (
-                                    <Text style={styles.photoBoxText}>✓ Selected</Text>
+                                    <TouchableOpacity
+                                        style={{ width: '100%', height: '100%' }}
+                                        onPress={() => handleSelectImage(setUserPhoto)}
+                                        activeOpacity={0.85}
+                                    >
+                                        <Image source={{ uri: userPhoto }} style={styles.photoPreview} resizeMode="cover" />
+                                        <TouchableOpacity
+                                            style={styles.removeBtn}
+                                            onPress={() => setUserPhoto(null)}
+                                            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                                        >
+                                            <Text style={styles.removeBtnText}>✕</Text>
+                                        </TouchableOpacity>
+                                    </TouchableOpacity>
                                 ) : (
-                                    <Text style={styles.photoBoxPlaceholder}>+ Select</Text>
+                                    <TouchableOpacity
+                                        style={{ width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center' }}
+                                        onPress={() => handleSelectImage(setUserPhoto)}
+                                        activeOpacity={0.85}
+                                    >
+                                        <Text style={[styles.photoBoxPlaceholder, { fontSize: 22 }]}>📷</Text>
+                                        <Text style={styles.photoBoxPlaceholder}>+ Select</Text>
+                                    </TouchableOpacity>
                                 )}
-                            </TouchableOpacity>
+                            </View>
                         </View>
 
                         <View style={styles.photoContainer}>
                             <Text style={styles.photoLabel}>Aadhar Photo *</Text>
-                            <TouchableOpacity
-                                style={[styles.photoBox, aadharPhoto ? styles.photoBoxFilled : null]}
-                                onPress={() => handleSelectImage(setAadharPhoto)}>
+                            <View style={[styles.photoBox, aadharPhoto ? styles.photoBoxFilled : null]}>
                                 {aadharPhoto ? (
-                                    <Text style={styles.photoBoxText}>✓ Selected</Text>
+                                    <TouchableOpacity
+                                        style={{ width: '100%', height: '100%' }}
+                                        onPress={() => handleSelectImage(setAadharPhoto)}
+                                        activeOpacity={0.85}
+                                    >
+                                        <Image source={{ uri: aadharPhoto }} style={styles.photoPreview} resizeMode="cover" />
+                                        <TouchableOpacity
+                                            style={styles.removeBtn}
+                                            onPress={() => setAadharPhoto(null)}
+                                            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                                        >
+                                            <Text style={styles.removeBtnText}>✕</Text>
+                                        </TouchableOpacity>
+                                    </TouchableOpacity>
                                 ) : (
-                                    <Text style={styles.photoBoxPlaceholder}>+ Select</Text>
+                                    <TouchableOpacity
+                                        style={{ width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center' }}
+                                        onPress={() => handleSelectImage(setAadharPhoto)}
+                                        activeOpacity={0.85}
+                                    >
+                                        <Text style={[styles.photoBoxPlaceholder, { fontSize: 22 }]}>🪪</Text>
+                                        <Text style={styles.photoBoxPlaceholder}>+ Select</Text>
+                                    </TouchableOpacity>
                                 )}
-                            </TouchableOpacity>
+                            </View>
                         </View>
                     </View>
 
@@ -368,27 +404,49 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
                             <Text style={styles.photoLabel}>Certificates (Optional, up to 3)</Text>
                             <View style={{ flexDirection: 'row', gap: 8 }}>
                                 {[0, 1, 2].map((index) => (
-                                    <TouchableOpacity
+                                    <View
                                         key={index}
                                         style={[
                                             styles.certBox,
                                             certificatePhotos[index] ? styles.photoBoxFilled : null
                                         ]}
-                                        onPress={() => handleSelectCertificate(index)}
-                                        activeOpacity={0.8}
                                     >
                                         {certificatePhotos[index] ? (
                                             <>
-                                                <Text style={[styles.photoBoxText, { fontSize: 18 }]}>✓</Text>
-                                                <Text style={[styles.photoBoxText, { fontSize: 10, marginTop: 2 }]}>Cert {index + 1}</Text>
+                                                <TouchableOpacity
+                                                    style={{ width: '100%', height: '100%' }}
+                                                    onPress={() => handleSelectCertificate(index)}
+                                                    activeOpacity={0.85}
+                                                >
+                                                    <Image
+                                                        source={{ uri: certificatePhotos[index]! }}
+                                                        style={{ width: '100%', height: '100%', borderRadius: 12 }}
+                                                        resizeMode="cover"
+                                                    />
+                                                </TouchableOpacity>
+                                                <TouchableOpacity
+                                                    style={styles.removeBtn}
+                                                    onPress={() => {
+                                                        setCertificatePhotos(prev => {
+                                                            const u = [...prev]; u[index] = null; return u;
+                                                        });
+                                                    }}
+                                                    hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                                                >
+                                                    <Text style={styles.removeBtnText}>✕</Text>
+                                                </TouchableOpacity>
                                             </>
                                         ) : (
-                                            <>
+                                            <TouchableOpacity
+                                                style={{ width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center' }}
+                                                onPress={() => handleSelectCertificate(index)}
+                                                activeOpacity={0.8}
+                                            >
                                                 <Text style={[styles.photoBoxPlaceholder, { fontSize: 20 }]}>+</Text>
                                                 <Text style={[styles.photoBoxPlaceholder, { fontSize: 10, marginTop: 2 }]}>Cert {index + 1}</Text>
-                                            </>
+                                            </TouchableOpacity>
                                         )}
-                                    </TouchableOpacity>
+                                    </View>
                                 ))}
                             </View>
                         </View>
@@ -519,11 +577,37 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.SURFACE,
         justifyContent: 'center',
         alignItems: 'center',
+        overflow: 'hidden',
+    },
+    photoPreview: {
+        width: '100%',
+        height: '100%',
+        borderRadius: 12,
     },
     photoBoxFilled: {
         borderStyle: 'solid',
         borderColor: Colors.PRIMARY,
         backgroundColor: Colors.PRIMARY_LIGHT,
+    },
+    removeBtn: {
+        position: 'absolute',
+        top: 5,
+        right: 5,
+        backgroundColor: 'rgba(0,0,0,0.55)',
+        width: 22,
+        height: 22,
+        borderRadius: 11,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.4)',
+        zIndex: 10,
+    },
+    removeBtnText: {
+        color: '#fff',
+        fontSize: 11,
+        fontWeight: '700',
+        lineHeight: 14,
     },
     certBox: {
         flex: 1,
@@ -535,6 +619,8 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.SURFACE,
         justifyContent: 'center',
         alignItems: 'center',
+        overflow: 'hidden',
+        position: 'relative',
     },
     photoBoxPlaceholder: {
         fontSize: 13,

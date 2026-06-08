@@ -107,6 +107,7 @@ function App() {
   const [showAddAppointmentModal, setShowAddAppointmentModal] = useState(false);
   const [newAppointment, setNewAppointment] = useState({ customerName: '', customerMobile: '', customerAddress: '', dateTime: '', details: '', assignedEmployee: '' });
   const [viewEmployeeDocs, setViewEmployeeDocs] = useState(null);
+  const [previewImage, setPreviewImage] = useState(null); // lightbox URL
 
   // Toast Helper
   const showToast = (message, type = 'success') => {
@@ -2274,15 +2275,14 @@ function App() {
               <div className="grid-2-col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginTop: '20px' }}>
                 <div>
                   <strong style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Aadhar Photo</strong>
-                  <div style={{ marginTop: '6px', height: '140px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.05)' }}>
-                    <a href={getImageUrl(viewEmployeeDocs.aadharPhoto) || '#'} target="_blank" rel="noopener noreferrer">
+                  <div style={{ marginTop: '6px', height: '140px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.05)', cursor: 'zoom-in' }}
+                    onClick={() => setPreviewImage(getImageUrl(viewEmployeeDocs.aadharPhoto))}>
                       <img
                         src={getImageUrl(viewEmployeeDocs.aadharPhoto) || 'https://via.placeholder.com/150'}
                         alt="Aadhar Card"
                         style={{ width: '100%', height: '100%', objectFit: 'contain' }}
                         onError={(e) => { e.target.src = 'https://via.placeholder.com/150'; }}
                       />
-                    </a>
                   </div>
                 </div>
 
@@ -2298,8 +2298,9 @@ function App() {
                     return certs.length > 0 ? (
                       <div style={{ marginTop: '6px', display: 'grid', gridTemplateColumns: `repeat(${certs.length}, 1fr)`, gap: '8px' }}>
                         {certs.map((cert, idx) => (
-                          <a key={idx} href={getImageUrl(cert) || '#'} target="_blank" rel="noopener noreferrer"
-                            style={{ display: 'block', height: '140px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.05)' }}>
+                          <div key={idx}
+                            onClick={() => setPreviewImage(getImageUrl(cert))}
+                            style={{ display: 'block', height: '140px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.05)', cursor: 'zoom-in' }}>
                             <img
                               src={getImageUrl(cert) || 'https://via.placeholder.com/150'}
                               alt={`Certificate ${idx + 1}`}
@@ -2307,7 +2308,7 @@ function App() {
                               onError={(e) => { e.target.src = 'https://via.placeholder.com/150'; }}
                             />
                             <div style={{ textAlign: 'center', fontSize: '0.7rem', color: 'var(--text-muted)', padding: '2px 0' }}>Cert {idx + 1}</div>
-                          </a>
+                          </div>
                         ))}
                       </div>
                     ) : (
@@ -2468,6 +2469,47 @@ function App() {
           </div>
         ))}
       </div>
+
+      {/* ── Image Lightbox Preview ────────────────────────────────────────── */}
+      {previewImage && (
+        <div
+          onClick={() => setPreviewImage(null)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 9999,
+            background: 'rgba(0,0,0,0.88)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'zoom-out',
+            backdropFilter: 'blur(6px)',
+            animation: 'fadeIn 0.18s ease',
+          }}
+        >
+          {/* Close button */}
+          <button
+            onClick={() => setPreviewImage(null)}
+            style={{
+              position: 'absolute', top: '20px', right: '24px',
+              background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)',
+              color: '#fff', borderRadius: '50%', width: '40px', height: '40px',
+              fontSize: '1.2rem', cursor: 'pointer', display: 'flex',
+              alignItems: 'center', justifyContent: 'center',
+              backdropFilter: 'blur(4px)',
+            }}
+          >
+            ✕
+          </button>
+          <img
+            src={previewImage}
+            alt="Document Preview"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              maxWidth: '90vw', maxHeight: '88vh',
+              objectFit: 'contain', borderRadius: '10px',
+              boxShadow: '0 24px 80px rgba(0,0,0,0.6)',
+              cursor: 'default',
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 }
