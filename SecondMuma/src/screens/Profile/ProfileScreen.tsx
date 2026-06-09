@@ -17,6 +17,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import { RootStackParamList } from '../../types/navigation';
 import { Colors } from '../../constants/theme';
+import { Routes } from '../../constants/routes';
 import { useAppDispatch, useAppSelector, updateProfileSuccess, logout } from '../../store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_BASE_URL } from '../../config';
@@ -416,6 +417,8 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                                         onPress={() => {
                                             if (item.label === 'Orders') {
                                                 setActiveTab('orders');
+                                            } else if (item.label === 'Support') {
+                                                navigation.navigate(Routes.HELP_SUPPORT);
                                             }
                                         }}
                                     >

@@ -17,6 +17,7 @@ import Icon from 'react-native-vector-icons/FontAwesome5';
 import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
 import { RootStackParamList } from '../../types/navigation';
 import { Colors } from '../../constants/theme';
+import { Routes } from '../../constants/routes';
 import { useAppDispatch, useAppSelector, logout, updateUser } from '../../store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_BASE_URL } from '../../config';
@@ -470,6 +471,17 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
 
 
 
+                {/* Help & Support Button */}
+                <TouchableOpacity
+                    style={styles.helpBtn}
+                    onPress={() => navigation.navigate(Routes.HELP_SUPPORT)}
+                    activeOpacity={0.8}
+                >
+                    <Icon name="question-circle" size={16} color={Colors.PRIMARY} style={{ marginRight: 10 }} />
+                    <Text style={styles.helpText}>Help & Support</Text>
+                    <Icon name="chevron-right" size={12} color={Colors.TEXT_SECONDARY} style={{ marginLeft: 'auto' }} />
+                </TouchableOpacity>
+
                 {/* Sign Out Button */}
                 <TouchableOpacity
                     style={styles.logoutBtn}
@@ -769,6 +781,23 @@ const styles = StyleSheet.create({
         color: Colors.TEXT_SECONDARY,
         marginTop: 4,
         fontWeight: '600',
+    },
+    helpBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: Colors.SURFACE,
+        borderWidth: 1,
+        borderColor: Colors.BORDER,
+        borderRadius: 16,
+        paddingVertical: 16,
+        paddingHorizontal: 20,
+        marginTop: 10,
+        marginBottom: 10,
+    },
+    helpText: {
+        color: Colors.PRIMARY,
+        fontSize: 15,
+        fontWeight: '800',
     },
 });
 

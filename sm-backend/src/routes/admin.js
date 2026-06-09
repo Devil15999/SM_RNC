@@ -22,7 +22,9 @@ const {
     getAdminAppointments,
     createAppointment,
     updateAppointment,
-    deleteAppointment
+    deleteAppointment,
+    getAdminTimeslots,
+    updateAdminTimeslots
 } = require('../controllers/adminController');
 
 const router = express.Router();
@@ -169,5 +171,19 @@ router.put('/appointments/:id', updateAppointment);
  * @access  Private (Admin)
  */
 router.delete('/appointments/:id', deleteAppointment);
+
+/**
+ * @route   GET /api/admin/timeslots
+ * @desc    Get all timeslots configs
+ * @access  Private (Admin)
+ */
+router.get('/timeslots', getAdminTimeslots);
+
+/**
+ * @route   PUT /api/admin/timeslots
+ * @desc    Update a timeslot config
+ * @access  Private (Admin)
+ */
+router.put('/timeslots', updateAdminTimeslots);
 
 module.exports = router;

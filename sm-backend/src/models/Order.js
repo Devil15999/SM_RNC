@@ -50,6 +50,36 @@ const orderSchema = new mongoose.Schema(
             state:    { type: String, required: true },
             pincode:  { type: String, required: true },
         },
+        // Booking / Appointment Details
+        motherName: {
+            type: String,
+            default: '',
+        },
+        motherAge: {
+            type: String,
+            default: '',
+        },
+        babyName: {
+            type: String,
+            default: '',
+        },
+        babyAge: {
+            type: String,
+            default: '',
+        },
+        startDate: {
+            type: Date,
+            default: null,
+        },
+        timeSlot: {
+            type: String,
+            enum: ['morning', 'afternoon', 'evening', ''],
+            default: '',
+        },
+        selectedTime: {
+            type: String,
+            default: '',
+        },
         // Payment
         paymentStatus: {
             type: String,

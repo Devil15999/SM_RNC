@@ -7,6 +7,7 @@ const Payment = require('../models/Payment');
 const Address = require('../models/Address');
 const Package = require('../models/Package');
 const Appointment = require('../models/Appointment');
+const TimeslotConfig = require('../models/TimeslotConfig');
 
 /**
  * GET /api/admin/stats
@@ -275,7 +276,19 @@ const getOrders = async (req, res, next) => {
  */
 const updateOrder = async (req, res, next) => {
     try {
-        const { status, paymentStatus, activatedAt, expiresAt } = req.body;
+        const {
+            status,
+            paymentStatus,
+            activatedAt,
+            expiresAt,
+            motherName,
+            motherAge,
+            babyName,
+            babyAge,
+            startDate,
+            timeSlot,
+            selectedTime
+        } = req.body;
         const order = await Order.findById(req.params.id);
 
         if (!order) {
@@ -286,6 +299,14 @@ const updateOrder = async (req, res, next) => {
         if (paymentStatus !== undefined) order.paymentStatus = paymentStatus;
         if (activatedAt !== undefined) order.activatedAt = activatedAt ? new Date(activatedAt) : null;
         if (expiresAt !== undefined) order.expiresAt = expiresAt ? new Date(expiresAt) : null;
+        
+        if (motherName !== undefined) order.motherName = motherName;
+        if (motherAge !== undefined) order.motherAge = motherAge;
+        if (babyName !== undefined) order.babyName = babyName;
+        if (babyAge !== undefined) order.babyAge = babyAge;
+        if (startDate !== undefined) order.startDate = startDate ? new Date(startDate) : null;
+        if (timeSlot !== undefined) order.timeSlot = timeSlot;
+        if (selectedTime !== undefined) order.selectedTime = selectedTime;
 
         await order.save();
 
@@ -752,6 +773,59 @@ const deleteAppointment = async (req, res, next) => {
     }
 };
 
+const seedDefaultTimeslotsLocal = async () => {
+    const defaults = [
+        { slot: 'morning', times: ['08:00 AM', '09:00 AM', '10:00 AM', '11:00 AM'] },
+        { slot: 'afternoon', times: ['12:00 PM', '01:00 PM', '02:00 PM', '03:00 PM'] },
+        { slot: 'evening', times: ['04:00 PM', '05:00 PM', '06:00 PM', '07:00 PM'] }
+    ];
+    for (const item of defaults) {
+        const existing = await TimeslotConfig.findOne({ slot: item.slot });
+        if (!existing) {
+            await TimeslotConfig.create(item);
+        }
+    }
+};
+
+/**
+ * GET /api/admin/timeslots
+ * Fetch timeslot configurations
+ */
+const getAdminTimeslots = async (req, res, next) => {
+    try {
+        await seedDefaultTimeslotsLocal();
+        const slots = await TimeslotConfig.find().sort({ slot: 1 });
+        res.status(200).json({ success: true, data: slots });
+    } catch (err) {
+        next(err);
+    }
+};
+
+/**
+ * PUT /api/admin/timeslots
+ * Update timeslot configuration for a slot
+ */
+const updateAdminTimeslots = async (req, res, next) => {
+    try {
+        const { slot, times } = req.body;
+        if (!slot || !times) {
+            return res.status(400).json({ success: false, message: 'Missing slot or times array' });
+        }
+
+        let config = await TimeslotConfig.findOne({ slot });
+        if (!config) {
+            config = new TimeslotConfig({ slot, times });
+        } else {
+            config.times = times;
+        }
+
+        await config.save();
+        res.status(200).json({ success: true, message: 'Timeslot configuration updated successfully', data: config });
+    } catch (err) {
+        next(err);
+    }
+};
+
 module.exports = {
     getStats,
     getUsers,
@@ -772,6 +846,8 @@ module.exports = {
     getAdminAppointments,
     createAppointment,
     updateAppointment,
-    deleteAppointment
+    deleteAppointment,
+    getAdminTimeslots,
+    updateAdminTimeslots
 };
 

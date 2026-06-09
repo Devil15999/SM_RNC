@@ -13,6 +13,7 @@ import ForgotPasswordScreen from '../screens/Auth/ForgotPasswordScreen';
 import HomeScreen from '../screens/Home/HomeScreen';
 import CheckinScreen from '../screens/Checkout/CheckinScreen';
 import ProfileScreen from '../screens/Profile/ProfileScreen';
+import HelpSupportScreen from '../screens/Profile/HelpSupportScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -54,6 +55,7 @@ const RootNavigator: React.FC = () => {
                     <Stack.Screen name={Routes.HOME} component={HomeScreen} />
                     <Stack.Screen name={Routes.CHECKIN} component={CheckinScreen} />
                     <Stack.Screen name={Routes.PROFILE} component={ProfileScreen} />
+                    <Stack.Screen name={Routes.HELP_SUPPORT} component={HelpSupportScreen} />
                 </>
             ) : (
                 <>

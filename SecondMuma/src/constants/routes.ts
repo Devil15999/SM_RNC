@@ -13,4 +13,5 @@ export const Routes = {
     PAYMENT: 'Payment',
     PROFILE: 'Profile',
     COMPLETE_PROFILE: 'CompleteProfile',
+    HELP_SUPPORT: 'HelpSupport',
 } as const;

@@ -37,8 +37,59 @@ const CheckoutScreen: React.FC<Props> = ({ navigation, route }) => {
     const [state, setState] = useState('');
     const [pincode, setPincode] = useState('');
 
+    // Booking details states
+    const [motherName, setMotherName] = useState(packageType !== 'baby' ? (user?.name || '') : '');
+    const [motherAge, setMotherAge] = useState('');
+    const [babyName, setBabyName] = useState('');
+    const [babyAge, setBabyAge] = useState(''); // '0-3', '3-6', '6-9', 'more than 9 months'
+    const [startDate, setStartDate] = useState<any>(null);
+    const [timeSlot, setTimeSlot] = useState<'morning' | 'afternoon' | 'evening' | ''>('');
+    const [selectedTime, setSelectedTime] = useState('');
+
+    const [datesList, setDatesList] = useState<any[]>([]);
+    const [dbTimeslots, setDbTimeslots] = useState<Record<string, string[]>>({ morning: [], afternoon: [], evening: [] });
+    const [showTimeDropdown, setShowTimeDropdown] = useState(false);
+
     const [savedAddresses, setSavedAddresses] = useState<any[]>([]);
     const [errors, setErrors] = useState<Record<string, string>>({});
+
+    useEffect(() => {
+        const list = [];
+        const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        for (let i = 1; i <= 14; i++) {
+            const d = new Date();
+            d.setDate(d.getDate() + i);
+            list.push({
+                dayName: days[d.getDay()],
+                dayNum: d.getDate(),
+                monthName: months[d.getMonth()],
+                fullDate: d
+            });
+        }
+        setDatesList(list);
+    }, []);
+
+    // Fetch timeslots from backend
+    useEffect(() => {
+        if (!token) return;
+        let isMounted = true;
+        const fetchTimeslots = async () => {
+            try {
+                const res = await fetch(`${API_BASE_URL}/timeslots`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if (res.ok && data.success && isMounted) {
+                    setDbTimeslots(data.data);
+                }
+            } catch (err) {
+                console.log('Error fetching timeslots:', err);
+            }
+        };
+        fetchTimeslots();
+        return () => { isMounted = false; };
+    }, [token]);
 
     useEffect(() => {
         if (!token) return;
@@ -70,6 +121,24 @@ const CheckoutScreen: React.FC<Props> = ({ navigation, route }) => {
         if (!state.trim()) newErrors.state = 'Required';
         if (!pincode.trim() || pincode.length !== 6) newErrors.pincode = 'Valid 6 digit pincode';
 
+        // Booking details validations
+        if (packageType !== 'baby') {
+            if (!motherName.trim()) newErrors.motherName = 'Required';
+            const ageNum = parseInt(motherAge, 10);
+            if (!motherAge.trim()) {
+                newErrors.motherAge = 'Required';
+            } else if (isNaN(ageNum) || ageNum < 15 || ageNum > 90) {
+                newErrors.motherAge = 'Enter valid age (15-90)';
+            }
+        }
+        if (packageType !== 'mother') {
+            if (!babyName.trim()) newErrors.babyName = 'Required';
+            if (!babyAge) newErrors.babyAge = 'Select baby age';
+        }
+        if (!startDate) newErrors.startDate = 'Select start date';
+        if (!timeSlot) newErrors.timeSlot = 'Select time slot';
+        if (!selectedTime) newErrors.selectedTime = 'Select preferred time';
+
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
@@ -93,6 +162,13 @@ const CheckoutScreen: React.FC<Props> = ({ navigation, route }) => {
                 state,
                 pincode,
             },
+            motherName: packageType !== 'baby' ? motherName : '',
+            motherAge: packageType !== 'baby' ? motherAge : '',
+            babyName: packageType !== 'mother' ? babyName : '',
+            babyAge: packageType !== 'mother' ? babyAge : '',
+            startDate: startDate ? startDate.toISOString() : '',
+            timeSlot,
+            selectedTime,
         });
     };
 
@@ -159,6 +235,173 @@ const CheckoutScreen: React.FC<Props> = ({ navigation, route }) => {
                             <Text style={styles.totalLabel}>Amount to Pay</Text>
                             <Text style={styles.totalAmount}>₹{price.toLocaleString('en-IN')}</Text>
                         </View>
+                    </View>
+
+                    {/* Care & Booking Details */}
+                    <Text style={styles.sectionTitle}>Care & Booking Details</Text>
+                    <View style={styles.formCard}>
+                        {/* Mother Details */}
+                        {packageType !== 'baby' && (
+                            <View>
+                                <Text style={styles.formSubSectionTitle}>Mother's Profile</Text>
+                                {renderInput("Mother's Name", motherName, setMotherName, 'motherName', { placeholder: "Enter mother's name" })}
+                                {renderInput("Mother's Age", motherAge, (t) => setMotherAge(t.replace(/[^0-9]/g, '')), 'motherAge', { keyboardType: 'number-pad', maxLength: 2, placeholder: "e.g. 28" })}
+                                <View style={styles.formDivider} />
+                            </View>
+                        )}
+
+                        {/* Baby Details */}
+                        {packageType !== 'mother' && (
+                            <View>
+                                <Text style={styles.formSubSectionTitle}>Baby's Profile</Text>
+                                {renderInput("Baby's Name", babyName, setBabyName, 'babyName', { placeholder: "Enter baby's name (or Baby of Mother's Name)" })}
+                                
+                                <View style={styles.inputGroup}>
+                                    <Text style={styles.label}>Baby's Age Range</Text>
+                                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                                        {['0-3', '3-6', '6-9', 'more than 9 months'].map(ageRange => {
+                                            const isSelected = babyAge === ageRange;
+                                            return (
+                                                <TouchableOpacity
+                                                    key={ageRange}
+                                                    style={[
+                                                        styles.chip,
+                                                        isSelected && { backgroundColor: accentColor, borderColor: accentColor }
+                                                    ]}
+                                                    onPress={() => {
+                                                        setBabyAge(ageRange);
+                                                        setErrors({ ...errors, babyAge: '' });
+                                                    }}
+                                                >
+                                                    <Text style={[styles.chipText, isSelected && { color: Colors.WHITE, fontWeight: '700' }]}>
+                                                        {ageRange} {ageRange !== 'more than 9 months' ? 'months' : ''}
+                                                    </Text>
+                                                </TouchableOpacity>
+                                            );
+                                        })}
+                                    </View>
+                                    {!!errors.babyAge && <Text style={styles.errorText}>{errors.babyAge}</Text>}
+                                </View>
+                                <View style={styles.formDivider} />
+                            </View>
+                        )}
+
+                        {/* Appointment Schedule */}
+                        <Text style={styles.formSubSectionTitle}>Appointment Schedule</Text>
+                        
+                        {/* Appointment Start Date */}
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.label}>Preferred Start Date</Text>
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 4 }}>
+                                {datesList.map((item, idx) => {
+                                    const isSelected = startDate && startDate.getDate() === item.fullDate.getDate() && startDate.getMonth() === item.fullDate.getMonth();
+                                    return (
+                                        <TouchableOpacity
+                                            key={idx}
+                                            style={[
+                                                styles.dateCard,
+                                                isSelected && { backgroundColor: accentColor, borderColor: accentColor }
+                                            ]}
+                                            onPress={() => {
+                                                setStartDate(item.fullDate);
+                                                setErrors({ ...errors, startDate: '' });
+                                            }}
+                                        >
+                                            <Text style={[styles.dateCardDayName, isSelected && { color: Colors.WHITE }]}>
+                                                {item.dayName}
+                                            </Text>
+                                            <Text style={[styles.dateCardDayNum, isSelected && { color: Colors.WHITE }]}>
+                                                {item.dayNum}
+                                            </Text>
+                                            <Text style={[styles.dateCardMonthName, isSelected && { color: Colors.WHITE }]}>
+                                                {item.monthName}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    );
+                                })}
+                            </ScrollView>
+                            {!!errors.startDate && <Text style={styles.errorText}>{errors.startDate}</Text>}
+                        </View>
+
+                        {/* Time Slot Chips */}
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.label}>Preferred Time Slot</Text>
+                            <View style={{ flexDirection: 'row', gap: 10 }}>
+                                {['morning', 'afternoon', 'evening'].map(slot => {
+                                    const isSelected = timeSlot === slot;
+                                    return (
+                                        <TouchableOpacity
+                                            key={slot}
+                                            style={[
+                                                styles.slotChip,
+                                                isSelected && { backgroundColor: accentColor, borderColor: accentColor }
+                                            ]}
+                                            onPress={() => {
+                                                setTimeSlot(slot as any);
+                                                setSelectedTime('');
+                                                setShowTimeDropdown(false);
+                                                setErrors({ ...errors, timeSlot: '', selectedTime: '' });
+                                            }}
+                                        >
+                                            <Icon
+                                                name={slot === 'morning' ? 'sun' : slot === 'afternoon' ? 'cloud-sun' : 'moon'}
+                                                size={12}
+                                                color={isSelected ? Colors.WHITE : Colors.TEXT_SECONDARY}
+                                                style={{ marginRight: 6 }}
+                                            />
+                                            <Text style={[styles.slotChipText, isSelected && { color: Colors.WHITE, fontWeight: '700' }]}>
+                                                {slot.charAt(0).toUpperCase() + slot.slice(1)}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    );
+                                })}
+                            </View>
+                            {!!errors.timeSlot && <Text style={styles.errorText}>{errors.timeSlot}</Text>}
+                        </View>
+
+                        {/* Dynamic Time Dropdown */}
+                        {timeSlot !== '' && (
+                            <View style={styles.inputGroup}>
+                                <Text style={styles.label}>Preferred Time</Text>
+                                <TouchableOpacity 
+                                    style={[
+                                        styles.dropdownButton,
+                                        errors.selectedTime ? { borderColor: Colors.ERROR } : null
+                                    ]}
+                                    onPress={() => setShowTimeDropdown(!showTimeDropdown)}
+                                >
+                                    <Text style={styles.dropdownButtonText}>
+                                        {selectedTime || 'Select Preferred Time'}
+                                    </Text>
+                                    <Icon name={showTimeDropdown ? "chevron-up" : "chevron-down"} size={12} color={Colors.TEXT_SECONDARY} />
+                                </TouchableOpacity>
+
+                                {showTimeDropdown && (
+                                    <View style={styles.dropdownList}>
+                                        {(dbTimeslots[timeSlot] || []).length > 0 ? (dbTimeslots[timeSlot] || []).map((t) => (
+                                            <TouchableOpacity 
+                                                key={t} 
+                                                style={styles.dropdownItem} 
+                                                onPress={() => {
+                                                    setSelectedTime(t);
+                                                    setShowTimeDropdown(false);
+                                                    setErrors({ ...errors, selectedTime: '' });
+                                                }}
+                                            >
+                                                <Text style={styles.dropdownItemText}>{t}</Text>
+                                            </TouchableOpacity>
+                                        )) : (
+                                            <View style={{ padding: 12, alignItems: 'center' }}>
+                                                <Text style={{ fontSize: 13, color: Colors.TEXT_HINT, fontStyle: 'italic' }}>
+                                                    No times available for this slot
+                                                </Text>
+                                            </View>
+                                        )}
+                                    </View>
+                                )}
+                                {!!errors.selectedTime && <Text style={styles.errorText}>{errors.selectedTime}</Text>}
+                            </View>
+                        )}
                     </View>
 
                     {/* Address Details */}
@@ -370,6 +613,113 @@ const styles = StyleSheet.create({
     addressChipTextActive: {
         color: Colors.WHITE,
         fontWeight: '700',
+    },
+    formSubSectionTitle: {
+        fontSize: 12,
+        fontWeight: '700',
+        color: Colors.PRIMARY,
+        textTransform: 'uppercase',
+        letterSpacing: 0.6,
+        marginTop: 4,
+        marginBottom: 12,
+    },
+    formDivider: {
+        height: 1,
+        backgroundColor: Colors.DIVIDER,
+        marginVertical: 18,
+    },
+    chip: {
+        paddingHorizontal: 14,
+        paddingVertical: 8,
+        borderRadius: 20,
+        borderWidth: 1.5,
+        borderColor: Colors.BORDER,
+        backgroundColor: Colors.SURFACE,
+    },
+    chipText: {
+        fontSize: 12,
+        fontWeight: '600',
+        color: Colors.TEXT_SECONDARY,
+    },
+    dateCard: {
+        width: 65,
+        height: 80,
+        borderRadius: 12,
+        borderWidth: 1.5,
+        borderColor: Colors.BORDER,
+        backgroundColor: Colors.SURFACE,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingVertical: 4,
+    },
+    dateCardDayName: {
+        fontSize: 9,
+        fontWeight: '700',
+        color: Colors.TEXT_HINT,
+        textTransform: 'uppercase',
+    },
+    dateCardDayNum: {
+        fontSize: 18,
+        fontWeight: '800',
+        color: Colors.TEXT_PRIMARY,
+        marginVertical: 1,
+    },
+    dateCardMonthName: {
+        fontSize: 9,
+        fontWeight: '700',
+        color: Colors.TEXT_SECONDARY,
+    },
+    slotChip: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 14,
+        paddingVertical: 10,
+        borderRadius: 12,
+        borderWidth: 1.5,
+        borderColor: Colors.BORDER,
+        backgroundColor: Colors.SURFACE,
+        flex: 1,
+        justifyContent: 'center',
+    },
+    slotChipText: {
+        fontSize: 12,
+        fontWeight: '600',
+        color: Colors.TEXT_PRIMARY,
+    },
+    dropdownButton: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        backgroundColor: Colors.SURFACE,
+        borderWidth: 1.5,
+        borderColor: Colors.BORDER,
+        borderRadius: 12,
+        paddingHorizontal: 14,
+        paddingVertical: 12,
+    },
+    dropdownButtonText: {
+        fontSize: 14,
+        color: Colors.TEXT_PRIMARY,
+        fontWeight: '600',
+    },
+    dropdownList: {
+        backgroundColor: Colors.WHITE,
+        borderWidth: 1.5,
+        borderColor: Colors.BORDER,
+        borderRadius: 12,
+        marginTop: 6,
+        overflow: 'hidden',
+    },
+    dropdownItem: {
+        paddingHorizontal: 14,
+        paddingVertical: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.DIVIDER,
+    },
+    dropdownItemText: {
+        fontSize: 14,
+        color: Colors.TEXT_PRIMARY,
+        fontWeight: '500',
     },
 });
 

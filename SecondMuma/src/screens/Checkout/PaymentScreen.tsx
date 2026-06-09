@@ -21,7 +21,21 @@ import { API_BASE_URL } from '../../config';
 type Props = NativeStackScreenProps<RootStackParamList, 'Payment'>;
 
 const PaymentScreen: React.FC<Props> = ({ navigation, route }) => {
-    const { packageType, planKey, packageTitle, price, accentColor, address } = route.params;
+    const {
+        packageType,
+        planKey,
+        packageTitle,
+        price,
+        accentColor,
+        address,
+        motherName,
+        motherAge,
+        babyName,
+        babyAge,
+        startDate,
+        timeSlot,
+        selectedTime
+    } = route.params;
 
     const token = useAppSelector(state => state.auth.user?.token);
 
@@ -61,7 +75,14 @@ const PaymentScreen: React.FC<Props> = ({ navigation, route }) => {
                         body: JSON.stringify({
                             packageType,
                             planKey,
-                            address
+                            address,
+                            motherName,
+                            motherAge,
+                            babyName,
+                            babyAge,
+                            startDate,
+                            timeSlot,
+                            selectedTime
                         })
                     });
                     const data = await res.json();

@@ -45,10 +45,18 @@ export type RootStackParamList = {
             state: string;
             pincode: string;
         };
+        motherName: string;
+        motherAge: string;
+        babyName: string;
+        babyAge: string;
+        startDate: string;
+        timeSlot: string;
+        selectedTime: string;
     };
     Profile: undefined;
     CompleteProfile: {
         mobile: string;
         token: string;
     };
+    HelpSupport: undefined;
 };

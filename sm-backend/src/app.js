@@ -20,6 +20,7 @@ const orderRoutes    = require('./routes/orders');
 const paymentRoutes  = require('./routes/payments');
 const adminRoutes    = require('./routes/admin');
 const employeeRoutes = require('./routes/employee');
+const timeslotRoutes = require('./routes/timeslots');
 
 // ── Connect to DB ──────────────────────────────────────────────────────────────
 connectDB();
@@ -83,6 +84,7 @@ app.use('/api/orders',    orderRoutes);
 app.use('/api/payments',  paymentRoutes);
 app.use('/api/admin',     adminRoutes);
 app.use('/api/employee',  employeeRoutes);
+app.use('/api/timeslots', timeslotRoutes);
 
 
 // ── 404 handler ────────────────────────────────────────────────────────────────

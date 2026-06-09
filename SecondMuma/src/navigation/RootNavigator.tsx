@@ -15,6 +15,7 @@ import PackageDetailScreen from '../screens/Packages/PackageDetailScreen';
 import CheckoutScreen from '../screens/Checkout/CheckoutScreen';
 import PaymentScreen from '../screens/Checkout/PaymentScreen';
 import ProfileScreen from '../screens/Profile/ProfileScreen';
+import HelpSupportScreen from '../screens/Profile/HelpSupportScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -58,6 +59,7 @@ const RootNavigator: React.FC = () => {
                     <Stack.Screen name={Routes.CHECKOUT} component={CheckoutScreen} />
                     <Stack.Screen name={Routes.PAYMENT} component={PaymentScreen} />
                     <Stack.Screen name={Routes.PROFILE} component={ProfileScreen} />
+                    <Stack.Screen name={Routes.HELP_SUPPORT} component={HelpSupportScreen} />
                 </>
             ) : (
                 <>

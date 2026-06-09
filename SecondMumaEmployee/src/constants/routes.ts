@@ -11,4 +11,5 @@ export const Routes = {
     HOME: 'Home',
     CHECKIN: 'Checkin',
     PROFILE: 'Profile',
+    HELP_SUPPORT: 'HelpSupport',
 } as const;

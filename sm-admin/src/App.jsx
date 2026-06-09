@@ -29,7 +29,8 @@ import {
   Package,
   Menu,
   Briefcase,
-  MapPin
+  MapPin,
+  Clock
 } from 'lucide-react';
 import './App.css';
 
@@ -86,6 +87,10 @@ function App() {
   const [showAddPackageModal, setShowAddPackageModal] = useState(false);
   const [pkgFeatureInput, setPkgFeatureInput] = useState('');
   const [planFeatureInputs, setPlanFeatureInputs] = useState({});
+
+  // Timeslot Management States
+  const [timeslots, setTimeslots] = useState([]);
+  const [newTimeInputs, setNewTimeInputs] = useState({ morning: '', afternoon: '', evening: '' });
 
   // Login Form States
   const [loginIdentifier, setLoginIdentifier] = useState('');
@@ -333,6 +338,35 @@ function App() {
     }
   };
 
+  const fetchTimeslots = async () => {
+    setIsLoading(true);
+    try {
+      const res = await apiFetch('/admin/timeslots');
+      if (res.success) {
+        setTimeslots(res.data);
+      }
+    } catch (err) {
+      showToast(err.message || 'Failed to fetch timeslots configuration', 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleUpdateTimeslot = async (slot, times) => {
+    try {
+      const res = await apiFetch('/admin/timeslots', {
+        method: 'PUT',
+        body: JSON.stringify({ slot, times })
+      });
+      if (res.success) {
+        showToast(`Timeslot configuration for ${slot} updated`);
+        fetchTimeslots();
+      }
+    } catch (err) {
+      showToast(err.message || 'Failed to update timeslot configuration', 'error');
+    }
+  };
+
   const handleApproveEmployee = async (id, isApproved) => {
     try {
       const res = await apiFetch(`/admin/employees/${id}/approve`, {
@@ -441,6 +475,7 @@ function App() {
       if (activeTab === 'payments') fetchPayments(1);
       if (activeTab === 'packages') fetchPackages();
       if (activeTab === 'employees') fetchEmployees();
+      if (activeTab === 'timeslots') fetchTimeslots();
       if (activeTab === 'appointments') {
         fetchAppointments();
         fetchEmployees();
@@ -710,6 +745,14 @@ function App() {
           >
             <Calendar size={20} />
             <span>Appointments</span>
+          </button>
+
+          <button
+            className={`menu-item ${activeTab === 'timeslots' ? 'active' : ''}`}
+            onClick={() => handleTabChange('timeslots')}
+          >
+            <Clock size={20} />
+            <span>Timeslots</span>
           </button>
         </nav>
 
@@ -1666,6 +1709,101 @@ function App() {
                   </div>
                 </div>
               )}
+
+              {/* Tab 8: Timeslots */}
+              {activeTab === 'timeslots' && (
+                <div className="animate-fade-in">
+                  <div style={{ marginBottom: '24px' }}>
+                    <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 'bold' }}>Manage Timeslots</h2>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '4px' }}>
+                      Configure the preferred times selectable by customers for morning, afternoon, and evening slots.
+                    </p>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px' }}>
+                    {['morning', 'afternoon', 'evening'].map(slotKey => {
+                      const slotTimes = timeslots[slotKey] || [];
+                      return (
+                        <div key={slotKey} className="glass-panel" style={{ padding: '24px', borderTop: `4px solid ${slotKey === 'morning' ? '#f59e0b' : slotKey === 'afternoon' ? '#10b981' : '#e91e8a'}` }}>
+                          <h3 style={{ textTransform: 'capitalize', fontSize: '1.2rem', fontWeight: 'bold', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <Clock size={18} color={slotKey === 'morning' ? '#f59e0b' : slotKey === 'afternoon' ? '#10b981' : '#e91e8a'} />
+                            {slotKey} Slot
+                          </h3>
+
+                          {/* Pills container */}
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '24px', minHeight: '60px', padding: '12px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                            {slotTimes.length > 0 ? slotTimes.map((time, idx) => (
+                              <span 
+                                key={idx} 
+                                style={{ 
+                                  display: 'inline-flex', 
+                                  alignItems: 'center', 
+                                  gap: '6px', 
+                                  padding: '6px 12px', 
+                                  background: 'rgba(255,255,255,0.05)', 
+                                  border: '1px solid var(--border-color)', 
+                                  borderRadius: '20px', 
+                                  fontSize: '0.85rem',
+                                  color: 'var(--text)'
+                                }}
+                              >
+                                {time}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const updated = slotTimes.filter((_, i) => i !== idx);
+                                    handleUpdateTimeslot(slotKey, updated);
+                                  }}
+                                  style={{ 
+                                    border: 'none', 
+                                    background: 'transparent', 
+                                    color: '#ef4444', 
+                                    cursor: 'pointer',
+                                    fontSize: '0.8rem',
+                                    padding: '0 2px',
+                                    display: 'flex',
+                                    alignItems: 'center'
+                                  }}
+                                >
+                                  <X size={12} />
+                                </button>
+                              </span>
+                            )) : (
+                              <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem', fontStyle: 'italic', margin: 'auto' }}>No times configured</span>
+                            )}
+                          </div>
+
+                          {/* Add Form */}
+                          <form onSubmit={(e) => {
+                            e.preventDefault();
+                            const val = newTimeInputs[slotKey]?.trim();
+                            if (!val) return;
+                            if (slotTimes.includes(val)) {
+                              showToast('Time already exists', 'error');
+                              return;
+                            }
+                            const updated = [...slotTimes, val];
+                            handleUpdateTimeslot(slotKey, updated);
+                            setNewTimeInputs(prev => ({ ...prev, [slotKey]: '' }));
+                          }} style={{ display: 'flex', gap: '10px' }}>
+                            <input
+                              type="text"
+                              className="form-control"
+                              placeholder="e.g. 09:30 AM"
+                              value={newTimeInputs[slotKey] || ''}
+                              onChange={(e) => setNewTimeInputs(prev => ({ ...prev, [slotKey]: e.target.value }))}
+                              style={{ flexGrow: 1 }}
+                            />
+                            <button type="submit" className="btn btn-primary" style={{ padding: '8px 16px', whiteSpace: 'nowrap' }}>
+                              Add Time
+                            </button>
+                          </form>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </>
           )}
         </div>
@@ -1754,11 +1892,44 @@ function App() {
             </div>
             <form onSubmit={handleUpdateOrder}>
               <div className="modal-body">
-                <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', padding: '12px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                 <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', padding: '12px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
                   <div style={{ fontSize: '1.8rem', color: editOrder.accentColor }}><i className={`fa-solid ${editOrder.icon || 'fa-box'}`}></i></div>
                   <div>
                     <div style={{ fontWeight: 'bold' }}>{editOrder.packageTitle}</div>
                     <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{editOrder.planLabel} Plan — ID: {editOrder._id}</div>
+                  </div>
+                </div>
+
+                {/* Booking / Care Details */}
+                <div style={{ padding: '16px', background: 'rgba(255,255,255,0.015)', borderRadius: '8px', border: '1px solid var(--border-color)', marginBottom: '20px' }}>
+                  <div style={{ fontWeight: '700', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#e91e8a', marginBottom: '12px' }}>Booking & Care Details</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 24px', fontSize: '0.85rem', color: 'var(--text)' }}>
+                    <div>
+                      <span style={{ color: 'var(--text-muted)' }}>Mother's Name:</span>
+                      <div style={{ fontWeight: '600', marginTop: '2px' }}>{editOrder.motherName || 'Not specified'}</div>
+                    </div>
+                    <div>
+                      <span style={{ color: 'var(--text-muted)' }}>Mother's Age:</span>
+                      <div style={{ fontWeight: '600', marginTop: '2px' }}>{editOrder.motherAge ? `${editOrder.motherAge} years` : 'Not specified'}</div>
+                    </div>
+                    <div>
+                      <span style={{ color: 'var(--text-muted)' }}>Baby's Name:</span>
+                      <div style={{ fontWeight: '600', marginTop: '2px' }}>{editOrder.babyName || 'Not specified'}</div>
+                    </div>
+                    <div>
+                      <span style={{ color: 'var(--text-muted)' }}>Baby's Age Range:</span>
+                      <div style={{ fontWeight: '600', marginTop: '2px' }}>{editOrder.babyAge || 'Not specified'}</div>
+                    </div>
+                    <div>
+                      <span style={{ color: 'var(--text-muted)' }}>Appointment Start:</span>
+                      <div style={{ fontWeight: '600', marginTop: '2px' }}>{editOrder.startDate ? new Date(editOrder.startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Not specified'}</div>
+                    </div>
+                    <div>
+                      <span style={{ color: 'var(--text-muted)' }}>Time Slot / Time:</span>
+                      <div style={{ fontWeight: '600', marginTop: '2px', textTransform: 'capitalize' }}>
+                        {editOrder.timeSlot || 'Not specified'} {editOrder.selectedTime ? `(${editOrder.selectedTime})` : ''}
+                      </div>
+                    </div>
                   </div>
                 </div>
 

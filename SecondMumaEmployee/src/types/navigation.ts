@@ -18,4 +18,5 @@ export type RootStackParamList = {
         customerMobile: string;
     };
     Profile: undefined;
+    HelpSupport: undefined;
 };

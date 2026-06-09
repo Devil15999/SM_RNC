@@ -30,7 +30,18 @@ const createOrder = async (req, res, next) => {
             return res.status(400).json({ success: false, errors: errors.array() });
         }
 
-        const { packageType, planKey, address } = req.body;
+        const {
+            packageType,
+            planKey,
+            address,
+            motherName,
+            motherAge,
+            babyName,
+            babyAge,
+            startDate,
+            timeSlot,
+            selectedTime
+        } = req.body;
 
         const pkg = await Package.findOne({ type: packageType });
         if (!pkg) {
@@ -51,6 +62,13 @@ const createOrder = async (req, res, next) => {
             icon: pkg.icon,
             accentColor: pkg.accentColor,
             address,
+            motherName: motherName || '',
+            motherAge: motherAge || '',
+            babyName: babyName || '',
+            babyAge: babyAge || '',
+            startDate: startDate || null,
+            timeSlot: timeSlot || '',
+            selectedTime: selectedTime || '',
         });
 
         res.status(201).json({
