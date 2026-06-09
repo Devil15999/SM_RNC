@@ -95,7 +95,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
                         <View style={styles.logoMini}>
                             <View style={styles.logoInner} />
                         </View>
-                        <Text style={styles.brandName}>Second Muma</Text>
+                        <Text style={styles.brandName}>Muma care</Text>
                         <View style={styles.badge}>
                             <Text style={styles.badgeText}>EMPLOYEE</Text>
                         </View>
