@@ -18,6 +18,7 @@ const {
     deletePackage,
     getEmployees,
     approveEmployee,
+    deleteEmployee,
     getAdminAppointments,
     createAppointment,
     updateAppointment,
@@ -133,6 +134,13 @@ router.get('/employees', getEmployees);
  * @access  Private (Admin)
  */
 router.put('/employees/:id/approve', approveEmployee);
+
+/**
+ * @route   DELETE /api/admin/employees/:id
+ * @desc    Delete employee profile
+ * @access  Private (Admin)
+ */
+router.delete('/employees/:id', deleteEmployee);
 
 /**
  * @route   GET /api/admin/appointments

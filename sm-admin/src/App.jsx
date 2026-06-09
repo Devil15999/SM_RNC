@@ -525,6 +525,20 @@ function App() {
     }
   };
 
+  const handleDeleteEmployee = async (id) => {
+    if (window.confirm('Are you sure you want to delete this employee? This will unassign them from any appointments.')) {
+      try {
+        const res = await apiFetch(`/admin/employees/${id}`, { method: 'DELETE' });
+        if (res.success) {
+          showToast('Employee deleted successfully');
+          fetchEmployees();
+        }
+      } catch (err) {
+        showToast(err.message || 'Deletion failed', 'error');
+      }
+    }
+  };
+
   const handleDeleteOrder = async (id) => {
     if (window.confirm('Delete this order and associated payments?')) {
       try {
@@ -1460,7 +1474,8 @@ function App() {
                               <img
                                 src={getImageUrl(emp.userPhoto) || '/user.png'}
                                 alt={emp.name}
-                                style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '1px solid rgba(255,255,255,0.1)' }}
+                                style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '1px solid rgba(255,255,255,0.1)', cursor: 'zoom-in' }}
+                                onClick={() => setPreviewImage(getImageUrl(emp.userPhoto) || '/user.png')}
                                 onError={(e) => { e.target.src = '/user.png'; }}
                               />
                             </td>
@@ -1487,6 +1502,9 @@ function App() {
                                   Approve
                                 </button>
                               )}
+                              <button className="btn btn-danger btn-icon" onClick={() => handleDeleteEmployee(emp._id)} title="Delete Employee" style={{ padding: '4px' }}>
+                                <Trash2 size={16} />
+                              </button>
                             </td>
                           </tr>
                         ))}
@@ -1590,7 +1608,8 @@ function App() {
                                   <img
                                     src={getImageUrl(appt.assignedEmployee.userPhoto) || '/user.png'}
                                     alt={appt.assignedEmployee.name}
-                                    style={{ width: '24px', height: '24px', borderRadius: '50%', objectFit: 'cover' }}
+                                    style={{ width: '24px', height: '24px', borderRadius: '50%', objectFit: 'cover', cursor: 'zoom-in' }}
+                                    onClick={() => setPreviewImage(getImageUrl(appt.assignedEmployee.userPhoto) || '/user.png')}
                                     onError={(e) => { e.target.src = '/user.png'; }}
                                   />
                                   <div>
@@ -2247,7 +2266,8 @@ function App() {
                 <img
                   src={getImageUrl(viewEmployeeDocs.userPhoto) || '/user.png'}
                   alt={viewEmployeeDocs.name}
-                  style={{ width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--accent-pink)' }}
+                  style={{ width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--accent-pink)', cursor: 'zoom-in' }}
+                  onClick={() => setPreviewImage(getImageUrl(viewEmployeeDocs.userPhoto) || '/user.png')}
                   onError={(e) => { e.target.src = '/user.png'; }}
                 />
                 <div>

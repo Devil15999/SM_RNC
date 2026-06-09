@@ -590,6 +590,35 @@ const approveEmployee = async (req, res, next) => {
 };
 
 /**
+ * DELETE /api/admin/employees/:id
+ * Delete an employee and clear assignment in appointments.
+ */
+const deleteEmployee = async (req, res, next) => {
+    try {
+        const employeeId = req.params.id;
+        const employee = await Employee.findById(employeeId);
+
+        if (!employee) {
+            return res.status(404).json({ success: false, message: 'Employee not found' });
+        }
+
+        await Employee.findByIdAndDelete(employeeId);
+        // Unassign from appointments
+        await Appointment.updateMany(
+            { assignedEmployee: employeeId },
+            { $set: { assignedEmployee: null } }
+        );
+
+        res.status(200).json({
+            success: true,
+            message: 'Employee deleted successfully and unassigned from appointments'
+        });
+    } catch (err) {
+        next(err);
+    }
+};
+
+/**
  * GET /api/admin/appointments
  * Retrieve all appointments.
  */
@@ -739,6 +768,7 @@ module.exports = {
     deletePackage,
     getEmployees,
     approveEmployee,
+    deleteEmployee,
     getAdminAppointments,
     createAppointment,
     updateAppointment,

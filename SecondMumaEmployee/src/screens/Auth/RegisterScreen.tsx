@@ -24,12 +24,6 @@ import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Register'>;
 
-// 1x1 pixel valid base64 png images of different colors to simulate file selection
-const MOCK_IMAGES = {
-    userPhoto: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', // Teal pixel
-    aadharPhoto: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', // Red pixel
-    certificatePhoto: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', // Blue pixel
-};
 
 const RegisterScreen: React.FC<Props> = ({ navigation }) => {
     const dispatch = useAppDispatch();
@@ -123,17 +117,17 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
 
     const isMobileValid = mobile.length === 10 && /^[6-9]\d{9}$/.test(mobile);
     const isAadharValid = aadharNumber.length === 12 && /^\d{12}$/.test(aadharNumber);
-    
+
     // Check if form fields are filled and mandatory photos selected
-    const isFormValid = 
-        isMobileValid && 
-        password.length >= 6 && 
-        name.trim().length >= 2 && 
-        email.trim().includes('@') && 
-        permanentAddress.trim().length >= 5 && 
-        occupation.trim().length >= 2 && 
-        isAadharValid && 
-        userPhoto !== null && 
+    const isFormValid =
+        isMobileValid &&
+        password.length >= 6 &&
+        name.trim().length >= 2 &&
+        email.trim().includes('@') &&
+        permanentAddress.trim().length >= 5 &&
+        occupation.trim().length >= 2 &&
+        isAadharValid &&
+        userPhoto !== null &&
         aadharPhoto !== null;
 
     const handleRegister = async () => {
@@ -187,12 +181,12 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
             <KeyboardAvoidingView
                 style={styles.flex}
                 behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-                
+
                 <ScrollView
                     contentContainerStyle={styles.container}
                     keyboardShouldPersistTaps="handled"
                     showsVerticalScrollIndicator={false}>
-                    
+
                     {/* Header */}
                     <View style={styles.header}>
                         <Text style={styles.title}>Join as Employee</Text>
