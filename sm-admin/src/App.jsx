@@ -47,6 +47,30 @@ const getImageUrl = (photoPath) => {
   return `${API_BASE_URL.replace('/api', '')}${photoPath}`;
 };
 
+const convert24To12 = (time24) => {
+  if (!time24) return '';
+  const [hoursStr, minutesStr] = time24.split(':');
+  let hours = parseInt(hoursStr, 10);
+  const minutes = minutesStr;
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12;
+  hours = hours ? hours : 12; // the hour '0' should be '12'
+  const hoursFormatted = hours < 10 ? `0${hours}` : hours;
+  return `${hoursFormatted}:${minutes} ${ampm}`;
+};
+
+const convert12To24 = (time12) => {
+  if (!time12) return '';
+  const match = time12.match(/^(\d{2}):(\d{2})\s*(AM|PM)$/i);
+  if (!match) return '';
+  let [_, hoursStr, minutes, ampm] = match;
+  let hours = parseInt(hoursStr, 10);
+  if (ampm.toUpperCase() === 'PM' && hours < 12) hours += 12;
+  if (ampm.toUpperCase() === 'AM' && hours === 12) hours = 0;
+  const hoursFormatted = hours < 10 ? `0${hours}` : hours;
+  return `${hoursFormatted}:${minutes}`;
+};
+
 function App() {
   // Authentication State
   const [token, setToken] = useState(localStorage.getItem('admin_token') || '');
@@ -89,8 +113,9 @@ function App() {
   const [planFeatureInputs, setPlanFeatureInputs] = useState({});
 
   // Timeslot Management States
-  const [timeslots, setTimeslots] = useState([]);
+  const [timeslots, setTimeslots] = useState({});
   const [newTimeInputs, setNewTimeInputs] = useState({ morning: '', afternoon: '', evening: '' });
+  const [editingTime, setEditingTime] = useState({ slotKey: null, index: null, value: '' });
 
   // Login Form States
   const [loginIdentifier, setLoginIdentifier] = useState('');
@@ -343,7 +368,13 @@ function App() {
     try {
       const res = await apiFetch('/admin/timeslots');
       if (res.success) {
-        setTimeslots(res.data);
+        const mapped = {};
+        if (Array.isArray(res.data)) {
+          res.data.forEach(item => {
+            mapped[item.slot] = item.times;
+          });
+        }
+        setTimeslots(mapped);
       }
     } catch (err) {
       showToast(err.message || 'Failed to fetch timeslots configuration', 'error');
@@ -1732,43 +1763,105 @@ function App() {
 
                           {/* Pills container */}
                           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '24px', minHeight: '60px', padding: '12px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                            {slotTimes.length > 0 ? slotTimes.map((time, idx) => (
-                              <span 
-                                key={idx} 
-                                style={{ 
-                                  display: 'inline-flex', 
-                                  alignItems: 'center', 
-                                  gap: '6px', 
-                                  padding: '6px 12px', 
-                                  background: 'rgba(255,255,255,0.05)', 
-                                  border: '1px solid var(--border-color)', 
-                                  borderRadius: '20px', 
-                                  fontSize: '0.85rem',
-                                  color: 'var(--text)'
-                                }}
-                              >
-                                {time}
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    const updated = slotTimes.filter((_, i) => i !== idx);
-                                    handleUpdateTimeslot(slotKey, updated);
-                                  }}
+                            {slotTimes.length > 0 ? slotTimes.map((time, idx) => {
+                              const isEditing = editingTime.slotKey === slotKey && editingTime.index === idx;
+                              return (
+                                <span 
+                                  key={idx} 
                                   style={{ 
-                                    border: 'none', 
-                                    background: 'transparent', 
-                                    color: '#ef4444', 
-                                    cursor: 'pointer',
-                                    fontSize: '0.8rem',
-                                    padding: '0 2px',
-                                    display: 'flex',
-                                    alignItems: 'center'
+                                    display: 'inline-flex', 
+                                    alignItems: 'center', 
+                                    gap: '6px', 
+                                    padding: isEditing ? '3px 8px' : '6px 12px', 
+                                    background: 'rgba(255,255,255,0.05)', 
+                                    border: '1px solid var(--border-color)', 
+                                    borderRadius: '20px', 
+                                    fontSize: '0.85rem',
+                                    color: 'var(--text-main)'
                                   }}
                                 >
-                                  <X size={12} />
-                                </button>
-                              </span>
-                            )) : (
+                                  {isEditing ? (
+                                    <form
+                                      onSubmit={(e) => {
+                                        e.preventDefault();
+                                        const rawVal = editingTime.value;
+                                        if (!rawVal) return;
+                                        const val = convert24To12(rawVal);
+                                        if (slotTimes.includes(val) && slotTimes[idx] !== val) {
+                                          showToast('Time already exists', 'error');
+                                          return;
+                                        }
+                                        const updated = [...slotTimes];
+                                        updated[idx] = val;
+                                        handleUpdateTimeslot(slotKey, updated);
+                                        setEditingTime({ slotKey: null, index: null, value: '' });
+                                      }}
+                                      style={{ display: 'inline-flex', alignItems: 'center' }}
+                                    >
+                                      <input
+                                        type="time"
+                                        value={editingTime.value}
+                                        onChange={(e) => setEditingTime(prev => ({ ...prev, value: e.target.value }))}
+                                        style={{
+                                          padding: '2px 6px',
+                                          fontSize: '0.8rem',
+                                          height: '22px',
+                                          width: '105px',
+                                          border: '1px solid var(--accent-pink)',
+                                          borderRadius: '4px',
+                                          background: '#ffffff',
+                                          color: 'var(--text-main)',
+                                          outline: 'none'
+                                        }}
+                                        autoFocus
+                                        onKeyDown={(e) => {
+                                          if (e.key === 'Escape') {
+                                            setEditingTime({ slotKey: null, index: null, value: '' });
+                                          }
+                                        }}
+                                        onBlur={() => {
+                                          setTimeout(() => {
+                                            setEditingTime({ slotKey: null, index: null, value: '' });
+                                          }, 200);
+                                        }}
+                                      />
+                                    </form>
+                                  ) : (
+                                    <>
+                                      <span 
+                                        onClick={() => setEditingTime({ slotKey, index: idx, value: convert12To24(time) })}
+                                        style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                                        title="Click to edit"
+                                      >
+                                        {time}
+                                        <Edit size={10} style={{ color: 'var(--text-muted)', opacity: 0.6 }} />
+                                      </span>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          if (window.confirm(`Are you sure you want to delete "${time}" from the ${slotKey} slot?`)) {
+                                            const updated = slotTimes.filter((_, i) => i !== idx);
+                                            handleUpdateTimeslot(slotKey, updated);
+                                          }
+                                        }}
+                                        style={{ 
+                                          border: 'none', 
+                                          background: 'transparent', 
+                                          color: '#ef4444', 
+                                          cursor: 'pointer',
+                                          fontSize: '0.8rem',
+                                          padding: '0 2px',
+                                          display: 'flex',
+                                          alignItems: 'center'
+                                        }}
+                                      >
+                                        <X size={12} />
+                                      </button>
+                                    </>
+                                  )}
+                                </span>
+                              );
+                            }) : (
                               <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem', fontStyle: 'italic', margin: 'auto' }}>No times configured</span>
                             )}
                           </div>
@@ -1776,8 +1869,9 @@ function App() {
                           {/* Add Form */}
                           <form onSubmit={(e) => {
                             e.preventDefault();
-                            const val = newTimeInputs[slotKey]?.trim();
-                            if (!val) return;
+                            const rawVal = newTimeInputs[slotKey];
+                            if (!rawVal) return;
+                            const val = convert24To12(rawVal);
                             if (slotTimes.includes(val)) {
                               showToast('Time already exists', 'error');
                               return;
@@ -1787,9 +1881,8 @@ function App() {
                             setNewTimeInputs(prev => ({ ...prev, [slotKey]: '' }));
                           }} style={{ display: 'flex', gap: '10px' }}>
                             <input
-                              type="text"
+                              type="time"
                               className="form-control"
-                              placeholder="e.g. 09:30 AM"
                               value={newTimeInputs[slotKey] || ''}
                               onChange={(e) => setNewTimeInputs(prev => ({ ...prev, [slotKey]: e.target.value }))}
                               style={{ flexGrow: 1 }}

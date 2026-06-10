@@ -13,6 +13,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import Icon from 'react-native-vector-icons/FontAwesome5';
+import CustomDatePicker from '../../components/CustomDatePicker';
 import { RootStackParamList } from '../../types/navigation';
 import { Colors } from '../../constants/theme';
 import { Routes } from '../../constants/routes';
@@ -45,30 +46,14 @@ const CheckoutScreen: React.FC<Props> = ({ navigation, route }) => {
     const [startDate, setStartDate] = useState<any>(null);
     const [timeSlot, setTimeSlot] = useState<'morning' | 'afternoon' | 'evening' | ''>('');
     const [selectedTime, setSelectedTime] = useState('');
+    const [showDatePicker, setShowDatePicker] = useState(false);
 
-    const [datesList, setDatesList] = useState<any[]>([]);
     const [dbTimeslots, setDbTimeslots] = useState<Record<string, string[]>>({ morning: [], afternoon: [], evening: [] });
     const [showTimeDropdown, setShowTimeDropdown] = useState(false);
+    const [debugMsg, setDebugMsg] = useState<string>('');
 
     const [savedAddresses, setSavedAddresses] = useState<any[]>([]);
     const [errors, setErrors] = useState<Record<string, string>>({});
-
-    useEffect(() => {
-        const list = [];
-        const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-        for (let i = 1; i <= 14; i++) {
-            const d = new Date();
-            d.setDate(d.getDate() + i);
-            list.push({
-                dayName: days[d.getDay()],
-                dayNum: d.getDate(),
-                monthName: months[d.getMonth()],
-                fullDate: d
-            });
-        }
-        setDatesList(list);
-    }, []);
 
     // Fetch timeslots from backend
     useEffect(() => {
@@ -76,15 +61,43 @@ const CheckoutScreen: React.FC<Props> = ({ navigation, route }) => {
         let isMounted = true;
         const fetchTimeslots = async () => {
             try {
+                setDebugMsg('Fetching timeslots...');
                 const res = await fetch(`${API_BASE_URL}/timeslots`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
+                const status = res.status;
                 const data = await res.json();
-                if (res.ok && data.success && isMounted) {
-                    setDbTimeslots(data.data);
+                
+                if (res.ok && data.success) {
+                    const rawData = data.data;
+                    const normalized: Record<string, string[]> = { morning: [], afternoon: [], evening: [] };
+                    
+                    if (Array.isArray(rawData)) {
+                        rawData.forEach((item: any) => {
+                            if (item && item.slot && Array.isArray(item.times)) {
+                                normalized[item.slot] = item.times;
+                            }
+                        });
+                    } else if (rawData && typeof rawData === 'object') {
+                        if (Array.isArray(rawData.morning)) normalized.morning = rawData.morning;
+                        if (Array.isArray(rawData.afternoon)) normalized.afternoon = rawData.afternoon;
+                        if (Array.isArray(rawData.evening)) normalized.evening = rawData.evening;
+                    }
+                    
+                    if (isMounted) {
+                        setDbTimeslots(normalized);
+                        setDebugMsg(`Success: Morning(${normalized.morning.length}), Afternoon(${normalized.afternoon.length}), Evening(${normalized.evening.length})`);
+                    }
+                } else {
+                    if (isMounted) {
+                        setDebugMsg(`Failed status: ${status}, msg: ${data.message || 'unknown'}`);
+                    }
                 }
-            } catch (err) {
+            } catch (err: any) {
                 console.log('Error fetching timeslots:', err);
+                if (isMounted) {
+                    setDebugMsg(`Catch Error: ${err?.message || String(err)}`);
+                }
             }
         };
         fetchTimeslots();
@@ -292,40 +305,49 @@ const CheckoutScreen: React.FC<Props> = ({ navigation, route }) => {
                         {/* Appointment Start Date */}
                         <View style={styles.inputGroup}>
                             <Text style={styles.label}>Preferred Start Date</Text>
-                            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 4 }}>
-                                {datesList.map((item, idx) => {
-                                    const isSelected = startDate && startDate.getDate() === item.fullDate.getDate() && startDate.getMonth() === item.fullDate.getMonth();
-                                    return (
-                                        <TouchableOpacity
-                                            key={idx}
-                                            style={[
-                                                styles.dateCard,
-                                                isSelected && { backgroundColor: accentColor, borderColor: accentColor }
-                                            ]}
-                                            onPress={() => {
-                                                setStartDate(item.fullDate);
-                                                setErrors({ ...errors, startDate: '' });
-                                            }}
-                                        >
-                                            <Text style={[styles.dateCardDayName, isSelected && { color: Colors.WHITE }]}>
-                                                {item.dayName}
-                                            </Text>
-                                            <Text style={[styles.dateCardDayNum, isSelected && { color: Colors.WHITE }]}>
-                                                {item.dayNum}
-                                            </Text>
-                                            <Text style={[styles.dateCardMonthName, isSelected && { color: Colors.WHITE }]}>
-                                                {item.monthName}
-                                            </Text>
-                                        </TouchableOpacity>
-                                    );
-                                })}
-                            </ScrollView>
+                            <TouchableOpacity 
+                                style={[
+                                    styles.dropdownButton,
+                                    errors.startDate ? { borderColor: Colors.ERROR } : null
+                                ]}
+                                onPress={() => setShowDatePicker(true)}
+                                activeOpacity={0.8}
+                            >
+                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                    <Icon name="calendar-alt" size={14} color={startDate ? accentColor : Colors.TEXT_SECONDARY} style={{ marginRight: 10 }} />
+                                    <Text style={[
+                                        styles.dropdownButtonText,
+                                        !startDate && { color: Colors.TEXT_SECONDARY, fontWeight: '500' }
+                                    ]}>
+                                        {startDate ? startDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }) : 'Select Preferred Start Date'}
+                                    </Text>
+                                </View>
+                                <Icon name="chevron-down" size={12} color={Colors.TEXT_SECONDARY} />
+                            </TouchableOpacity>
                             {!!errors.startDate && <Text style={styles.errorText}>{errors.startDate}</Text>}
                         </View>
+
+                        {/* Custom Date Picker Modal */}
+                        <CustomDatePicker
+                            visible={showDatePicker}
+                            value={startDate}
+                            onClose={() => setShowDatePicker(false)}
+                            onChange={(date) => {
+                                setStartDate(date);
+                                setErrors({ ...errors, startDate: '' });
+                            }}
+                            minimumDate={new Date()}
+                            accentColor={accentColor}
+                        />
 
                         {/* Time Slot Chips */}
                         <View style={styles.inputGroup}>
                             <Text style={styles.label}>Preferred Time Slot</Text>
+                            {!!debugMsg && (
+                                <Text style={{ fontSize: 10, color: Colors.TEXT_SECONDARY, marginBottom: 6, fontStyle: 'italic' }}>
+                                    Status: {debugMsg}
+                                </Text>
+                            )}
                             <View style={{ flexDirection: 'row', gap: 10 }}>
                                 {['morning', 'afternoon', 'evening'].map(slot => {
                                     const isSelected = timeSlot === slot;
@@ -641,34 +663,7 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         color: Colors.TEXT_SECONDARY,
     },
-    dateCard: {
-        width: 65,
-        height: 80,
-        borderRadius: 12,
-        borderWidth: 1.5,
-        borderColor: Colors.BORDER,
-        backgroundColor: Colors.SURFACE,
-        justifyContent: 'center',
-        alignItems: 'center',
-        paddingVertical: 4,
-    },
-    dateCardDayName: {
-        fontSize: 9,
-        fontWeight: '700',
-        color: Colors.TEXT_HINT,
-        textTransform: 'uppercase',
-    },
-    dateCardDayNum: {
-        fontSize: 18,
-        fontWeight: '800',
-        color: Colors.TEXT_PRIMARY,
-        marginVertical: 1,
-    },
-    dateCardMonthName: {
-        fontSize: 9,
-        fontWeight: '700',
-        color: Colors.TEXT_SECONDARY,
-    },
+
     slotChip: {
         flexDirection: 'row',
         alignItems: 'center',
