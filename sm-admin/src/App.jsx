@@ -71,6 +71,47 @@ const convert12To24 = (time12) => {
   return `${hoursFormatted}:${minutes}`;
 };
 
+const getAppointmentDateTime = (startDateStr, selectedTimeStr) => {
+  if (!startDateStr) return '';
+  
+  let datePart = '';
+  if (typeof startDateStr === 'string' && startDateStr.match(/^\d{4}-\d{2}-\d{2}/)) {
+    datePart = startDateStr.substring(0, 10);
+  } else {
+    const d = new Date(startDateStr);
+    if (!isNaN(d.getTime())) {
+      const year = d.getUTCFullYear();
+      const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(d.getUTCDate()).padStart(2, '0');
+      datePart = `${year}-${month}-${day}`;
+    }
+  }
+  
+  if (!datePart) return '';
+  
+  let timePart = '09:00'; // default morning time
+  if (selectedTimeStr) {
+    const match12 = selectedTimeStr.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+    if (match12) {
+      let [_, hoursStr, minutes, ampm] = match12;
+      let hours = parseInt(hoursStr, 10);
+      if (ampm.toUpperCase() === 'PM' && hours < 12) hours += 12;
+      if (ampm.toUpperCase() === 'AM' && hours === 12) hours = 0;
+      const hoursFormatted = String(hours).padStart(2, '0');
+      timePart = `${hoursFormatted}:${minutes}`;
+    } else {
+      const match24 = selectedTimeStr.match(/^(\d{1,2}):(\d{2})$/);
+      if (match24) {
+        const hours = String(parseInt(match24[1], 10)).padStart(2, '0');
+        const minutes = match24[2];
+        timePart = `${hours}:${minutes}`;
+      }
+    }
+  }
+  
+  return `${datePart}T${timePart}`;
+};
+
 function App() {
   // Authentication State
   const [token, setToken] = useState(localStorage.getItem('admin_token') || '');
@@ -138,6 +179,10 @@ function App() {
   const [newAppointment, setNewAppointment] = useState({ customerName: '', customerMobile: '', customerAddress: '', dateTime: '', details: '', assignedEmployee: '' });
   const [viewEmployeeDocs, setViewEmployeeDocs] = useState(null);
   const [previewImage, setPreviewImage] = useState(null); // lightbox URL
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [selectedOrderId, setSelectedOrderId] = useState('');
+  const [unscheduledOrders, setUnscheduledOrders] = useState([]);
+  const [loadingUnscheduled, setLoadingUnscheduled] = useState(false);
 
   // Toast Helper
   const showToast = (message, type = 'success') => {
@@ -413,6 +458,86 @@ function App() {
     }
   };
 
+  const handleScheduleFromOrder = (order) => {
+    const formattedAddress = order.address ? [
+      order.address.flatNo,
+      order.address.street,
+      order.address.city,
+      order.address.state,
+      order.address.pincode
+    ].filter(Boolean).join(', ') : '';
+
+    const detailsParts = [];
+    detailsParts.push(`Package: ${order.packageTitle} (${order.planLabel})`);
+    if (order.motherName) {
+      detailsParts.push(`Mother: ${order.motherName}${order.motherAge ? ` (Age: ${order.motherAge})` : ''}`);
+    }
+    if (order.babyName) {
+      detailsParts.push(`Baby: ${order.babyName}${order.babyAge ? ` (Age: ${order.babyAge})` : ''}`);
+    }
+    if (order.timeSlot) {
+      detailsParts.push(`Preferred Time: ${order.timeSlot} ${order.selectedTime ? `(${order.selectedTime})` : ''}`);
+    }
+    detailsParts.push(`Order ID: ${order._id}`);
+
+    setNewAppointment({
+      customerName: order.user?.name || order.address?.fullName || order.motherName || '',
+      customerMobile: order.user?.mobile || order.address?.mobile || '',
+      customerAddress: formattedAddress,
+      dateTime: getAppointmentDateTime(order.startDate, order.selectedTime),
+      details: detailsParts.join(' | '),
+      assignedEmployee: ''
+    });
+
+    setActiveTab('appointments');
+    setShowAddAppointmentModal(true);
+  };
+
+  const handleSelectUnscheduledOrder = (orderId) => {
+    setSelectedOrderId(orderId);
+    const order = unscheduledOrders.find(o => o._id === orderId);
+    if (order) {
+      const formattedAddress = order.address ? [
+        order.address.flatNo,
+        order.address.street,
+        order.address.city,
+        order.address.state,
+        order.address.pincode
+      ].filter(Boolean).join(', ') : '';
+
+      const detailsParts = [];
+      detailsParts.push(`Package: ${order.packageTitle} (${order.planLabel})`);
+      if (order.motherName) {
+        detailsParts.push(`Mother: ${order.motherName}${order.motherAge ? ` (Age: ${order.motherAge})` : ''}`);
+      }
+      if (order.babyName) {
+        detailsParts.push(`Baby: ${order.babyName}${order.babyAge ? ` (Age: ${order.babyAge})` : ''}`);
+      }
+      if (order.timeSlot) {
+        detailsParts.push(`Preferred Time: ${order.timeSlot} ${order.selectedTime ? `(${order.selectedTime})` : ''}`);
+      }
+      detailsParts.push(`Order ID: ${order._id}`);
+
+      setNewAppointment({
+        customerName: order.user?.name || order.address?.fullName || order.motherName || '',
+        customerMobile: order.user?.mobile || order.address?.mobile || '',
+        customerAddress: formattedAddress,
+        dateTime: getAppointmentDateTime(order.startDate, order.selectedTime),
+        details: detailsParts.join(' | '),
+        assignedEmployee: ''
+      });
+    } else {
+      setNewAppointment({
+        customerName: '',
+        customerMobile: '',
+        customerAddress: '',
+        dateTime: '',
+        details: '',
+        assignedEmployee: ''
+      });
+    }
+  };
+
   const handleCreateAppointment = async (e) => {
     e.preventDefault();
     try {
@@ -423,6 +548,8 @@ function App() {
       if (res.success) {
         showToast('Appointment created and assigned successfully');
         setNewAppointment({ customerName: '', customerMobile: '', customerAddress: '', dateTime: '', details: '', assignedEmployee: '' });
+        setSelectedOrder(null);
+        setSelectedOrderId('');
         setShowAddAppointmentModal(false);
         fetchAppointments();
       }
@@ -496,6 +623,55 @@ function App() {
       }
     }
   };
+
+  // Fetch unscheduled orders when Create Appointment modal opens
+  useEffect(() => {
+    if (showAddAppointmentModal) {
+      const fetchUnscheduledOrders = async () => {
+        setLoadingUnscheduled(true);
+        try {
+          const res = await apiFetch('/admin/orders?page=1&limit=1000&paymentStatus=success');
+          if (res.success && res.data && res.data.orders) {
+            const apptRes = await apiFetch('/admin/appointments');
+            const currentAppts = apptRes.success ? apptRes.data : appointments;
+            
+            const unscheduled = res.data.orders.filter(order => {
+              // 1. Precise check: does any appointment details contain this Order ID?
+              const isScheduledPrecise = currentAppts.some(appt => 
+                appt.details && appt.details.includes(`Order ID: ${order._id}`)
+              );
+              if (isScheduledPrecise) return false;
+
+              // 2. Fallback: backwards compatibility check for old appointments without Order ID in details
+              const mobile = order.user?.mobile || order.address?.mobile;
+              if (mobile) {
+                const hasMobileMatchWithoutOrderId = currentAppts.some(appt => {
+                  const isSameMobile = appt.customerMobile === mobile;
+                  const hasNoOrderId = appt.details && !appt.details.includes('Order ID:');
+                  return isSameMobile && hasNoOrderId;
+                });
+                if (hasMobileMatchWithoutOrderId) return false;
+              }
+
+              return true;
+            });
+            
+            if (selectedOrder && !unscheduled.some(o => o._id === selectedOrder._id)) {
+              unscheduled.unshift(selectedOrder);
+            }
+            
+            setUnscheduledOrders(unscheduled);
+          }
+        } catch (err) {
+          console.error("Failed to load unscheduled orders:", err);
+          showToast("Failed to load unscheduled orders", "error");
+        } finally {
+          setLoadingUnscheduled(false);
+        }
+      };
+      fetchUnscheduledOrders();
+    }
+  }, [showAddAppointmentModal, selectedOrder]);
 
   // Trigger data reload on tab change or filters change
   useEffect(() => {
@@ -1255,6 +1431,15 @@ function App() {
                               <div><strong>End:</strong> {formatDate(order.expiresAt)}</div>
                             </td>
                             <td className="actions-cell">
+                              {order.paymentStatus === 'success' && (
+                                <button
+                                  className="btn btn-success btn-icon"
+                                  onClick={() => handleScheduleFromOrder(order)}
+                                  title="Schedule Appointment"
+                                >
+                                  <Calendar size={16} />
+                                </button>
+                              )}
                               <button className="btn btn-secondary btn-icon" onClick={() => setEditOrder(order)}>
                                 <Edit size={16} />
                               </button>
@@ -1634,6 +1819,8 @@ function App() {
                     <button
                       className="btn btn-primary"
                       onClick={() => {
+                        setSelectedOrder(null);
+                        setSelectedOrderId('');
                         setNewAppointment({
                           customerName: '',
                           customerMobile: '',
@@ -2084,6 +2271,37 @@ function App() {
                     </div>
                   </div>
                 </div>
+
+                {editOrder.paymentStatus === 'success' && (
+                  <div style={{
+                    marginTop: '20px',
+                    padding: '12px 16px',
+                    background: 'rgba(233, 30, 138, 0.08)',
+                    border: '1px dashed var(--accent-pink)',
+                    borderRadius: '10px',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center'
+                  }}>
+                    <div style={{ fontSize: '0.85rem' }}>
+                      <strong style={{ color: 'var(--accent-pink)' }}>Schedule Appointment:</strong>
+                      <span style={{ marginLeft: '4px', color: 'var(--text-muted)' }}>
+                        This successful order is ready to be scheduled.
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-sm"
+                      style={{ padding: '6px 12px', fontSize: '0.8rem' }}
+                      onClick={() => {
+                        handleScheduleFromOrder(editOrder);
+                        setEditOrder(null);
+                      }}
+                    >
+                      <Calendar size={14} style={{ marginRight: '6px' }} /> Schedule Now
+                    </button>
+                  </div>
+                )}
               </div>
               <div className="modal-footer">
                 <button type="button" className="btn btn-secondary" onClick={() => setEditOrder(null)}>
@@ -2649,15 +2867,49 @@ function App() {
             <form onSubmit={handleCreateAppointment}>
               <div className="modal-body">
                 <div className="form-group">
-                  <label className="form-label">Customer Name</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    placeholder="Enter customer name"
-                    required
-                    value={newAppointment.customerName}
-                    onChange={(e) => setNewAppointment(prev => ({ ...prev, customerName: e.target.value }))}
-                  />
+                  <label className="form-label">Customer Name (Unscheduled)</label>
+                  {loadingUnscheduled ? (
+                    <div style={{ padding: '10px', fontSize: '0.9rem', color: 'var(--text-muted)' }}>
+                      Loading customers...
+                    </div>
+                  ) : unscheduledOrders.length === 0 ? (
+                    <div style={{ padding: '10px', fontSize: '0.9rem', color: 'var(--danger)', background: 'var(--danger-glow)', border: '1px solid rgba(220,38,38,0.2)', borderRadius: '8px' }}>
+                      No unscheduled customers found. All paid orders have scheduled appointments.
+                    </div>
+                  ) : (
+                    <>
+                      <select
+                        className="form-control"
+                        required
+                        value={selectedOrderId}
+                        onChange={(e) => handleSelectUnscheduledOrder(e.target.value)}
+                      >
+                        <option value="">-- Choose Customer --</option>
+                        {unscheduledOrders.map(order => {
+                          const clientName = order.user?.name || order.address?.fullName || 'Unknown';
+                          const mobile = order.user?.mobile || order.address?.mobile || 'No Mobile';
+                          return (
+                            <option key={order._id} value={order._id}>
+                              {clientName} ({mobile}) - {order.packageTitle}
+                            </option>
+                          );
+                        })}
+                      </select>
+                      {selectedOrderId && (
+                        <div style={{ marginTop: '8px', padding: '10px 12px', background: 'rgba(233, 30, 138, 0.05)', border: '1px solid rgba(233, 30, 138, 0.15)', borderRadius: '8px', fontSize: '0.85rem' }}>
+                          <div><strong style={{ color: 'var(--accent-pink)' }}>Customer's Preferred Start Date:</strong> {
+                            (() => {
+                              const order = unscheduledOrders.find(o => o._id === selectedOrderId);
+                              if (!order) return 'Not found';
+                              const prefDate = order.startDate ? new Date(order.startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }) : 'None';
+                              const prefTime = order.selectedTime ? `${order.selectedTime}` : (order.timeSlot || 'None');
+                              return `${prefDate} (${prefTime})`;
+                            })()
+                          }</div>
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
 
                 <div className="form-group">

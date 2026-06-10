@@ -149,6 +149,18 @@ h1, h2, h3, h4 {
   box-shadow: 0 4px 14px rgba(220, 38, 38, 0.25);
 }
 
+.btn-success {
+  background: var(--success-glow);
+  color: #059669;
+  border: 1px solid rgba(5, 150, 105, 0.2);
+}
+
+.btn-success:hover {
+  background: var(--success);
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(5, 150, 105, 0.25);
+}
+
 .btn-icon {
   padding: 8px;
   border-radius: 8px;
