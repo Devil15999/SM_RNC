@@ -1,4 +1,4 @@
-package com.secondmuma
+package com.secondmuma.employee
 
 import android.app.Application
 import com.facebook.react.PackageList
