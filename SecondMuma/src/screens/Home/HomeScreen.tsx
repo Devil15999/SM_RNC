@@ -39,6 +39,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     const user = useAppSelector(state => state.auth.user);
 
     const [packages, setPackages] = useState<PackageCard[]>([]);
+    const [orders, setOrders] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [fetchError, setFetchError] = useState(false);
 
@@ -69,9 +70,38 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         }
     }, []);
 
+    const fetchOrders = useCallback(async () => {
+        if (!user?.token) return;
+        try {
+            const res = await fetch(`${API_BASE_URL}/orders`, {
+                headers: { 'Authorization': `Bearer ${user.token}` }
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                setOrders(data.data || []);
+            }
+        } catch (err) {
+            console.log('Error fetching orders in Home:', err);
+        }
+    }, [user?.token]);
+
     useEffect(() => {
         fetchPackages();
     }, [fetchPackages]);
+
+    useEffect(() => {
+        if (!user?.token) return;
+        fetchOrders();
+        const unsubscribe = navigation.addListener('focus', () => {
+            fetchOrders();
+        });
+        return unsubscribe;
+    }, [navigation, user?.token, fetchOrders]);
+
+    const activeSubscriptions = orders.filter(o => 
+        o.status === 'active' && 
+        (!o.expiresAt || new Date(o.expiresAt) > new Date())
+    );
 
     const initials = (user?.name ?? 'U')
         .split(' ')
@@ -169,56 +199,150 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                     </View>
                 )}
 
-                {/* BE package cards */}
-                {!isLoading && !fetchError && packages.map(pkg => (
-                    <TouchableOpacity
-                        key={pkg.type}
-                        style={[styles.pkgCard, { borderTopColor: pkg.accentColor }]}
-                        activeOpacity={0.82}
-                        onPress={() =>
-                            navigation.navigate(Routes.PACKAGE_DETAIL, { packageType: pkg.type })
-                        }>
-
-                        {/* Card Header */}
-                        <View style={styles.pkgCardHeader}>
-                            <View style={[styles.pkgIconBox, { backgroundColor: pkg.accentColor + '18' }]}>
-                                <Icon name={pkg.icon} size={22} color={pkg.accentColor} />
-                            </View>
-                            <View style={styles.pkgTitleBlock}>
-                                <Text style={styles.pkgTitle}>{pkg.title}</Text>
-                                <Text style={styles.pkgTagline}>{pkg.tagline}</Text>
-                            </View>
-                        </View>
-
-                        {/* Feature pills */}
-                        <View style={styles.pkgFeatures}>
-                            {pkg.features.map(f => (
-                                <View
-                                    key={f}
-                                    style={[styles.pkgPill, {
-                                        backgroundColor: pkg.accentColor + '14',
-                                        borderColor: pkg.accentColor + '33',
-                                    }]}>
-                                    <Text style={[styles.pkgPillText, { color: pkg.accentColor }]}>{f}</Text>
+                {/* Active Subscriptions Banner */}
+                {!isLoading && activeSubscriptions.length > 0 && (
+                    <View style={styles.activeSubsContainer}>
+                        <Text style={styles.sectionTitle}>Your Active Subscriptions</Text>
+                        {activeSubscriptions.map(sub => {
+                            const expiryDate = sub.expiresAt 
+                                ? new Date(sub.expiresAt).toLocaleDateString('en-IN', {
+                                    day: 'numeric',
+                                    month: 'short',
+                                    year: 'numeric'
+                                  })
+                                : 'N/A';
+                            const pkgColor = sub.accentColor || Colors.PRIMARY;
+                            return (
+                                <View key={sub._id} style={[styles.activeSubCard, { borderColor: pkgColor + '44' }]}>
+                                    <View style={styles.activeSubHeader}>
+                                        <View style={[styles.activeSubIconBox, { backgroundColor: pkgColor + '1A' }]}>
+                                            <Icon name={sub.icon ? sub.icon.replace(/^fa-/, '') : 'box'} size={18} color={pkgColor} />
+                                        </View>
+                                        <View style={{ flex: 1, marginLeft: 12 }}>
+                                            <Text style={styles.activeSubTitle}>{sub.packageTitle}</Text>
+                                            <Text style={styles.activeSubPlan}>{sub.planLabel} Plan</Text>
+                                        </View>
+                                        <View style={[styles.activeStatusBadge, { backgroundColor: Colors.SUCCESS + '1A' }]}>
+                                            <Text style={[styles.activeStatusText, { color: Colors.SUCCESS }]}>ACTIVE</Text>
+                                        </View>
+                                    </View>
+                                    <View style={styles.activeSubDivider} />
+                                    <View style={styles.activeSubFooter}>
+                                        <Text style={styles.activeSubFooterLabel}>Expires on:</Text>
+                                        <Text style={styles.activeSubFooterValue}>{expiryDate}</Text>
+                                    </View>
                                 </View>
-                            ))}
-                        </View>
+                            );
+                        })}
+                    </View>
+                )}
 
-                        {/* Footer */}
-                        <View style={styles.pkgFooter}>
-                            <View>
-                                <Text style={styles.pkgFrom}>Starting from</Text>
-                                <Text style={[styles.pkgPrice, { color: pkg.accentColor }]}>
-                                    {pkg.startingPrice}
-                                    <Text style={styles.pkgPriceSuffix}>/month</Text>
-                                </Text>
+                {/* ── Packages Section ── */}
+                <View style={styles.sectionHeader}>
+                    <Text style={styles.sectionTitle}>Our Care Packages</Text>
+                    <Text style={styles.sectionSub}>Choose a plan that works best for you</Text>
+                </View>
+
+                {/* Loading skeletons */}
+                {isLoading && (
+                    <>
+                        <PackageSkeleton />
+                        <PackageSkeleton />
+                        <PackageSkeleton />
+                    </>
+                )}
+
+                {/* Fetch error */}
+                {!isLoading && fetchError && (
+                    <View style={styles.errorBox}>
+                        <Icon name="wifi" size={32} color={Colors.BORDER} style={{ marginBottom: 12 }} />
+                        <Text style={styles.errorTitle}>Couldn't load packages</Text>
+                        <Text style={styles.errorSub}>Check your connection and try again</Text>
+                        <TouchableOpacity style={styles.retryBtn} onPress={fetchPackages} activeOpacity={0.8}>
+                            <Text style={styles.retryText}>Retry</Text>
+                        </TouchableOpacity>
+                    </View>
+                )}
+
+                {/* BE package cards */}
+                {!isLoading && !fetchError && packages.map(pkg => {
+                    const activeOrderForPkg = orders.find(o => 
+                        o.packageType === pkg.type && 
+                        o.status === 'active' && 
+                        (!o.expiresAt || new Date(o.expiresAt) > new Date())
+                    );
+                    const isPkgActive = !!activeOrderForPkg;
+
+                    return (
+                        <TouchableOpacity
+                            key={pkg.type}
+                            style={[
+                                styles.pkgCard, 
+                                { borderTopColor: pkg.accentColor },
+                                isPkgActive && {
+                                    borderColor: pkg.accentColor,
+                                    borderWidth: 2,
+                                    shadowColor: pkg.accentColor,
+                                    shadowOffset: { width: 0, height: 4 },
+                                    shadowOpacity: 0.2,
+                                    shadowRadius: 12,
+                                    elevation: 6,
+                                }
+                            ]}
+                            activeOpacity={0.82}
+                            onPress={() =>
+                                navigation.navigate(Routes.PACKAGE_DETAIL, { packageType: pkg.type })
+                            }>
+
+                            {/* Card Header */}
+                            <View style={styles.pkgCardHeader}>
+                                <View style={[styles.pkgIconBox, { backgroundColor: pkg.accentColor + '18' }]}>
+                                    <Icon name={pkg.icon} size={22} color={pkg.accentColor} />
+                                </View>
+                                <View style={styles.pkgTitleBlock}>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                                        <Text style={styles.pkgTitle}>{pkg.title}</Text>
+                                        {isPkgActive && (
+                                            <View style={[styles.activeBadge, { backgroundColor: pkg.accentColor }]}>
+                                                <Icon name="check-circle" size={10} color={Colors.WHITE} style={{ marginRight: 4 }} />
+                                                <Text style={styles.activeBadgeText}>ACTIVE</Text>
+                                            </View>
+                                        )}
+                                    </View>
+                                    <Text style={styles.pkgTagline}>{pkg.tagline}</Text>
+                                </View>
                             </View>
-                            <View style={[styles.pkgCta, { backgroundColor: pkg.accentColor }]}>
-                                <Text style={styles.pkgCtaText}>View Plans</Text>
+
+                            {/* Feature pills */}
+                            <View style={styles.pkgFeatures}>
+                                {pkg.features.map(f => (
+                                    <View
+                                        key={f}
+                                        style={[styles.pkgPill, {
+                                            backgroundColor: pkg.accentColor + '14',
+                                            borderColor: pkg.accentColor + '33',
+                                        }]}>
+                                        <Text style={[styles.pkgPillText, { color: pkg.accentColor }]}>{f}</Text>
+                                    </View>
+                                ))}
                             </View>
-                        </View>
-                    </TouchableOpacity>
-                ))}
+
+                            {/* Footer */}
+                            <View style={styles.pkgFooter}>
+                                <View>
+                                    <Text style={styles.pkgFrom}>Starting from</Text>
+                                    <Text style={[styles.pkgPrice, { color: pkg.accentColor }]}>
+                                        {pkg.startingPrice}
+                                        <Text style={styles.pkgPriceSuffix}>/month</Text>
+                                    </Text>
+                                </View>
+                                <View style={[styles.pkgCta, { backgroundColor: pkg.accentColor }]}>
+                                    <Text style={styles.pkgCtaText}>View Plans</Text>
+                                </View>
+                            </View>
+                        </TouchableOpacity>
+                    );
+                })}
 
             </ScrollView>
         </SafeAreaView>
@@ -473,6 +597,84 @@ const styles = StyleSheet.create({
     pkgCtaText: {
         color: Colors.WHITE,
         fontSize: 13,
+        fontWeight: '700',
+    },
+    activeBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+        borderRadius: 12,
+    },
+    activeBadgeText: {
+        color: Colors.WHITE,
+        fontSize: 9,
+        fontWeight: '800',
+        letterSpacing: 0.5,
+    },
+    activeSubsContainer: {
+        marginBottom: 24,
+    },
+    activeSubCard: {
+        backgroundColor: Colors.WHITE,
+        borderRadius: 16,
+        padding: 16,
+        borderWidth: 1.5,
+        marginTop: 10,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
+        elevation: 2,
+    },
+    activeSubHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    activeSubIconBox: {
+        width: 40,
+        height: 40,
+        borderRadius: 12,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    activeSubTitle: {
+        fontSize: 15,
+        fontWeight: '800',
+        color: Colors.TEXT_PRIMARY,
+    },
+    activeSubPlan: {
+        fontSize: 12,
+        color: Colors.TEXT_SECONDARY,
+        marginTop: 1,
+    },
+    activeStatusBadge: {
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 12,
+    },
+    activeStatusText: {
+        fontSize: 10,
+        fontWeight: '800',
+    },
+    activeSubDivider: {
+        height: 1,
+        backgroundColor: Colors.DIVIDER,
+        marginVertical: 12,
+    },
+    activeSubFooter: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    activeSubFooterLabel: {
+        fontSize: 12,
+        color: Colors.TEXT_HINT,
+        fontWeight: '500',
+    },
+    activeSubFooterValue: {
+        fontSize: 12,
+        color: Colors.TEXT_PRIMARY,
         fontWeight: '700',
     },
 });

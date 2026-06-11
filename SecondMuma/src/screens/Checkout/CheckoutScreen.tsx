@@ -37,6 +37,10 @@ const CheckoutScreen: React.FC<Props> = ({ navigation, route }) => {
     const [city, setCity] = useState('');
     const [state, setState] = useState('');
     const [pincode, setPincode] = useState('');
+    const [pincodeStatus, setPincodeStatus] = useState<'idle' | 'checking' | 'verified' | 'unserviceable'>('idle');
+    const [pincodeMessage, setPincodeMessage] = useState('');
+    const [pincodeError, setPincodeError] = useState('');
+    const [pincodeLoading, setPincodeLoading] = useState(false);
 
     // Booking details states
     const [motherName, setMotherName] = useState(packageType !== 'baby' ? (user?.name || '') : '');
@@ -124,6 +128,50 @@ const CheckoutScreen: React.FC<Props> = ({ navigation, route }) => {
         return () => { isMounted = false; };
     }, [token]);
 
+    const handleVerifyPincode = async () => {
+        if (!pincode.trim() || pincode.length !== 6) {
+            setErrors(prev => ({ ...prev, pincode: 'Enter valid 6-digit pincode' }));
+            return;
+        }
+        setPincodeLoading(true);
+        setPincodeError('');
+        setPincodeMessage('');
+        try {
+            const res = await fetch(`${API_BASE_URL}/packages/check-pincode`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                },
+                body: JSON.stringify({
+                    pincode: pincode.trim(),
+                    mobile: mobile.trim(),
+                    userId: user?.id
+                })
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                if (data.serviceable) {
+                    setPincodeStatus('verified');
+                    setErrors(prev => {
+                        const updated = { ...prev };
+                        delete updated.pincode;
+                        return updated;
+                    });
+                } else {
+                    setPincodeStatus('unserviceable');
+                    setPincodeMessage(data.message || 'Service is not available in your area.');
+                }
+            } else {
+                setPincodeError(data.message || 'Verification failed. Please try again.');
+            }
+        } catch (err: any) {
+            setPincodeError('Network error. Please try again.');
+        } finally {
+            setPincodeLoading(false);
+        }
+    };
+
     const validate = () => {
         const newErrors: Record<string, string> = {};
         if (!fullName.trim()) newErrors.fullName = 'Required';
@@ -132,7 +180,11 @@ const CheckoutScreen: React.FC<Props> = ({ navigation, route }) => {
         if (!street.trim()) newErrors.street = 'Required';
         if (!city.trim()) newErrors.city = 'Required';
         if (!state.trim()) newErrors.state = 'Required';
-        if (!pincode.trim() || pincode.length !== 6) newErrors.pincode = 'Valid 6 digit pincode';
+        if (!pincode.trim() || pincode.length !== 6) {
+            newErrors.pincode = 'Valid 6 digit pincode';
+        } else if (pincodeStatus !== 'verified') {
+            newErrors.pincode = 'Please verify pincode before checkout';
+        }
 
         // Booking details validations
         if (packageType !== 'baby') {
@@ -449,6 +501,9 @@ const CheckoutScreen: React.FC<Props> = ({ navigation, route }) => {
                                             setCity(addr.city);
                                             setState(addr.state);
                                             setPincode(addr.pincode);
+                                            setPincodeStatus('idle');
+                                            setPincodeMessage('');
+                                            setPincodeError('');
                                         }}
                                         activeOpacity={0.8}
                                     >
@@ -491,7 +546,53 @@ const CheckoutScreen: React.FC<Props> = ({ navigation, route }) => {
                             </View>
                         </View>
 
-                        {renderInput('Pincode', pincode, (t) => setPincode(t.replace(/[^0-9]/g, '')), 'pincode', { keyboardType: 'number-pad', maxLength: 6 })}
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.label}>Pincode</Text>
+                            <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+                                <TextInput
+                                    style={[
+                                        styles.input,
+                                        { flex: 1 },
+                                        errors.pincode ? styles.inputErrorBorder : null,
+                                        pincodeStatus === 'verified' ? { borderColor: Colors.SUCCESS } : null
+                                    ]}
+                                    value={pincode}
+                                    onChangeText={t => {
+                                        const clean = t.replace(/[^0-9]/g, '');
+                                        setPincode(clean);
+                                        setPincodeStatus('idle');
+                                        setPincodeMessage('');
+                                        setPincodeError('');
+                                        setErrors(prev => ({ ...prev, pincode: '' }));
+                                    }}
+                                    keyboardType="number-pad"
+                                    maxLength={6}
+                                    placeholder="Enter 6-digit pincode"
+                                />
+                                <TouchableOpacity
+                                    style={[
+                                        styles.verifyBtn,
+                                        { backgroundColor: pincodeStatus === 'verified' ? Colors.SUCCESS : accentColor }
+                                    ]}
+                                    onPress={handleVerifyPincode}
+                                    disabled={pincodeLoading || pincode.length !== 6}
+                                >
+                                    <Text style={styles.verifyBtnText}>
+                                        {pincodeLoading ? 'Checking...' : pincodeStatus === 'verified' ? 'Verified ✓' : 'Send'}
+                                    </Text>
+                                </TouchableOpacity>
+                            </View>
+                            {!!errors.pincode && <Text style={styles.errorText}>{errors.pincode}</Text>}
+                            {pincodeStatus === 'unserviceable' && (
+                                <View style={styles.unserviceableAlert}>
+                                    <Icon name="exclamation-circle" size={14} color="#78350F" style={{ marginRight: 6, marginTop: 1 }} />
+                                    <Text style={styles.unserviceableText}>
+                                        {pincodeMessage || 'Request to this service in your area has been sent. Currently enjoy the other available services.'}
+                                    </Text>
+                                </View>
+                            )}
+                            {!!pincodeError && <Text style={styles.errorText}>{pincodeError}</Text>}
+                        </View>
                     </View>
 
                     {/* Proceed Button */}
@@ -715,6 +816,35 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: Colors.TEXT_PRIMARY,
         fontWeight: '500',
+    },
+    verifyBtn: {
+        height: 48,
+        borderRadius: 12,
+        paddingHorizontal: 16,
+        justifyContent: 'center',
+        alignItems: 'center',
+        minWidth: 80,
+    },
+    verifyBtnText: {
+        color: Colors.WHITE,
+        fontSize: 13,
+        fontWeight: '700',
+    },
+    unserviceableAlert: {
+        flexDirection: 'row',
+        backgroundColor: '#FEF3C7',
+        borderWidth: 1,
+        borderColor: '#FDE68A',
+        borderRadius: 10,
+        padding: 12,
+        marginTop: 8,
+        alignItems: 'flex-start',
+    },
+    unserviceableText: {
+        fontSize: 12,
+        color: '#78350F',
+        flex: 1,
+        lineHeight: 16,
     },
 });
 

@@ -12,6 +12,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import { RootStackParamList } from '../../types/navigation';
 import { Colors } from '../../constants/theme';
+import { useAppSelector } from '../../store';
 import { API_BASE_URL } from '../../config';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PackageDetail'>;
@@ -205,8 +206,12 @@ const PLAN_KEYS: PlanKey[] = ['1month', '3month', '6month'];
 
 const PackageDetailScreen: React.FC<Props> = ({ navigation, route }) => {
     const { packageType } = route.params;
+    const user = useAppSelector(state => state.auth.user);
+    const token = user?.token;
+
     const [fetchedPkg, setFetchedPkg] = useState<PackageInfo | null>(null);
     const [selectedPlan, setSelectedPlan] = useState<PlanKey>('3month');
+    const [orders, setOrders] = useState<any[]>([]);
 
     useEffect(() => {
         let isMounted = true;
@@ -232,6 +237,42 @@ const PackageDetailScreen: React.FC<Props> = ({ navigation, route }) => {
         fetchPackageDetail();
         return () => { isMounted = false; };
     }, [packageType]);
+
+    const fetchOrders = async () => {
+        if (!token) return;
+        try {
+            const res = await fetch(`${API_BASE_URL}/orders`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                setOrders(data.data || []);
+            }
+        } catch (err) {
+            console.log('Error fetching orders in Detail:', err);
+        }
+    };
+
+    useEffect(() => {
+        if (!token) return;
+        fetchOrders();
+        const unsubscribe = navigation.addListener('focus', () => {
+            fetchOrders();
+        });
+        return unsubscribe;
+    }, [navigation, token]);
+
+    const activeOrderForPkg = orders.find(o => 
+        o.packageType === packageType && 
+        o.status === 'active' && 
+        (!o.expiresAt || new Date(o.expiresAt) > new Date())
+    );
+
+    useEffect(() => {
+        if (activeOrderForPkg) {
+            setSelectedPlan(activeOrderForPkg.planKey as PlanKey);
+        }
+    }, [activeOrderForPkg]);
 
     const pkg = fetchedPkg || PACKAGES[packageType];
     const plan = pkg.plans[selectedPlan];
@@ -262,24 +303,31 @@ const PackageDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                     {PLAN_KEYS.map(key => {
                         const isActive = selectedPlan === key;
                         const hasBadge = pkg.plans[key].badge;
+                        const isActivePlan = activeOrderForPkg?.planKey === key;
                         return (
                             <TouchableOpacity
                                 key={key}
                                 style={[
                                     styles.tab,
                                     isActive && { backgroundColor: accent, borderColor: accent },
+                                    isActivePlan && { borderColor: '#D4AF37', borderWidth: 2 }
                                 ]}
                                 onPress={() => setSelectedPlan(key)}
                                 activeOpacity={0.8}>
-                                {hasBadge && (
+                                {isActivePlan ? (
+                                    <View style={[styles.tabBadge, { backgroundColor: '#D4AF37' }]}>
+                                        <Text style={styles.tabBadgeText}>ACTIVE ✓</Text>
+                                    </View>
+                                ) : hasBadge ? (
                                     <View style={[styles.tabBadge, { backgroundColor: isActive ? 'rgba(255,255,255,0.25)' : accent }]}>
                                         <Text style={styles.tabBadgeText}>{hasBadge}</Text>
                                     </View>
-                                )}
+                                ) : null}
                                 <Text
                                     style={[
                                         styles.tabLabel,
                                         isActive && styles.tabLabelActive,
+                                        isActivePlan && !isActive && { color: '#D4AF37' }
                                     ]}>
                                     {pkg.plans[key].label}
                                 </Text>
@@ -290,6 +338,18 @@ const PackageDetailScreen: React.FC<Props> = ({ navigation, route }) => {
 
                 {/* Pricing Card */}
                 <View style={[styles.pricingCard, { borderColor: accent + '44' }]}>
+                    {activeOrderForPkg && selectedPlan === activeOrderForPkg.planKey && (
+                        <View style={styles.activePlanNotice}>
+                            <Icon name="check-circle" size={14} color="#27AE60" style={{ marginRight: 8 }} />
+                            <View style={{ flex: 1 }}>
+                                <Text style={styles.activePlanNoticeTitle}>You have an active subscription for this plan.</Text>
+                                <Text style={styles.activePlanNoticeExpiry}>
+                                    Expires on: {activeOrderForPkg.expiresAt ? new Date(activeOrderForPkg.expiresAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }) : 'N/A'}
+                                </Text>
+                            </View>
+                        </View>
+                    )}
+
                     {/* Savings ribbon */}
                     <View style={[styles.savingsTag, { backgroundColor: accent + '1A' }]}>
                         <Text style={[styles.savingsText, { color: accent }]}>
@@ -331,22 +391,28 @@ const PackageDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                     </Text>
                 </View>
 
-                <TouchableOpacity
-                    style={[styles.ctaBtn, { backgroundColor: accent }]}
-                    activeOpacity={0.85}
-                    onPress={() => {
-                        navigation.navigate('Checkout', {
-                            packageType,
-                            packageTitle: pkg.title,
-                            planKey: selectedPlan,
-                            planLabel: plan.label,
-                            price: plan.price,
-                            icon: pkg.icon,
-                            accentColor: accent,
-                        });
-                    }}>
-                    <Text style={styles.ctaText}>Get {plan.label} Plan</Text>
-                </TouchableOpacity>
+                {activeOrderForPkg && selectedPlan === activeOrderForPkg.planKey ? (
+                    <View style={[styles.ctaBtn, { backgroundColor: Colors.DISABLED, shadowOpacity: 0, elevation: 0 }]}>
+                        <Text style={styles.ctaText}>Active Subscription</Text>
+                    </View>
+                ) : (
+                    <TouchableOpacity
+                        style={[styles.ctaBtn, { backgroundColor: accent }]}
+                        activeOpacity={0.85}
+                        onPress={() => {
+                            navigation.navigate('Checkout', {
+                                packageType,
+                                packageTitle: pkg.title,
+                                planKey: selectedPlan,
+                                planLabel: plan.label,
+                                price: plan.price,
+                                icon: pkg.icon,
+                                accentColor: accent,
+                            });
+                        }}>
+                        <Text style={styles.ctaText}>Get {plan.label} Plan</Text>
+                    </TouchableOpacity>
+                )}
 
                 <Text style={styles.footerNote}>
                     Secure payment · Cancel anytime · Instant activation
@@ -562,6 +628,26 @@ const styles = StyleSheet.create({
         color: Colors.TEXT_HINT,
         fontSize: 11,
         lineHeight: 18,
+    },
+    activePlanNotice: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#27AE6010',
+        borderColor: '#27AE6044',
+        borderWidth: 1,
+        borderRadius: 12,
+        padding: 12,
+        marginBottom: 16,
+    },
+    activePlanNoticeTitle: {
+        fontSize: 13,
+        fontWeight: '700',
+        color: Colors.TEXT_PRIMARY,
+    },
+    activePlanNoticeExpiry: {
+        fontSize: 11,
+        color: Colors.TEXT_SECONDARY,
+        marginTop: 2,
     },
 });
 

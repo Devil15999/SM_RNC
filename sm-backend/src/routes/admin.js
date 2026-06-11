@@ -24,7 +24,11 @@ const {
     updateAppointment,
     deleteAppointment,
     getAdminTimeslots,
-    updateAdminTimeslots
+    updateAdminTimeslots,
+    getServiceablePincodes,
+    createServiceablePincode,
+    deleteServiceablePincode,
+    getPincodeRequests
 } = require('../controllers/adminController');
 
 const router = express.Router();
@@ -185,5 +189,33 @@ router.get('/timeslots', getAdminTimeslots);
  * @access  Private (Admin)
  */
 router.put('/timeslots', updateAdminTimeslots);
+
+/**
+ * @route   GET /api/admin/pincodes
+ * @desc    Get all serviceable pincodes
+ * @access  Private (Admin)
+ */
+router.get('/pincodes', getServiceablePincodes);
+
+/**
+ * @route   POST /api/admin/pincodes
+ * @desc    Add a serviceable pincode
+ * @access  Private (Admin)
+ */
+router.post('/pincodes', createServiceablePincode);
+
+/**
+ * @route   DELETE /api/admin/pincodes/:id
+ * @desc    Remove a serviceable pincode
+ * @access  Private (Admin)
+ */
+router.delete('/pincodes/:id', deleteServiceablePincode);
+
+/**
+ * @route   GET /api/admin/pincode-requests
+ * @desc    Get all captured user pincode requests (leads)
+ * @access  Private (Admin)
+ */
+router.get('/pincode-requests', getPincodeRequests);
 
 module.exports = router;

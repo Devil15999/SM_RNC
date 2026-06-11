@@ -8,6 +8,8 @@ const Address = require('../models/Address');
 const Package = require('../models/Package');
 const Appointment = require('../models/Appointment');
 const TimeslotConfig = require('../models/TimeslotConfig');
+const ServiceablePincode = require('../models/ServiceablePincode');
+const PincodeRequest = require('../models/PincodeRequest');
 
 /**
  * GET /api/admin/stats
@@ -864,6 +866,74 @@ const updateAdminTimeslots = async (req, res, next) => {
     }
 };
 
+/**
+ * GET /api/admin/pincodes
+ * Returns all serviceable pincodes.
+ */
+const getServiceablePincodes = async (req, res, next) => {
+    try {
+        const pincodes = await ServiceablePincode.find().sort({ pincode: 1 });
+        res.status(200).json({ success: true, data: pincodes });
+    } catch (err) {
+        next(err);
+    }
+};
+
+/**
+ * POST /api/admin/pincodes
+ * Adds a new serviceable pincode.
+ */
+const createServiceablePincode = async (req, res, next) => {
+    try {
+        const { pincode } = req.body;
+        if (!pincode || pincode.length !== 6) {
+            return res.status(400).json({ success: false, message: 'Invalid pincode. Must be 6 digits.' });
+        }
+        
+        // Check if it already exists
+        const existing = await ServiceablePincode.findOne({ pincode });
+        if (existing) {
+            return res.status(400).json({ success: false, message: 'Pincode is already registered as serviceable' });
+        }
+
+        const newPin = await ServiceablePincode.create({ pincode });
+        res.status(201).json({ success: true, message: 'Pincode added successfully', data: newPin });
+    } catch (err) {
+        next(err);
+    }
+};
+
+/**
+ * DELETE /api/admin/pincodes/:id
+ * Removes a serviceable pincode.
+ */
+const deleteServiceablePincode = async (req, res, next) => {
+    try {
+        const pin = await ServiceablePincode.findByIdAndDelete(req.params.id);
+        if (!pin) {
+            return res.status(404).json({ success: false, message: 'Pincode not found' });
+        }
+        res.status(200).json({ success: true, message: 'Pincode removed successfully' });
+    } catch (err) {
+        next(err);
+    }
+};
+
+/**
+ * GET /api/admin/pincode-requests
+ * Returns all captured user pincode requests (leads).
+ */
+const getPincodeRequests = async (req, res, next) => {
+    try {
+        const requests = await PincodeRequest.find()
+            .populate('user', 'name email mobile')
+            .sort({ createdAt: -1 });
+        res.status(200).json({ success: true, data: requests });
+    } catch (err) {
+        next(err);
+    }
+};
+
 module.exports = {
     getStats,
     getUsers,
@@ -886,6 +956,10 @@ module.exports = {
     updateAppointment,
     deleteAppointment,
     getAdminTimeslots,
-    updateAdminTimeslots
+    updateAdminTimeslots,
+    getServiceablePincodes,
+    createServiceablePincode,
+    deleteServiceablePincode,
+    getPincodeRequests
 };
 

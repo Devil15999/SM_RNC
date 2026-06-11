@@ -1,7 +1,7 @@
 'use strict';
 
 const express = require('express');
-const { getAllPackages, getPackageByType, getPlanByKey } = require('../controllers/packageController');
+const { getAllPackages, getPackageByType, getPlanByKey, checkPincode } = require('../controllers/packageController');
 
 const router = express.Router();
 
@@ -28,5 +28,12 @@ router.get('/:type', getPackageByType);
  * @param   planKey  1month | 3month | 6month
  */
 router.get('/:type/plans/:planKey', getPlanByKey);
+
+/**
+ * @route   POST /api/packages/check-pincode
+ * @desc    Verify pincode and log request leads if not serviceable
+ * @access  Public
+ */
+router.post('/check-pincode', checkPincode);
 
 module.exports = router;

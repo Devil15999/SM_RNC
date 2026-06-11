@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -7,9 +7,11 @@ import {
   Title,
   Tooltip,
   Legend,
-  ArcElement
+  ArcElement,
+  LineElement,
+  PointElement
 } from 'chart.js';
-import { Bar, Doughnut } from 'react-chartjs-2';
+import { Bar, Doughnut, Line } from 'react-chartjs-2';
 import {
   LayoutDashboard,
   Users,
@@ -30,12 +32,13 @@ import {
   Menu,
   Briefcase,
   MapPin,
-  Clock
+  Clock,
+  Download
 } from 'lucide-react';
 import './App.css';
 
 // Register Chart.js components
-ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement);
+ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement, LineElement, PointElement);
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
@@ -143,6 +146,189 @@ const getAppointmentDateTime = (startDateStr, selectedTimeStr) => {
   return `${datePart}T${timePart}`;
 };
 
+const filterByDateRange = (item, dateField, reportStartDate, reportEndDate) => {
+  if (!reportStartDate && !reportEndDate) return true;
+  if (!item || !item[dateField]) return false;
+  const itemDate = new Date(item[dateField]);
+  if (reportStartDate) {
+    const start = new Date(reportStartDate);
+    start.setHours(0, 0, 0, 0);
+    if (itemDate < start) return false;
+  }
+  if (reportEndDate) {
+    const end = new Date(reportEndDate);
+    end.setHours(23, 59, 59, 999);
+    if (itemDate > end) return false;
+  }
+  return true;
+};
+
+const getRevenueTrend = (filteredPayments, startDateStr, endDateStr) => {
+  const start = startDateStr ? new Date(startDateStr) : null;
+  const end = endDateStr ? new Date(endDateStr) : null;
+  
+  let useDayGrouping = false;
+  if (start && end) {
+    const diffTime = Math.abs(end - start);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    if (diffDays <= 31) {
+      useDayGrouping = true;
+    }
+  }
+  
+  if (useDayGrouping && start && end) {
+    const dayMap = {};
+    const labels = [];
+    let curr = new Date(start);
+    curr.setHours(0, 0, 0, 0);
+    const limit = new Date(end);
+    limit.setHours(23, 59, 59, 999);
+    
+    let safety = 0;
+    while (curr <= limit && safety < 40) {
+      const label = curr.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
+      labels.push(label);
+      dayMap[label] = 0;
+      curr.setDate(curr.getDate() + 1);
+      safety++;
+    }
+    
+    filteredPayments.forEach(p => {
+      const pDate = p.paidAt ? new Date(p.paidAt) : (p.createdAt ? new Date(p.createdAt) : null);
+      if (!pDate) return;
+      const label = pDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
+      if (dayMap[label] !== undefined) {
+        dayMap[label] += p.amount || 0;
+      }
+    });
+    
+    const data = labels.map(l => dayMap[l]);
+    return { labels, data };
+  } else {
+    const monthMap = {};
+    
+    filteredPayments.forEach(p => {
+      const pDate = p.paidAt ? new Date(p.paidAt) : (p.createdAt ? new Date(p.createdAt) : null);
+      if (!pDate) return;
+      const year = pDate.getFullYear();
+      const month = String(pDate.getMonth() + 1).padStart(2, '0');
+      const key = `${year}-${month}`;
+      monthMap[key] = (monthMap[key] || 0) + (p.amount || 0);
+    });
+    
+    if (start && end) {
+      let curr = new Date(start);
+      curr.setDate(1);
+      curr.setHours(0, 0, 0, 0);
+      const limit = new Date(end);
+      limit.setDate(1);
+      limit.setHours(23, 59, 59, 999);
+      
+      let safety = 0;
+      while (curr <= limit && safety < 36) {
+        const key = `${curr.getFullYear()}-${String(curr.getMonth() + 1).padStart(2, '0')}`;
+        if (monthMap[key] === undefined) {
+          monthMap[key] = 0;
+        }
+        curr.setMonth(curr.getMonth() + 1);
+        safety++;
+      }
+    }
+    
+    const sortedKeys = Object.keys(monthMap).sort();
+    const labels = sortedKeys.map(k => {
+      const [yr, mn] = k.split('-');
+      const date = new Date(parseInt(yr), parseInt(mn) - 1, 1);
+      return date.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
+    });
+    const data = sortedKeys.map(k => monthMap[k]);
+    return { labels, data };
+  }
+};
+
+const getEmployeeTrend = (filteredEmployees, startDateStr, endDateStr) => {
+  const start = startDateStr ? new Date(startDateStr) : null;
+  const end = endDateStr ? new Date(endDateStr) : null;
+  
+  let useDayGrouping = false;
+  if (start && end) {
+    const diffTime = Math.abs(end - start);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    if (diffDays <= 31) {
+      useDayGrouping = true;
+    }
+  }
+  
+  if (useDayGrouping && start && end) {
+    const dayMap = {};
+    const labels = [];
+    let curr = new Date(start);
+    curr.setHours(0, 0, 0, 0);
+    const limit = new Date(end);
+    limit.setHours(23, 59, 59, 999);
+    
+    let safety = 0;
+    while (curr <= limit && safety < 40) {
+      const label = curr.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
+      labels.push(label);
+      dayMap[label] = 0;
+      curr.setDate(curr.getDate() + 1);
+      safety++;
+    }
+    
+    filteredEmployees.forEach(e => {
+      const eDate = e.createdAt ? new Date(e.createdAt) : null;
+      if (!eDate) return;
+      const label = eDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
+      if (dayMap[label] !== undefined) {
+        dayMap[label] += 1;
+      }
+    });
+    
+    const data = labels.map(l => dayMap[l]);
+    return { labels, data };
+  } else {
+    const monthMap = {};
+    
+    filteredEmployees.forEach(e => {
+      const eDate = e.createdAt ? new Date(e.createdAt) : null;
+      if (!eDate) return;
+      const year = eDate.getFullYear();
+      const month = String(eDate.getMonth() + 1).padStart(2, '0');
+      const key = `${year}-${month}`;
+      monthMap[key] = (monthMap[key] || 0) + 1;
+    });
+    
+    if (start && end) {
+      let curr = new Date(start);
+      curr.setDate(1);
+      curr.setHours(0, 0, 0, 0);
+      const limit = new Date(end);
+      limit.setDate(1);
+      limit.setHours(23, 59, 59, 999);
+      
+      let safety = 0;
+      while (curr <= limit && safety < 36) {
+        const key = `${curr.getFullYear()}-${String(curr.getMonth() + 1).padStart(2, '0')}`;
+        if (monthMap[key] === undefined) {
+          monthMap[key] = 0;
+        }
+        curr.setMonth(curr.getMonth() + 1);
+        safety++;
+      }
+    }
+    
+    const sortedKeys = Object.keys(monthMap).sort();
+    const labels = sortedKeys.map(k => {
+      const [yr, mn] = k.split('-');
+      const date = new Date(parseInt(yr), parseInt(mn) - 1, 1);
+      return date.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
+    });
+    const data = sortedKeys.map(k => monthMap[k]);
+    return { labels, data };
+  }
+};
+
 function App() {
   // Authentication State
   const [token, setToken] = useState(localStorage.getItem('admin_token') || '');
@@ -206,6 +392,17 @@ function App() {
   const [employeesFilters, setEmployeesFilters] = useState({ search: '', status: '' });
   const [appointments, setAppointments] = useState([]);
   const [appointmentsFilters, setAppointmentsFilters] = useState({ search: '', status: '' });
+  const [checkinDateFilter, setCheckinDateFilter] = useState(toLocalDateString(new Date()));
+  const [checkinSearchFilter, setCheckinSearchFilter] = useState('');
+  const [reportStartDate, setReportStartDate] = useState('');
+  const [reportEndDate, setReportEndDate] = useState('');
+  const [exportingType, setExportingType] = useState(null);
+  const [reportUsers, setReportUsers] = useState([]);
+  const [reportOrders, setReportOrders] = useState([]);
+  const [reportPayments, setReportPayments] = useState([]);
+  const [reportEmployees, setReportEmployees] = useState([]);
+  const [reportAppointments, setReportAppointments] = useState([]);
+  const [loadingReportData, setLoadingReportData] = useState(false);
   const [showAddAppointmentModal, setShowAddAppointmentModal] = useState(false);
   const [newAppointment, setNewAppointment] = useState({ customerName: '', customerMobile: '', customerAddress: '', dateTime: '', details: '', assignedEmployee: '' });
   const [editAppointment, setEditAppointment] = useState(null);
@@ -215,6 +412,67 @@ function App() {
   const [selectedOrderId, setSelectedOrderId] = useState('');
   const [unscheduledOrders, setUnscheduledOrders] = useState([]);
   const [loadingUnscheduled, setLoadingUnscheduled] = useState(false);
+
+  // Pincode States
+  const [serviceablePincodes, setServiceablePincodes] = useState([]);
+  const [pincodeRequests, setPincodeRequests] = useState([]);
+  const [loadingPincodes, setLoadingPincodes] = useState(false);
+  const [newPincode, setNewPincode] = useState('');
+
+  // Memoized filtered data for reports tab
+  const reportFilteredData = useMemo(() => {
+    if (activeTab !== 'reports') {
+      return {
+        users: [],
+        orders: [],
+        payments: [],
+        employees: [],
+        appointments: [],
+        userEmployeeCounts: { users: 0, employees: 0 },
+        packageStats: { mother: 0, baby: 0, muma: 0 },
+        revenueTrend: { labels: [], data: [] },
+        employeeTrend: { labels: [], data: [] }
+      };
+    }
+
+    const filteredUsers = reportUsers.filter(u => filterByDateRange(u, 'createdAt', reportStartDate, reportEndDate));
+    const filteredOrders = reportOrders.filter(o => filterByDateRange(o, 'createdAt', reportStartDate, reportEndDate));
+    const filteredPayments = reportPayments.filter(p => filterByDateRange(p, 'createdAt', reportStartDate, reportEndDate));
+    const filteredEmployees = reportEmployees.filter(e => filterByDateRange(e, 'createdAt', reportStartDate, reportEndDate));
+    const filteredAppointments = reportAppointments.filter(appt => appt.checkinTime && filterByDateRange(appt, 'checkinTime', reportStartDate, reportEndDate));
+
+    // Count Users vs Employees signup
+    const userEmployeeCounts = {
+      users: filteredUsers.length,
+      employees: filteredEmployees.length
+    };
+
+    // Calculate Package Share
+    const packageStats = { mother: 0, baby: 0, muma: 0 };
+    filteredOrders.forEach(o => {
+      if (o.packageType === 'mother') packageStats.mother++;
+      else if (o.packageType === 'baby') packageStats.baby++;
+      else if (o.packageType === 'muma') packageStats.muma++;
+    });
+
+    // Calculate Revenue Trend
+    const revenueTrend = getRevenueTrend(filteredPayments, reportStartDate, reportEndDate);
+
+    // Calculate Employee Trend
+    const employeeTrend = getEmployeeTrend(filteredEmployees, reportStartDate, reportEndDate);
+
+    return {
+      users: filteredUsers,
+      orders: filteredOrders,
+      payments: filteredPayments,
+      employees: filteredEmployees,
+      appointments: filteredAppointments,
+      userEmployeeCounts,
+      packageStats,
+      revenueTrend,
+      employeeTrend
+    };
+  }, [activeTab, reportUsers, reportOrders, reportPayments, reportEmployees, reportAppointments, reportStartDate, reportEndDate]);
 
   // Toast Helper
   const showToast = (message, type = 'success') => {
@@ -740,9 +998,15 @@ function App() {
       if (activeTab === 'packages') fetchPackages();
       if (activeTab === 'employees') fetchEmployees();
       if (activeTab === 'timeslots') fetchTimeslots();
-      if (activeTab === 'appointments') {
+      if (activeTab === 'appointments' || activeTab === 'checkins') {
         fetchAppointments();
         fetchEmployees();
+      }
+      if (activeTab === 'reports') {
+        fetchReportData();
+      }
+      if (activeTab === 'pincodes') {
+        fetchPincodesData();
       }
     }
   }, [token, activeTab, employeesFilters, appointmentsFilters]);
@@ -762,6 +1026,201 @@ function App() {
       }
     } catch (err) {
       showToast(err.message || 'Update failed', 'error');
+    }
+  };
+
+  const downloadCSV = (data, headers, filename) => {
+    if (!data || data.length === 0) {
+      showToast("No data available to export for the selected date range", "error");
+      return;
+    }
+    const csvRows = [];
+    csvRows.push(headers.join(','));
+    for (const row of data) {
+      const values = headers.map(header => {
+        const val = row[header];
+        const escaped = ('' + (val !== undefined && val !== null ? val : '')).replace(/"/g, '""');
+        return `"${escaped}"`;
+      });
+      csvRows.push(values.join(','));
+    }
+    const csvString = csvRows.join('\n');
+    const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const fetchReportData = async () => {
+    setLoadingReportData(true);
+    try {
+      const [usersRes, ordersRes, paymentsRes, employeesRes, appointmentsRes] = await Promise.all([
+        apiFetch(`/admin/users?page=1&limit=100000`),
+        apiFetch(`/admin/orders?page=1&limit=100000`),
+        apiFetch(`/admin/payments?page=1&limit=100000`),
+        apiFetch(`/admin/employees`),
+        apiFetch(`/admin/appointments`)
+      ]);
+      if (usersRes.success) setReportUsers(usersRes.data.users || []);
+      if (ordersRes.success) setReportOrders(ordersRes.data.orders || []);
+      if (paymentsRes.success) setReportPayments(paymentsRes.data.payments || []);
+      if (employeesRes.success) setReportEmployees(employeesRes.data || []);
+      if (appointmentsRes.success) setReportAppointments(appointmentsRes.data || []);
+    } catch (err) {
+      console.error("Failed to fetch reports datasets:", err);
+      showToast("Failed to fetch reports datasets", "error");
+    } finally {
+      setLoadingReportData(false);
+    }
+  };
+
+  const fetchPincodesData = async () => {
+    setLoadingPincodes(true);
+    try {
+      const [serviceableRes, requestsRes] = await Promise.all([
+        apiFetch('/admin/pincodes'),
+        apiFetch('/admin/pincode-requests')
+      ]);
+      if (serviceableRes.success) setServiceablePincodes(serviceableRes.data || []);
+      if (requestsRes.success) setPincodeRequests(requestsRes.data || []);
+    } catch (err) {
+      console.error("Failed to fetch pincodes data:", err);
+      showToast("Failed to fetch pincodes data", "error");
+    } finally {
+      setLoadingPincodes(false);
+    }
+  };
+
+  const handleAddPincode = async (e) => {
+    e.preventDefault();
+    if (!newPincode.trim() || newPincode.trim().length !== 6) {
+      showToast("Please enter a valid 6-digit pincode", "error");
+      return;
+    }
+    try {
+      const res = await apiFetch('/admin/pincodes', {
+        method: 'POST',
+        body: JSON.stringify({ pincode: newPincode.trim() })
+      });
+      if (res.success) {
+        showToast("Pincode added successfully");
+        setNewPincode('');
+        fetchPincodesData();
+      }
+    } catch (err) {
+      showToast(err.message || "Failed to add pincode", "error");
+    }
+  };
+
+  const handleDeletePincode = async (id) => {
+    if (window.confirm("Are you sure you want to delete this serviceable pincode?")) {
+      try {
+        const res = await apiFetch(`/admin/pincodes/${id}`, { method: 'DELETE' });
+        if (res.success) {
+          showToast("Pincode deleted successfully");
+          fetchPincodesData();
+        }
+      } catch (err) {
+        showToast(err.message || "Failed to delete pincode", "error");
+      }
+    }
+  };
+
+  const handleExport = async (type) => {
+    setExportingType(type);
+    try {
+      let data = [];
+      let headers = [];
+      let filename = `report_${type}_${Date.now()}.csv`;
+
+      if (type === 'users') {
+        const filtered = reportFilteredData.users;
+        headers = ['ID', 'Name', 'Email', 'Mobile', 'Role', 'Verified', 'Created At'];
+        data = filtered.map(u => ({
+          ID: u._id,
+          Name: u.name,
+          Email: u.email,
+          Mobile: u.mobile,
+          Role: u.role,
+          Verified: u.isVerified ? 'Yes' : 'No',
+          'Created At': u.createdAt ? new Date(u.createdAt).toLocaleString('en-IN') : ''
+        }));
+      } else if (type === 'orders') {
+        const filtered = reportFilteredData.orders;
+        headers = ['Order ID', 'Customer Name', 'Customer Mobile', 'Package', 'Plan', 'Price', 'Status', 'Payment Status', 'Start Date', 'Activated At', 'Expires At', 'Mother Name', 'Baby Name'];
+        data = filtered.map(o => ({
+          'Order ID': o._id,
+          'Customer Name': o.user?.name || o.address?.fullName || '',
+          'Customer Mobile': o.user?.mobile || o.address?.mobile || '',
+          'Package': o.packageTitle,
+          'Plan': o.planLabel,
+          'Price': o.price,
+          'Status': o.status,
+          'Payment Status': o.paymentStatus,
+          'Start Date': o.startDate ? new Date(o.startDate).toLocaleDateString('en-IN') : '',
+          'Activated At': o.activatedAt ? new Date(o.activatedAt).toLocaleDateString('en-IN') : '',
+          'Expires At': o.expiresAt ? new Date(o.expiresAt).toLocaleDateString('en-IN') : '',
+          'Mother Name': o.motherName || '',
+          'Baby Name': o.babyName || ''
+        }));
+      } else if (type === 'payments') {
+        const filtered = reportFilteredData.payments;
+        headers = ['Payment ID', 'Customer Name', 'Customer Mobile', 'Order ID', 'Package', 'Transaction ID', 'Amount', 'Status', 'UPI ID', 'UPI Reference', 'Paid At'];
+        data = filtered.map(p => ({
+          'Payment ID': p._id,
+          'Customer Name': p.user?.name || '',
+          'Customer Mobile': p.user?.mobile || '',
+          'Order ID': p.order?._id || p.order || '',
+          'Package': p.order?.packageTitle || '',
+          'Transaction ID': p.transactionId,
+          'Amount': p.amount,
+          'Status': p.status,
+          'UPI ID': p.upiId || '',
+          'UPI Reference': p.upiRef || '',
+          'Paid At': p.paidAt ? new Date(p.paidAt).toLocaleString('en-IN') : ''
+        }));
+      } else if (type === 'employees') {
+        const filtered = reportFilteredData.employees;
+        headers = ['Employee ID', 'Name', 'Email', 'Mobile', 'Occupation', 'Address', 'Aadhar Number', 'Approved', 'Registered At'];
+        data = filtered.map(e => ({
+          'Employee ID': e._id,
+          'Name': e.name,
+          'Email': e.email,
+          'Mobile': e.mobile,
+          'Occupation': e.occupation,
+          'Address': e.address || e.permanentAddress || '',
+          'Aadhar Number': e.aadharNumber,
+          'Approved': e.isVerifiedEmployee ? 'Yes' : 'No',
+          'Registered At': e.createdAt ? new Date(e.createdAt).toLocaleString('en-IN') : ''
+        }));
+      } else if (type === 'checkins') {
+        const filtered = reportFilteredData.appointments;
+        headers = ['Appointment ID', 'Check-in Time', 'Employee Name', 'Customer Name', 'Customer Mobile', 'Address', 'Latitude', 'Longitude', 'Status'];
+        data = filtered.map(appt => ({
+          'Appointment ID': appt._id,
+          'Check-in Time': appt.checkinTime ? new Date(appt.checkinTime).toLocaleString('en-IN') : '',
+          'Employee Name': appt.assignedEmployee?.name || '',
+          'Customer Name': appt.customerName,
+          'Customer Mobile': appt.customerMobile,
+          'Address': appt.customerAddress,
+          'Latitude': appt.checkinLocation?.latitude || '',
+          'Longitude': appt.checkinLocation?.longitude || '',
+          'Status': appt.status
+        }));
+      }
+
+      downloadCSV(data, headers, filename);
+      showToast(`${type.charAt(0).toUpperCase() + type.slice(1)} data exported successfully`);
+    } catch (err) {
+      console.error(err);
+      showToast(`Failed to export ${type} data`, 'error');
+    } finally {
+      setExportingType(null);
     }
   };
 
@@ -1058,11 +1517,35 @@ function App() {
           </button>
 
           <button
+            className={`menu-item ${activeTab === 'checkins' ? 'active' : ''}`}
+            onClick={() => handleTabChange('checkins')}
+          >
+            <MapPin size={20} />
+            <span>Check-ins</span>
+          </button>
+
+          <button
             className={`menu-item ${activeTab === 'timeslots' ? 'active' : ''}`}
             onClick={() => handleTabChange('timeslots')}
           >
             <Clock size={20} />
             <span>Timeslots</span>
+          </button>
+
+          <button
+            className={`menu-item ${activeTab === 'reports' ? 'active' : ''}`}
+            onClick={() => handleTabChange('reports')}
+          >
+            <Download size={20} />
+            <span>Reports</span>
+          </button>
+
+          <button
+            className={`menu-item ${activeTab === 'pincodes' ? 'active' : ''}`}
+            onClick={() => handleTabChange('pincodes')}
+          >
+            <MapPin size={20} />
+            <span>Pincodes</span>
           </button>
         </nav>
 
@@ -1082,7 +1565,7 @@ function App() {
               {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
             </button>
             <div className="header-title">
-              <h1>{activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}</h1>
+              <h1>{activeTab === 'checkins' ? 'Daily Check-ins' : activeTab === 'reports' ? 'Export Reports' : activeTab === 'pincodes' ? 'Serviceable Pincodes' : activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}</h1>
             </div>
           </div>
 
@@ -1951,7 +2434,6 @@ function App() {
                           <th>Assigned Employee</th>
                           <th>OTP</th>
                           <th>Status</th>
-                          <th>Check-in Details</th>
                           <th>Actions</th>
                         </tr>
                       </thead>
@@ -1991,26 +2473,6 @@ function App() {
                                 {appt.status}
                               </span>
                             </td>
-                            <td style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                              {appt.status === 'checked_in' && appt.checkinLocation ? (
-                                <div>
-                                  <div><strong>Time:</strong> {formatDate(appt.checkinTime)}</div>
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
-                                    <MapPin size={12} style={{ color: 'var(--accent-pink)' }} />
-                                    <a
-                                      href={`https://maps.google.com/?q=${appt.checkinLocation.latitude},${appt.checkinLocation.longitude}`}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      style={{ color: '#3b82f6', textDecoration: 'none' }}
-                                    >
-                                      {appt.checkinLocation.latitude.toFixed(5)}, {appt.checkinLocation.longitude.toFixed(5)}
-                                    </a>
-                                  </div>
-                                </div>
-                              ) : (
-                                '—'
-                              )}
-                            </td>
                             <td className="actions-cell">
                               <button
                                 className="btn btn-secondary btn-icon"
@@ -2038,7 +2500,7 @@ function App() {
                         ))}
                         {appointments.length === 0 && (
                           <tr>
-                            <td colSpan="8" style={{ textAlign: 'center', padding: '24px', color: 'var(--text-muted)' }}>
+                            <td colSpan="7" style={{ textAlign: 'center', padding: '24px', color: 'var(--text-muted)' }}>
                               No appointments found
                             </td>
                           </tr>
@@ -2048,6 +2510,190 @@ function App() {
                   </div>
                 </div>
               )}
+
+              {/* Tab: Check-ins */}
+              {activeTab === 'checkins' && (() => {
+                // Filter appointments with valid checkins
+                const checkedInAppts = appointments.filter(appt => {
+                  if (!appt.checkinTime) return false;
+                  
+                  // Filter by date
+                  if (checkinDateFilter) {
+                    const apptDateStr = toLocalDateString(appt.checkinTime);
+                    if (apptDateStr !== checkinDateFilter) return false;
+                  }
+                  
+                  // Filter by search
+                  if (checkinSearchFilter) {
+                    const q = checkinSearchFilter.toLowerCase();
+                    const empName = appt.assignedEmployee?.name?.toLowerCase() || '';
+                    const custName = appt.customerName?.toLowerCase() || '';
+                    const details = appt.details?.toLowerCase() || '';
+                    if (!empName.includes(q) && !custName.includes(q) && !details.includes(q)) return false;
+                  }
+                  
+                  return true;
+                });
+
+                // Calculate metrics for selected date (or overall if date is cleared)
+                const todayStr = toLocalDateString(new Date());
+                const checkinsToday = appointments.filter(appt => appt.checkinTime && toLocalDateString(appt.checkinTime) === todayStr);
+                const totalCheckinsTodayCount = checkinsToday.length;
+                const completedTodayCount = checkinsToday.filter(appt => appt.status === 'completed').length;
+                const activeServicesCount = appointments.filter(appt => appt.status === 'checked_in').length;
+
+                return (
+                  <div className="glass-panel animate-fade-in" style={{ padding: '24px' }}>
+                    
+                    {/* Metrics Header */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', marginBottom: '24px' }}>
+                      <div className="stat-card" style={{ padding: '16px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Check-ins Today</div>
+                        <div style={{ fontSize: '1.8rem', fontWeight: 'bold', marginTop: '6px', color: 'var(--text)' }}>{totalCheckinsTodayCount}</div>
+                      </div>
+                      <div className="stat-card" style={{ padding: '16px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Completed Services Today</div>
+                        <div style={{ fontSize: '1.8rem', fontWeight: 'bold', marginTop: '6px', color: 'var(--accent-pink)' }}>{completedTodayCount}</div>
+                      </div>
+                      <div className="stat-card" style={{ padding: '16px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Currently Checked In (Active)</div>
+                        <div style={{ fontSize: '1.8rem', fontWeight: 'bold', marginTop: '6px', color: '#10b981' }}>{activeServicesCount}</div>
+                      </div>
+                    </div>
+
+                    {/* Filters bar */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
+                      <div className="filter-bar" style={{ margin: 0, flex: 1, display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                        
+                        {/* Search Input */}
+                        <div className="search-input-wrapper" style={{ minWidth: '250px' }}>
+                          <Search size={18} />
+                          <input
+                            type="text"
+                            className="form-control"
+                            placeholder="Search employee or customer..."
+                            value={checkinSearchFilter}
+                            onChange={(e) => setCheckinSearchFilter(e.target.value)}
+                          />
+                        </div>
+
+                        {/* Date Filter Input */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(255,255,255,0.04)', padding: '2px 12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                          <Calendar size={16} style={{ color: 'var(--text-muted)' }} />
+                          <input
+                            type="date"
+                            className="form-control"
+                            style={{ background: 'transparent', border: 'none', color: 'var(--text)', padding: '6px 0', fontSize: '0.9rem', outline: 'none' }}
+                            value={checkinDateFilter}
+                            onChange={(e) => setCheckinDateFilter(e.target.value)}
+                          />
+                        </div>
+
+                        {/* Clear Date button / Today Button */}
+                        {checkinDateFilter && (
+                          <button 
+                            className="btn btn-secondary" 
+                            style={{ padding: '8px 16px' }}
+                            onClick={() => setCheckinDateFilter('')}
+                          >
+                            All Dates
+                          </button>
+                        )}
+                        
+                        <button 
+                          className="btn btn-secondary" 
+                          style={{ padding: '8px 16px' }}
+                          onClick={() => setCheckinDateFilter(toLocalDateString(new Date()))}
+                        >
+                          Today
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Check-ins Table */}
+                    <div className="table-container">
+                      <table className="admin-table">
+                        <thead>
+                          <tr>
+                            <th>Check-in Time</th>
+                            <th>Employee</th>
+                            <th>Customer</th>
+                            <th>Appointment Address</th>
+                            <th>Check-in Location</th>
+                            <th>Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {checkedInAppts.map(appt => (
+                            <tr key={appt._id}>
+                              <td style={{ fontSize: '0.85rem' }}>
+                                <div style={{ fontWeight: '600' }}>{formatDate(appt.checkinTime)}</div>
+                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                                  Scheduled: {formatOnlyDate(appt.dateTime)}
+                                </div>
+                              </td>
+                              <td>
+                                {appt.assignedEmployee ? (
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <img
+                                      src={getImageUrl(appt.assignedEmployee.userPhoto) || '/user.png'}
+                                      alt={appt.assignedEmployee.name}
+                                      style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover' }}
+                                      onError={(e) => { e.target.src = '/user.png'; }}
+                                    />
+                                    <div>
+                                      <div style={{ fontWeight: '500', fontSize: '0.85rem' }}>{appt.assignedEmployee.name}</div>
+                                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{appt.assignedEmployee.occupation}</div>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <span style={{ color: 'var(--error)', fontStyle: 'italic', fontSize: '0.85rem' }}>Unknown Employee</span>
+                                )}
+                              </td>
+                              <td>
+                                <div style={{ fontWeight: '600', fontSize: '0.85rem' }}>{appt.customerName}</div>
+                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{appt.customerMobile}</div>
+                              </td>
+                              <td style={{ fontSize: '0.8rem', maxWidth: '220px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={appt.customerAddress}>
+                                {appt.customerAddress}
+                              </td>
+                              <td>
+                                {appt.checkinLocation ? (
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <MapPin size={14} style={{ color: 'var(--accent-pink)' }} />
+                                    <a
+                                      href={`https://maps.google.com/?q=${appt.checkinLocation.latitude},${appt.checkinLocation.longitude}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      style={{ color: '#3b82f6', textDecoration: 'none', fontSize: '0.85rem', fontWeight: '500' }}
+                                    >
+                                      {appt.checkinLocation.latitude.toFixed(5)}, {appt.checkinLocation.longitude.toFixed(5)}
+                                    </a>
+                                  </div>
+                                ) : (
+                                  <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>No coordinates</span>
+                                )}
+                              </td>
+                              <td>
+                                <span className={`badge badge-${appt.status === 'checked_in' ? 'success' : appt.status === 'completed' ? 'info' : 'warning'}`}>
+                                  {appt.status === 'checked_in' ? 'In Progress' : appt.status}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                          {checkedInAppts.length === 0 && (
+                            <tr>
+                              <td colSpan="6" style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)' }}>
+                                No service check-ins recorded for this day
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Tab 8: Timeslots */}
               {activeTab === 'timeslots' && (
@@ -2203,6 +2849,453 @@ function App() {
                       );
                     })}
                   </div>
+                </div>
+              )}
+
+              {/* Tab: Reports */}
+              {activeTab === 'reports' && (
+                <div className="glass-panel animate-fade-in" style={{ padding: '24px' }}>
+                  <div style={{ marginBottom: '24px' }}>
+                    <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 'bold' }}>Export Data Reports</h2>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '4px' }}>
+                      Select a date range filter (optional) and download data logs instantly in CSV format.
+                    </p>
+                  </div>
+
+                  {/* Date Range Filters */}
+                  <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', padding: '16px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '12px', marginBottom: '32px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <span style={{ fontSize: '0.75rem', fontWeight: '600', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Start Date</span>
+                      <input 
+                        type="date" 
+                        className="form-control" 
+                        value={reportStartDate} 
+                        onChange={(e) => setReportStartDate(e.target.value)} 
+                        style={{ width: '180px' }}
+                      />
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <span style={{ fontSize: '0.75rem', fontWeight: '600', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>End Date</span>
+                      <input 
+                        type="date" 
+                        className="form-control" 
+                        value={reportEndDate} 
+                        onChange={(e) => setReportEndDate(e.target.value)} 
+                        style={{ width: '180px' }}
+                      />
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'flex-end', gap: '8px' }}>
+                      {(reportStartDate || reportEndDate) && (
+                        <button 
+                          className="btn btn-secondary" 
+                          onClick={() => {
+                            setReportStartDate('');
+                            setReportEndDate('');
+                          }}
+                          style={{ height: '40px' }}
+                        >
+                          Clear Filters
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {loadingReportData ? (
+                    <div className="spinner-container" style={{ minHeight: '300px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
+                      <div className="spinner"></div>
+                      <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Caching reports datasets...</span>
+                    </div>
+                  ) : (
+                    <>
+                      {/* Graphical Analytics Section */}
+                      <div style={{ marginBottom: '36px' }}>
+                        <h3 style={{ margin: '0 0 20px 0', fontSize: '1.25rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ display: 'inline-block', width: '4px', height: '18px', backgroundColor: 'var(--accent-pink)', borderRadius: '2px' }}></span>
+                          Graphical Analytics
+                        </h3>
+                        
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px' }}>
+                          {/* Chart 1: Signups Distribution */}
+                          <div className="glass-panel chart-card" style={{ border: '1px solid var(--border-color)', borderRadius: '12px', minHeight: '340px' }}>
+                            <h4 className="chart-title" style={{ margin: '0 0 16px 0', fontSize: '1rem', fontWeight: '600' }}>Signups (Users vs Employees)</h4>
+                            <div className="chart-container" style={{ flexGrow: 1, position: 'relative' }}>
+                              <Bar
+                                data={{
+                                  labels: ['Clients', 'Employees'],
+                                  datasets: [{
+                                    label: 'Registrations',
+                                    data: [reportFilteredData.userEmployeeCounts.users, reportFilteredData.userEmployeeCounts.employees],
+                                    backgroundColor: ['#3b82f6', '#f59e0b'],
+                                    borderRadius: 4,
+                                    barThickness: 30
+                                  }]
+                                }}
+                                options={{
+                                  responsive: true,
+                                  maintainAspectRatio: false,
+                                  plugins: {
+                                    legend: { display: false }
+                                  },
+                                  scales: {
+                                    y: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#9ca3af', precision: 0 } },
+                                    x: { grid: { display: false }, ticks: { color: '#9ca3af' } }
+                                  }
+                                }}
+                              />
+                            </div>
+                          </div>
+
+                          {/* Chart 2: Package Share */}
+                          <div className="glass-panel chart-card" style={{ border: '1px solid var(--border-color)', borderRadius: '12px', minHeight: '340px' }}>
+                            <h4 className="chart-title" style={{ margin: '0 0 16px 0', fontSize: '1rem', fontWeight: '600' }}>Package Share (Orders count)</h4>
+                            <div className="chart-container" style={{ flexGrow: 1, position: 'relative' }}>
+                              <Doughnut
+                                data={{
+                                  labels: ['Mother Care', 'Baby Care', 'Muma Bundle'],
+                                  datasets: [{
+                                    data: [reportFilteredData.packageStats.mother, reportFilteredData.packageStats.baby, reportFilteredData.packageStats.muma],
+                                    backgroundColor: ['#e91e8a', '#1fbdbd', '#7b2d8b'],
+                                    borderWidth: 0
+                                  }]
+                                }}
+                                options={{
+                                  responsive: true,
+                                  maintainAspectRatio: false,
+                                  plugins: {
+                                    legend: {
+                                      position: 'bottom',
+                                      labels: { color: '#9ca3af', boxWidth: 12, font: { family: 'var(--font-sans)', size: 11 } }
+                                    }
+                                  }
+                                }}
+                              />
+                            </div>
+                          </div>
+
+                          {/* Chart 3: Revenue Trend */}
+                          <div className="glass-panel chart-card" style={{ border: '1px solid var(--border-color)', borderRadius: '12px', minHeight: '340px' }}>
+                            <h4 className="chart-title" style={{ margin: '0 0 16px 0', fontSize: '1rem', fontWeight: '600' }}>Revenue Trend (₹ Earning)</h4>
+                            <div className="chart-container" style={{ flexGrow: 1, position: 'relative' }}>
+                              <Bar
+                                data={{
+                                  labels: reportFilteredData.revenueTrend.labels,
+                                  datasets: [{
+                                    label: 'Revenue (₹)',
+                                    data: reportFilteredData.revenueTrend.data,
+                                    backgroundColor: '#10b981',
+                                    borderRadius: 4,
+                                  }]
+                                }}
+                                options={{
+                                  responsive: true,
+                                  maintainAspectRatio: false,
+                                  plugins: {
+                                    legend: { display: false }
+                                  },
+                                  scales: {
+                                    y: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#9ca3af' } },
+                                    x: { grid: { display: false }, ticks: { color: '#9ca3af', font: { size: 10 } } }
+                                  }
+                                }}
+                              />
+                            </div>
+                          </div>
+
+                          {/* Chart 4: Employee Signup Trend */}
+                          <div className="glass-panel chart-card" style={{ border: '1px solid var(--border-color)', borderRadius: '12px', minHeight: '340px' }}>
+                            <h4 className="chart-title" style={{ margin: '0 0 16px 0', fontSize: '1rem', fontWeight: '600' }}>Employee Signup Trend</h4>
+                            <div className="chart-container" style={{ flexGrow: 1, position: 'relative' }}>
+                              <Line
+                                data={{
+                                  labels: reportFilteredData.employeeTrend.labels,
+                                  datasets: [{
+                                    label: 'Employee Signups',
+                                    data: reportFilteredData.employeeTrend.data,
+                                    borderColor: '#f59e0b',
+                                    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                                    tension: 0.3,
+                                    fill: true,
+                                    pointBackgroundColor: '#f59e0b',
+                                    pointBorderColor: '#fff',
+                                    pointHoverRadius: 6,
+                                  }]
+                                }}
+                                options={{
+                                  responsive: true,
+                                  maintainAspectRatio: false,
+                                  plugins: {
+                                    legend: { display: false }
+                                  },
+                                  scales: {
+                                    y: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#9ca3af', precision: 0 } },
+                                    x: { grid: { display: false }, ticks: { color: '#9ca3af', font: { size: 10 } } }
+                                  }
+                                }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Export Categories Section */}
+                      <div>
+                        <h3 style={{ margin: '0 0 20px 0', fontSize: '1.25rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ display: 'inline-block', width: '4px', height: '18px', backgroundColor: 'var(--accent-pink)', borderRadius: '2px' }}></span>
+                          CSV Reports Export
+                        </h3>
+                        
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px' }}>
+                          
+                          {/* Users Card */}
+                          <div className="glass-panel" style={{ padding: '20px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', border: '1px solid var(--border-color)', borderRadius: '12px', minHeight: '180px' }}>
+                            <div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+                                <div style={{ padding: '10px', background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', borderRadius: '8px' }}>
+                                  <Users size={20} />
+                                </div>
+                                <h3 style={{ fontSize: '1.1rem', fontWeight: 'bold', margin: 0 }}>Registered Users</h3>
+                              </div>
+                              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: '1.4', margin: '0 0 16px 0' }}>
+                                Download the list of all registered clients, including contact emails, mobile numbers, verification status, and creation dates.
+                              </p>
+                            </div>
+                            <button 
+                              className="btn btn-primary" 
+                              style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                              onClick={() => handleExport('users')}
+                              disabled={exportingType !== null}
+                            >
+                              <Download size={16} />
+                              {exportingType === 'users' ? 'Exporting...' : 'Export Users List'}
+                            </button>
+                          </div>
+
+                          {/* Orders Card */}
+                          <div className="glass-panel" style={{ padding: '20px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', border: '1px solid var(--border-color)', borderRadius: '12px', minHeight: '180px' }}>
+                            <div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+                                <div style={{ padding: '10px', background: 'rgba(233, 30, 138, 0.1)', color: 'var(--accent-pink)', borderRadius: '8px' }}>
+                                  <ShoppingCart size={20} />
+                                </div>
+                                <h3 style={{ fontSize: '1.1rem', fontWeight: 'bold', margin: 0 }}>Subscription Orders</h3>
+                              </div>
+                              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: '1.4', margin: '0 0 16px 0' }}>
+                                Export booking history details, selected packages/plans, pricing, activation timelines, checkin window logs, and status info.
+                              </p>
+                            </div>
+                            <button 
+                              className="btn btn-primary" 
+                              style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                              onClick={() => handleExport('orders')}
+                              disabled={exportingType !== null}
+                            >
+                              <Download size={16} />
+                              {exportingType === 'orders' ? 'Exporting...' : 'Export Orders List'}
+                            </button>
+                          </div>
+
+                          {/* Payments Card */}
+                          <div className="glass-panel" style={{ padding: '20px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', border: '1px solid var(--border-color)', borderRadius: '12px', minHeight: '180px' }}>
+                            <div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+                                <div style={{ padding: '10px', background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', borderRadius: '8px' }}>
+                                  <CreditCard size={20} />
+                                </div>
+                                <h3 style={{ fontSize: '1.1rem', fontWeight: 'bold', margin: 0 }}>Payments History</h3>
+                              </div>
+                              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: '1.4', margin: '0 0 16px 0' }}>
+                                Retrieve detailed accounts transaction logs, payment statuses, UPI handles, gateway reference codes, and timestamps.
+                              </p>
+                            </div>
+                            <button 
+                              className="btn btn-primary" 
+                              style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                              onClick={() => handleExport('payments')}
+                              disabled={exportingType !== null}
+                            >
+                              <Download size={16} />
+                              {exportingType === 'payments' ? 'Exporting...' : 'Export Payments'}
+                            </button>
+                          </div>
+
+                          {/* Employees Card */}
+                          <div className="glass-panel" style={{ padding: '20px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', border: '1px solid var(--border-color)', borderRadius: '12px', minHeight: '180px' }}>
+                            <div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+                                <div style={{ padding: '10px', background: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b', borderRadius: '8px' }}>
+                                  <Briefcase size={20} />
+                                </div>
+                                <h3 style={{ fontSize: '1.1rem', fontWeight: 'bold', margin: 0 }}>Employees Log</h3>
+                              </div>
+                              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: '1.4', margin: '0 0 16px 0' }}>
+                                Export service employee records, occupation roles, registered contact profiles, verification statuses, and sign-up dates.
+                              </p>
+                            </div>
+                            <button 
+                              className="btn btn-primary" 
+                              style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                              onClick={() => handleExport('employees')}
+                              disabled={exportingType !== null}
+                            >
+                              <Download size={16} />
+                              {exportingType === 'employees' ? 'Exporting...' : 'Export Employees'}
+                            </button>
+                          </div>
+
+                          {/* Checkins Card */}
+                          <div className="glass-panel" style={{ padding: '20px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', border: '1px solid var(--border-color)', borderRadius: '12px', minHeight: '180px' }}>
+                            <div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+                                <div style={{ padding: '10px', background: 'rgba(139, 92, 246, 0.1)', color: '#8b5cf6', borderRadius: '8px' }}>
+                                  <MapPin size={20} />
+                                </div>
+                                <h3 style={{ fontSize: '1.1rem', fontWeight: 'bold', margin: 0 }}>Service Check-ins</h3>
+                              </div>
+                              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: '1.4', margin: '0 0 16px 0' }}>
+                                Download check-in metrics including recorded timestamps, employee assignees, GPS verification details, and addresses.
+                              </p>
+                            </div>
+                            <button 
+                              className="btn btn-primary" 
+                              style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                              onClick={() => handleExport('checkins')}
+                              disabled={exportingType !== null}
+                            >
+                              <Download size={16} />
+                              {exportingType === 'checkins' ? 'Exporting...' : 'Export Check-ins'}
+                            </button>
+                          </div>
+
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {/* Tab: Pincodes */}
+              {activeTab === 'pincodes' && (
+                <div className="glass-panel animate-fade-in" style={{ padding: '24px' }}>
+                  <div style={{ marginBottom: '24px' }}>
+                    <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 'bold' }}>Manage Service Zones & Requests</h2>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '4px' }}>
+                      Register serviceable pincodes to validate checkouts, and view customer requests from non-serviced regions.
+                    </p>
+                  </div>
+
+                  {loadingPincodes ? (
+                    <div className="spinner-container" style={{ minHeight: '300px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
+                      <div className="spinner"></div>
+                      <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Loading pincode records...</span>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '32px', alignItems: 'start' }}>
+                      
+                      {/* Left: Serviceable Pincodes List & Form */}
+                      <div className="glass-panel" style={{ padding: '20px', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
+                        <h3 style={{ fontSize: '1.1rem', fontWeight: 'bold', margin: '0 0 16px 0', color: 'var(--text-main)' }}>Serviceable Pincodes</h3>
+                        
+                        <form onSubmit={handleAddPincode} style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
+                          <input
+                            type="text"
+                            className="form-control"
+                            placeholder="Enter 6-digit pincode"
+                            maxLength={6}
+                            value={newPincode}
+                            onChange={(e) => setNewPincode(e.target.value.replace(/[^0-9]/g, ''))}
+                            style={{ flexGrow: 1 }}
+                            required
+                          />
+                          <button type="submit" className="btn btn-primary" style={{ padding: '8px 16px', whiteSpace: 'nowrap' }}>
+                            Add
+                          </button>
+                        </form>
+
+                        <div style={{ maxHeight: '400px', overflowY: 'auto', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
+                          {serviceablePincodes.length === 0 ? (
+                            <div style={{ padding: '16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem', fontStyle: 'italic' }}>
+                              No serviceable pincodes registered.
+                            </div>
+                          ) : (
+                            <table className="admin-table" style={{ width: '100%' }}>
+                              <thead>
+                                <tr>
+                                  <th style={{ padding: '8px 12px' }}>Pincode</th>
+                                  <th style={{ padding: '8px 12px', textAlign: 'right' }}>Action</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {serviceablePincodes.map((item) => (
+                                  <tr key={item._id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                                    <td style={{ padding: '10px 12px', fontWeight: 'bold' }}>{item.pincode}</td>
+                                    <td style={{ padding: '10px 12px', textAlign: 'right' }}>
+                                      <button 
+                                        className="btn btn-secondary" 
+                                        style={{ padding: '4px 8px', color: 'var(--danger)', borderColor: 'rgba(239, 68, 68, 0.2)' }}
+                                        onClick={() => handleDeletePincode(item._id)}
+                                      >
+                                        <Trash2 size={14} />
+                                      </button>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Right: Area Service Requests Table */}
+                      <div className="glass-panel" style={{ padding: '20px', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
+                        <h3 style={{ fontSize: '1.1rem', fontWeight: 'bold', margin: '0 0 16px 0', color: 'var(--text-main)' }}>Customer Service Requests (Leads)</h3>
+                        
+                        <div style={{ maxHeight: '470px', overflowY: 'auto', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
+                          {pincodeRequests.length === 0 ? (
+                            <div style={{ padding: '32px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.9rem', fontStyle: 'italic' }}>
+                              No pincode service requests recorded yet.
+                            </div>
+                          ) : (
+                            <table className="admin-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+                              <thead>
+                                <tr>
+                                  <th style={{ padding: '12px 16px' }}>Mobile Number</th>
+                                  <th style={{ padding: '12px 16px' }}>Requested Pincode</th>
+                                  <th style={{ padding: '12px 16px' }}>User Profile</th>
+                                  <th style={{ padding: '12px 16px', textAlign: 'right' }}>Requested At</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {pincodeRequests.map((reqLead) => (
+                                  <tr key={reqLead._id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                                    <td style={{ padding: '12px 16px', fontWeight: '600' }}>{reqLead.mobile}</td>
+                                    <td style={{ padding: '12px 16px' }}>
+                                      <span className="badge badge-warning" style={{ fontSize: '0.85rem', padding: '4px 8px' }}>
+                                        {reqLead.pincode}
+                                      </span>
+                                    </td>
+                                    <td style={{ padding: '12px 16px', fontSize: '0.85rem' }}>
+                                      {reqLead.user ? (
+                                        <div>
+                                          <div style={{ fontWeight: 'bold' }}>{reqLead.user.name}</div>
+                                          <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>{reqLead.user.email}</div>
+                                        </div>
+                                      ) : (
+                                        <span style={{ fontStyle: 'italic', color: 'var(--text-muted)' }}>Guest User</span>
+                                      )}
+                                    </td>
+                                    <td style={{ padding: '12px 16px', textAlign: 'right', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                                      {new Date(reqLead.createdAt).toLocaleString('en-IN')}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          )}
+                        </div>
+                      </div>
+
+                    </div>
+                  )}
                 </div>
               )}
             </>
