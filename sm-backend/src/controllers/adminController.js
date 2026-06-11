@@ -295,10 +295,44 @@ const updateOrder = async (req, res, next) => {
             return res.status(404).json({ success: false, message: 'Order not found' });
         }
 
-        if (status !== undefined) order.status = status;
+        if (status !== undefined) {
+            if (status === 'active' && order.status !== 'active') {
+                if (!activatedAt && !order.activatedAt) {
+                    const start = new Date();
+                    start.setHours(0, 0, 0, 0);
+                    order.activatedAt = start;
+                }
+                if (!expiresAt && !order.expiresAt) {
+                    const baseDate = order.activatedAt || new Date();
+                    baseDate.setHours(0, 0, 0, 0);
+                    const months = order.planKey === '1month' ? 1 : order.planKey === '3month' ? 3 : 6;
+                    const expiry = new Date(baseDate);
+                    expiry.setMonth(expiry.getMonth() + months);
+                    expiry.setHours(0, 0, 0, 0);
+                    order.expiresAt = expiry;
+                }
+            }
+            order.status = status;
+        }
         if (paymentStatus !== undefined) order.paymentStatus = paymentStatus;
-        if (activatedAt !== undefined) order.activatedAt = activatedAt ? new Date(activatedAt) : null;
-        if (expiresAt !== undefined) order.expiresAt = expiresAt ? new Date(expiresAt) : null;
+        if (activatedAt !== undefined) {
+            if (activatedAt) {
+                const start = new Date(activatedAt);
+                start.setHours(0, 0, 0, 0);
+                order.activatedAt = start;
+            } else {
+                order.activatedAt = null;
+            }
+        }
+        if (expiresAt !== undefined) {
+            if (expiresAt) {
+                const expiry = new Date(expiresAt);
+                expiry.setHours(0, 0, 0, 0);
+                order.expiresAt = expiry;
+            } else {
+                order.expiresAt = null;
+            }
+        }
         
         if (motherName !== undefined) order.motherName = motherName;
         if (motherAge !== undefined) order.motherAge = motherAge;
@@ -428,12 +462,16 @@ const updatePayment = async (req, res, next) => {
             if (order && order.paymentStatus !== 'success') {
                 order.paymentStatus = 'success';
                 order.status = 'active';
-                order.activatedAt = payment.paidAt || new Date();
+                
+                const start = new Date(payment.paidAt || new Date());
+                start.setHours(0, 0, 0, 0);
+                order.activatedAt = start;
                 
                 // Expiry calculation
                 const months = order.planKey === '1month' ? 1 : order.planKey === '3month' ? 3 : 6;
                 const expiry = new Date(order.activatedAt);
                 expiry.setMonth(expiry.getMonth() + months);
+                expiry.setHours(0, 0, 0, 0);
                 order.expiresAt = expiry;
                 
                 await order.save();

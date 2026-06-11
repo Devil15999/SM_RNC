@@ -71,6 +71,37 @@ const convert12To24 = (time12) => {
   return `${hoursFormatted}:${minutes}`;
 };
 
+const toLocalISOString = (dateInput) => {
+  if (!dateInput) return '';
+  const d = new Date(dateInput);
+  if (isNaN(d.getTime())) return '';
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  const hours = String(d.getHours()).padStart(2, '0');
+  const minutes = String(d.getMinutes()).padStart(2, '0');
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+};
+
+const toLocalDateString = (dateInput) => {
+  if (!dateInput) return '';
+  const d = new Date(dateInput);
+  if (isNaN(d.getTime())) return '';
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const formatOnlyDate = (dateString) => {
+  if (!dateString) return '—';
+  return new Date(dateString).toLocaleDateString('en-IN', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric'
+  });
+};
+
 const getAppointmentDateTime = (startDateStr, selectedTimeStr) => {
   if (!startDateStr) return '';
   
@@ -177,6 +208,7 @@ function App() {
   const [appointmentsFilters, setAppointmentsFilters] = useState({ search: '', status: '' });
   const [showAddAppointmentModal, setShowAddAppointmentModal] = useState(false);
   const [newAppointment, setNewAppointment] = useState({ customerName: '', customerMobile: '', customerAddress: '', dateTime: '', details: '', assignedEmployee: '' });
+  const [editAppointment, setEditAppointment] = useState(null);
   const [viewEmployeeDocs, setViewEmployeeDocs] = useState(null);
   const [previewImage, setPreviewImage] = useState(null); // lightbox URL
   const [selectedOrder, setSelectedOrder] = useState(null);
@@ -572,6 +604,31 @@ function App() {
     }
   };
 
+  const handleUpdateAppointment = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await apiFetch(`/admin/appointments/${editAppointment._id}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          customerName: editAppointment.customerName,
+          customerMobile: editAppointment.customerMobile,
+          customerAddress: editAppointment.customerAddress,
+          dateTime: editAppointment.dateTime,
+          details: editAppointment.details,
+          assignedEmployee: editAppointment.assignedEmployee || null,
+          status: editAppointment.status
+        })
+      });
+      if (res.success) {
+        showToast('Appointment updated successfully');
+        setEditAppointment(null);
+        fetchAppointments();
+      }
+    } catch (err) {
+      showToast(err.message || 'Failed to update appointment', 'error');
+    }
+  };
+
   // Create Package Handler
   const handleCreatePackage = async (e) => {
     e.preventDefault();
@@ -706,6 +763,52 @@ function App() {
     } catch (err) {
       showToast(err.message || 'Update failed', 'error');
     }
+  };
+
+  const handleOrderStartDateChange = (val) => {
+    setEditOrder(prev => {
+      if (!prev) return null;
+      const updated = { ...prev, activatedAt: val };
+      if (val) {
+        const [year, month, day] = val.split('-').map(Number);
+        const date = new Date(year, month - 1, day);
+        const months = prev.planKey === '1month' ? 1 : prev.planKey === '3month' ? 3 : 6;
+        date.setMonth(date.getMonth() + months);
+        
+        const expYear = date.getFullYear();
+        const expMonth = String(date.getMonth() + 1).padStart(2, '0');
+        const expDay = String(date.getDate()).padStart(2, '0');
+        updated.expiresAt = `${expYear}-${expMonth}-${expDay}`;
+      } else {
+        updated.expiresAt = '';
+      }
+      return updated;
+    });
+  };
+
+  const handleOrderStatusChange = (newStatus) => {
+    setEditOrder(prev => {
+      if (!prev) return null;
+      const updated = { ...prev, status: newStatus };
+      if (newStatus === 'active' && !updated.activatedAt) {
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const day = String(today.getDate()).padStart(2, '0');
+        const todayStr = `${year}-${month}-${day}`;
+        updated.activatedAt = todayStr;
+        
+        const date = new Date(year, today.getMonth(), today.getDate());
+        const months = prev.planKey === '1month' ? 1 : prev.planKey === '3month' ? 3 : 6;
+        date.setMonth(date.getMonth() + months);
+        
+        const expYear = date.getFullYear();
+        const expMonth = String(date.getMonth() + 1).padStart(2, '0');
+        const expDay = String(date.getDate()).padStart(2, '0');
+        updated.expiresAt = `${expYear}-${expMonth}-${expDay}`;
+      }
+      return updated;
+    });
   };
 
   const handleUpdateOrder = async (e) => {
@@ -1427,8 +1530,8 @@ function App() {
                                 }`}>{order.paymentStatus}</span>
                             </td>
                             <td style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                              <div><strong>Start:</strong> {formatDate(order.activatedAt)}</div>
-                              <div><strong>End:</strong> {formatDate(order.expiresAt)}</div>
+                              <div><strong>Start:</strong> {formatOnlyDate(order.activatedAt)}</div>
+                              <div><strong>End:</strong> {formatOnlyDate(order.expiresAt)}</div>
                             </td>
                             <td className="actions-cell">
                               {order.paymentStatus === 'success' && (
@@ -1909,7 +2012,25 @@ function App() {
                               )}
                             </td>
                             <td className="actions-cell">
-                              <button className="btn btn-danger btn-icon" onClick={() => handleDeleteAppointment(appt._id)}>
+                              <button
+                                className="btn btn-secondary btn-icon"
+                                onClick={() => {
+                                  setEditAppointment({
+                                    _id: appt._id,
+                                    customerName: appt.customerName || '',
+                                    customerMobile: appt.customerMobile || '',
+                                    customerAddress: appt.customerAddress || '',
+                                    dateTime: toLocalISOString(appt.dateTime),
+                                    details: appt.details || '',
+                                    assignedEmployee: appt.assignedEmployee ? (appt.assignedEmployee._id || appt.assignedEmployee) : '',
+                                    status: appt.status || 'pending'
+                                  });
+                                }}
+                                title="Edit Appointment"
+                              >
+                                <Edit size={16} />
+                              </button>
+                              <button className="btn btn-danger btn-icon" onClick={() => handleDeleteAppointment(appt._id)} title="Delete Appointment">
                                 <Trash2 size={16} />
                               </button>
                             </td>
@@ -2219,7 +2340,7 @@ function App() {
                     <select
                       className="form-control"
                       value={editOrder.status}
-                      onChange={(e) => setEditOrder(prev => ({ ...prev, status: e.target.value }))}
+                      onChange={(e) => handleOrderStatusChange(e.target.value)}
                     >
                       <option value="created">Created</option>
                       <option value="active">Active</option>
@@ -2246,26 +2367,26 @@ function App() {
 
                 <div className="grid-2-col">
                   <div className="form-group">
-                    <label className="form-label">Activated At</label>
+                    <label className="form-label">Start Date</label>
                     <div style={{ position: 'relative' }}>
                       <Calendar size={16} style={{ position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
                       <input
-                        type="datetime-local"
+                        type="date"
                         className="form-control"
-                        value={editOrder.activatedAt ? new Date(editOrder.activatedAt).toISOString().substring(0, 16) : ''}
-                        onChange={(e) => setEditOrder(prev => ({ ...prev, activatedAt: e.target.value }))}
+                        value={editOrder.activatedAt ? toLocalDateString(editOrder.activatedAt) : ''}
+                        onChange={(e) => handleOrderStartDateChange(e.target.value)}
                       />
                     </div>
                   </div>
 
                   <div className="form-group">
-                    <label className="form-label">Expires At</label>
+                    <label className="form-label">End Date</label>
                     <div style={{ position: 'relative' }}>
                       <Calendar size={16} style={{ position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
                       <input
-                        type="datetime-local"
+                        type="date"
                         className="form-control"
-                        value={editOrder.expiresAt ? new Date(editOrder.expiresAt).toISOString().substring(0, 16) : ''}
+                        value={editOrder.expiresAt ? toLocalDateString(editOrder.expiresAt) : ''}
                         onChange={(e) => setEditOrder(prev => ({ ...prev, expiresAt: e.target.value }))}
                       />
                     </div>
@@ -2989,6 +3110,121 @@ function App() {
                 </button>
                 <button type="submit" className="btn btn-primary">
                   Create & Save
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Appointment Modal */}
+      {editAppointment && (
+        <div className="modal-overlay">
+          <div className="glass-panel modal-content animate-fade-in" style={{ maxWidth: '550px', width: '95%' }}>
+            <div className="modal-header">
+              <h3 className="modal-title">Edit Appointment</h3>
+              <button className="modal-close" onClick={() => setEditAppointment(null)}>
+                <X size={20} />
+              </button>
+            </div>
+            <form onSubmit={handleUpdateAppointment}>
+              <div className="modal-body">
+                <div className="form-group">
+                  <label className="form-label">Customer Name</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    required
+                    value={editAppointment.customerName}
+                    onChange={(e) => setEditAppointment(prev => ({ ...prev, customerName: e.target.value }))}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Customer Mobile</label>
+                  <input
+                    type="tel"
+                    className="form-control"
+                    placeholder="Enter 10-digit mobile number"
+                    required
+                    pattern="[6-9][0-9]{9}"
+                    value={editAppointment.customerMobile}
+                    onChange={(e) => setEditAppointment(prev => ({ ...prev, customerMobile: e.target.value }))}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Appointment Address</label>
+                  <textarea
+                    className="form-control"
+                    placeholder="Enter full site address"
+                    rows="2"
+                    required
+                    value={editAppointment.customerAddress}
+                    onChange={(e) => setEditAppointment(prev => ({ ...prev, customerAddress: e.target.value }))}
+                    style={{ resize: 'none', height: 'auto' }}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Date and Time</label>
+                  <input
+                    type="datetime-local"
+                    className="form-control"
+                    required
+                    value={editAppointment.dateTime}
+                    onChange={(e) => setEditAppointment(prev => ({ ...prev, dateTime: e.target.value }))}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Details / Special Notes</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Enter baby care details or support requirements"
+                    value={editAppointment.details}
+                    onChange={(e) => setEditAppointment(prev => ({ ...prev, details: e.target.value }))}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Assign Employee</label>
+                  <select
+                    className="form-control"
+                    value={editAppointment.assignedEmployee}
+                    onChange={(e) => setEditAppointment(prev => ({ ...prev, assignedEmployee: e.target.value }))}
+                  >
+                    <option value="">Unassigned</option>
+                    {employees
+                      .filter(emp => emp.isVerifiedEmployee || emp._id === editAppointment.assignedEmployee || (editAppointment.assignedEmployee && emp._id === editAppointment.assignedEmployee._id))
+                      .map(emp => (
+                        <option key={emp._id} value={emp._id}>
+                          {emp.name} ({emp.occupation}){!emp.isVerifiedEmployee ? ' [Pending Verification]' : ''}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Status</label>
+                  <select
+                    className="form-control"
+                    value={editAppointment.status}
+                    onChange={(e) => setEditAppointment(prev => ({ ...prev, status: e.target.value }))}
+                  >
+                    <option value="pending">Pending</option>
+                    <option value="checked_in">Checked In</option>
+                    <option value="completed">Completed</option>
+                  </select>
+                </div>
+              </div>
+              <div className="modal-footer" style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '12px' }}>
+                <button type="button" className="btn btn-secondary" onClick={() => setEditAppointment(null)}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn btn-primary">
+                  Save Changes
                 </button>
               </div>
             </form>

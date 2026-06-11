@@ -9,9 +9,9 @@ const { createError } = require('../middleware/errorHandler');
 // ─── Helper: derive months from plan key ─────────────────────────────────────
 const planToMonths = { '1month': 1, '3month': 3, '6month': 6 };
 
-const getExpiryDate = (planKey) => {
+const getExpiryDate = (startDate, planKey) => {
     const months = planToMonths[planKey] || 1;
-    const d = new Date();
+    const d = new Date(startDate);
     d.setMonth(d.getMonth() + months);
     return d;
 };
@@ -22,7 +22,7 @@ const getExpiryDate = (planKey) => {
  * POST /api/payments/initiate
  * Body: { orderId }
  *
- * Creates a Payment record and returns the UPI deep-link URI that the
+ * Creates a Payment record and returns the UPI deep-link UPI that the
  * mobile app passes to Linking.openURL().
  */
 const initiatePayment = async (req, res, next) => {
@@ -114,8 +114,15 @@ const verifyPayment = async (req, res, next) => {
 
             order.paymentStatus = 'success';
             order.status = 'active';
-            order.activatedAt = new Date();
-            order.expiresAt = getExpiryDate(order.planKey);
+            
+            const start = new Date();
+            start.setHours(0, 0, 0, 0);
+            order.activatedAt = start;
+            
+            const expiry = getExpiryDate(start, order.planKey);
+            expiry.setHours(0, 0, 0, 0);
+            order.expiresAt = expiry;
+            
             await order.save();
 
             return res.status(200).json({
