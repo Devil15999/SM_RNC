@@ -46,8 +46,10 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
         dispatch(clearError());
         dispatch(verifyOtpStart());
 
+        const requestUrl = `${API_BASE_URL}/auth/employee/login`;
+
         try {
-            const res = await fetch(`${API_BASE_URL}/auth/employee/login`, {
+            const res = await fetch(requestUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ mobile, password }),
@@ -71,9 +73,11 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
                 await AsyncStorage.setItem('@session_employee', JSON.stringify(session));
                 dispatch(verifyOtpSuccess(session));
             } else {
+                console.log('Login failed with message:', data.message);
                 dispatch(verifyOtpFailure(data.message || 'Login failed. Please check your credentials.'));
             }
         } catch (err) {
+            console.error('Login screen network error details:', err);
             dispatch(verifyOtpFailure('Network error. Failed to log in.'));
         }
     };
@@ -89,7 +93,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
                     contentContainerStyle={styles.container}
                     keyboardShouldPersistTaps="handled"
                     showsVerticalScrollIndicator={false}>
-                    
+
                     {/* Brand Header */}
                     <View style={styles.brandRow}>
                         <View style={styles.logoMini}>
@@ -164,7 +168,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
                     {error ? <Text style={styles.error}>{error}</Text> : null}
 
                     {/* Forgot Password Link */}
-                    <TouchableOpacity 
+                    <TouchableOpacity
                         onPress={() => navigation.navigate(Routes.FORGOT_PASSWORD)}
                         style={styles.forgotPasswordContainer}>
                         <Text style={styles.forgotPasswordText}>Forgot Password?</Text>

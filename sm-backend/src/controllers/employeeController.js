@@ -72,4 +72,42 @@ const checkinAppointment = async (req, res, next) => {
     }
 };
 
-module.exports = { getAppointments, checkinAppointment };
+/**
+ * POST /api/employee/appointments/:id/complete
+ * Mark appointment as completed
+ */
+const completeAppointment = async (req, res, next) => {
+    try {
+        const appointmentId = req.params.id;
+
+        const appointment = await Appointment.findById(appointmentId);
+        if (!appointment) {
+            return res.status(404).json({ success: false, message: 'Appointment not found' });
+        }
+
+        // Verify assignment
+        if (!appointment.assignedEmployee || appointment.assignedEmployee.toString() !== req.user._id.toString()) {
+            return res.status(403).json({ success: false, message: 'You are not assigned to this appointment' });
+        }
+
+        // Check if status is checked_in
+        if (appointment.status !== 'checked_in') {
+            return res.status(400).json({ success: false, message: `Appointment status must be checked_in to complete it (current status: ${appointment.status})` });
+        }
+
+        // Update appointment status to completed
+        appointment.status = 'completed';
+        await appointment.save();
+
+        res.status(200).json({
+            success: true,
+            message: 'Appointment completed successfully!',
+            data: appointment
+        });
+    } catch (err) {
+        next(err);
+    }
+};
+
+module.exports = { getAppointments, checkinAppointment, completeAppointment };
+

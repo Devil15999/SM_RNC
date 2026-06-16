@@ -2658,7 +2658,7 @@ function App() {
                                 {appt.customerAddress}
                               </td>
                               <td>
-                                {appt.checkinLocation ? (
+                                {appt.checkinLocation && appt.checkinLocation.latitude !== null && appt.checkinLocation.longitude !== null ? (
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                     <MapPin size={14} style={{ color: 'var(--accent-pink)' }} />
                                     <a

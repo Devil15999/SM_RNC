@@ -129,6 +129,38 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         }
     }, [token]);
 
+    const handleCompleteAppointment = async (appointmentId: string) => {
+        Alert.alert(
+            'Complete Appointment',
+            'Are you sure you want to mark this appointment as completed?',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Yes, Complete',
+                    onPress: async () => {
+                        try {
+                            const res = await fetch(`${API_BASE_URL}/employee/appointments/${appointmentId}/complete`, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    Authorization: `Bearer ${token}`,
+                                },
+                            });
+                            const data = await res.json();
+                            if (res.ok && data.success) {
+                                Alert.alert('Success', 'Appointment marked as completed.');
+                                fetchAppointments();
+                            } else {
+                                Alert.alert('Error', data.message || 'Failed to complete appointment.');
+                            }
+                        } catch (err) {
+                            Alert.alert('Error', 'Network error. Failed to complete appointment.');
+                        }
+                    }
+                }
+            ]
+        );
+    };
 
     useEffect(() => {
         let interval: any;
@@ -159,13 +191,22 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     const completed = appointments.filter(a => a.status === 'checked_in' || a.status === 'completed');
 
     const formatDateTime = (dateStr: string) => {
+        if (!dateStr) return '—';
         const d = new Date(dateStr);
-        return d.toLocaleDateString('en-IN', {
-            day: 'numeric',
-            month: 'short',
-            hour: '2-digit',
-            minute: '2-digit',
-        });
+        if (isNaN(d.getTime())) return '—';
+
+        const day = d.getDate();
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const month = months[d.getMonth()];
+
+        let hours = d.getHours();
+        const minutes = d.getMinutes();
+        const ampm = hours >= 12 ? 'pm' : 'am';
+        hours = hours % 12;
+        hours = hours ? hours : 12;
+        const minStr = minutes < 10 ? '0' + minutes : minutes;
+
+        return `${day} ${month}, ${hours}:${minStr} ${ampm}`;
     };
 
     const initials = (user?.name ?? 'E')
@@ -361,8 +402,20 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                                         <Text style={styles.clientName}>{appt.customerName}</Text>
                                         <Text style={styles.clientPhone}>{appt.customerMobile}</Text>
                                     </View>
-                                    <View style={[styles.timeBadge, { backgroundColor: 'rgba(39, 174, 96, 0.12)' }]}>
-                                        <Text style={[styles.timeBadgeText, { color: Colors.SUCCESS }]}>CHECKED IN</Text>
+                                    <View style={[
+                                        styles.timeBadge,
+                                        appt.status === 'completed'
+                                            ? { backgroundColor: 'rgba(39, 174, 96, 0.12)' }
+                                            : { backgroundColor: 'rgba(245, 158, 11, 0.1)' }
+                                    ]}>
+                                        <Text style={[
+                                            styles.timeBadgeText,
+                                            appt.status === 'completed'
+                                                ? { color: Colors.SUCCESS }
+                                                : { color: '#f59e0b' }
+                                        ]}>
+                                            {appt.status === 'completed' ? 'COMPLETED' : 'CHECKED IN'}
+                                        </Text>
                                     </View>
                                 </View>
 
@@ -380,13 +433,24 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                                     </View>
                                 )}
 
-                                {appt.checkinLocation && (
+                                {appt.checkinLocation && appt.checkinLocation.latitude != null && appt.checkinLocation.longitude != null && (
                                     <View style={styles.detailsRow}>
                                         <Icon name="map-marked" size={13} color={Colors.TEXT_SECONDARY} style={styles.detailIcon} />
                                         <Text style={styles.detailsText}>
                                             Location: Lat {appt.checkinLocation.latitude.toFixed(4)}, Lng {appt.checkinLocation.longitude.toFixed(4)}
                                         </Text>
                                     </View>
+                                )}
+
+                                {appt.status === 'checked_in' && (
+                                    <TouchableOpacity
+                                        style={styles.completeBtn}
+                                        activeOpacity={0.8}
+                                        onPress={() => handleCompleteAppointment(appt._id)}
+                                    >
+                                        <Icon name="check-double" size={14} color={Colors.WHITE} style={{ marginRight: 8 }} />
+                                        <Text style={styles.completeBtnText}>Mark as Completed</Text>
+                                    </TouchableOpacity>
                                 )}
                             </View>
                         ))}
@@ -599,6 +663,20 @@ const styles = StyleSheet.create({
         marginTop: 14,
     },
     checkinBtnText: {
+        color: Colors.WHITE,
+        fontSize: 14,
+        fontWeight: '700',
+    },
+    completeBtn: {
+        backgroundColor: Colors.SUCCESS,
+        borderRadius: 12,
+        paddingVertical: 12,
+        justifyContent: 'center',
+        alignItems: 'center',
+        flexDirection: 'row',
+        marginTop: 14,
+    },
+    completeBtnText: {
         color: Colors.WHITE,
         fontSize: 14,
         fontWeight: '700',

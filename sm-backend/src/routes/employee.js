@@ -1,7 +1,7 @@
 'use strict';
 
 const express = require('express');
-const { getAppointments, checkinAppointment } = require('../controllers/employeeController');
+const { getAppointments, checkinAppointment, completeAppointment } = require('../controllers/employeeController');
 const { protect } = require('../middleware/auth');
 
 const router = express.Router();
@@ -31,5 +31,12 @@ router.get('/appointments', getAppointments);
  * @access  Private (Employee)
  */
 router.post('/appointments/:id/checkin', checkinAppointment);
+
+/**
+ * @route   POST /api/employee/appointments/:id/complete
+ * @desc    Mark appointment as completed
+ * @access  Private (Employee)
+ */
+router.post('/appointments/:id/complete', completeAppointment);
 
 module.exports = router;

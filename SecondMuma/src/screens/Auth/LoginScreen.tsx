@@ -56,7 +56,8 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
             } else {
                 dispatch(sendOtpFailure(data.message || 'Failed to send OTP. Please try again.'));
             }
-        } catch {
+        } catch (err) {
+            console.error('Login screen network error details:', err);
             dispatch(sendOtpFailure('Network error. Failed to send OTP.'));
         }
     };
