@@ -419,6 +419,8 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                                                 setActiveTab('orders');
                                             } else if (item.label === 'Support') {
                                                 navigation.navigate(Routes.HELP_SUPPORT);
+                                            } else if (item.label === 'Appointments') {
+                                                navigation.navigate(Routes.APPOINTMENTS);
                                             }
                                         }}
                                     >

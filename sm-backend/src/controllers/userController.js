@@ -5,6 +5,8 @@ const User = require('../models/User');
 const Employee = require('../models/Employee');
 const { createError } = require('../middleware/errorHandler');
 const { saveBase64Image } = require('../utils/uploadHelper');
+const Appointment = require('../models/Appointment');
+const Order = require('../models/Order');
 
 /**
  * GET /api/users/profile
@@ -120,4 +122,43 @@ const updateProfile = async (req, res, next) => {
     }
 };
 
-module.exports = { getProfile, updateProfile };
+/**
+ * GET /api/users/appointments
+ * Retrieves appointments for the authenticated customer based on mobile number
+ */
+const getUserAppointments = async (req, res, next) => {
+    try {
+        const appointments = await Appointment.find({ customerMobile: req.user.mobile })
+            .populate('assignedEmployee', 'name email mobile occupation userPhoto')
+            .sort({ dateTime: -1 });
+
+        // Filter out pending appointments where the subscription is expired or inactive
+        const filteredAppointments = [];
+        for (const appt of appointments) {
+            if (appt.status === 'pending') {
+                const orderIdMatch = appt.details && appt.details.match(/Order ID:\s*([a-f\d]{24})/i);
+                if (orderIdMatch) {
+                    const orderId = orderIdMatch[1];
+                    const order = await Order.findById(orderId);
+                    if (!order || order.status !== 'active') {
+                        continue;
+                    }
+                    const now = new Date();
+                    if (order.expiresAt && new Date(order.expiresAt) <= now) {
+                        continue;
+                    }
+                }
+            }
+            filteredAppointments.push(appt);
+        }
+
+        res.status(200).json({
+            success: true,
+            data: filteredAppointments
+        });
+    } catch (err) {
+        next(err);
+    }
+};
+
+module.exports = { getProfile, updateProfile, getUserAppointments };

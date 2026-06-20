@@ -1,6 +1,7 @@
 'use strict';
 
 const Appointment = require('../models/Appointment');
+const Order = require('../models/Order');
 
 /**
  * GET /api/employee/appointments
@@ -11,9 +12,31 @@ const getAppointments = async (req, res, next) => {
         const appointments = await Appointment.find({ assignedEmployee: req.user._id })
             .sort({ dateTime: 1 });
 
+        // Filter out pending appointments where the subscription is expired or inactive
+        const filteredAppointments = [];
+        for (const appt of appointments) {
+            if (appt.status === 'pending') {
+                const orderIdMatch = appt.details && appt.details.match(/Order ID:\s*([a-f\d]{24})/i);
+                if (orderIdMatch) {
+                    const orderId = orderIdMatch[1];
+                    const order = await Order.findById(orderId);
+                    if (!order || order.status !== 'active') {
+                        // Skip if order is not active
+                        continue;
+                    }
+                    const now = new Date();
+                    if (order.expiresAt && new Date(order.expiresAt) <= now) {
+                        // Skip if subscription is expired
+                        continue;
+                    }
+                }
+            }
+            filteredAppointments.push(appt);
+        }
+
         res.status(200).json({
             success: true,
-            data: appointments
+            data: filteredAppointments
         });
     } catch (err) {
         next(err);
@@ -98,6 +121,51 @@ const completeAppointment = async (req, res, next) => {
         // Update appointment status to completed
         appointment.status = 'completed';
         await appointment.save();
+
+        // Daily Check-in Cloning logic
+        try {
+            const orderIdMatch = appointment.details && appointment.details.match(/Order ID:\s*([a-f\d]{24})/i);
+            if (orderIdMatch) {
+                const orderId = orderIdMatch[1];
+                const order = await Order.findById(orderId);
+                if (order && order.status === 'active') {
+                    const tomorrow = new Date(appointment.dateTime);
+                    tomorrow.setDate(tomorrow.getDate() + 1);
+
+                    const expiresAt = order.expiresAt ? new Date(order.expiresAt) : null;
+                    if (!expiresAt || expiresAt > tomorrow) {
+                        const todayEnd = new Date();
+                        todayEnd.setHours(23, 59, 59, 999);
+
+                        // Check if a future pending appointment already exists for this order
+                        const existingFuturePending = await Appointment.findOne({
+                            details: { $regex: orderId, $options: 'i' },
+                            status: 'pending',
+                            dateTime: { $gt: todayEnd }
+                        });
+
+                        if (!existingFuturePending) {
+                            // Generate new random 6-digit OTP
+                            const newOtp = String(Math.floor(100000 + Math.random() * 900000));
+
+                            // Clone the appointment for tomorrow
+                            await Appointment.create({
+                                customerName: appointment.customerName,
+                                customerMobile: appointment.customerMobile,
+                                customerAddress: appointment.customerAddress,
+                                dateTime: tomorrow,
+                                details: appointment.details,
+                                assignedEmployee: appointment.assignedEmployee,
+                                otp: newOtp,
+                                status: 'pending'
+                            });
+                        }
+                    }
+                }
+            }
+        } catch (cloneErr) {
+            console.error('Error cloning appointment for tomorrow:', cloneErr);
+        }
 
         res.status(200).json({
             success: true,

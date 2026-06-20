@@ -59,4 +59,5 @@ export type RootStackParamList = {
         token: string;
     };
     HelpSupport: undefined;
+    Appointments: undefined;
 };

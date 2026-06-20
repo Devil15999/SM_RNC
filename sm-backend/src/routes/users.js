@@ -2,7 +2,7 @@
 
 const express = require('express');
 const { body } = require('express-validator');
-const { getProfile, updateProfile } = require('../controllers/userController');
+const { getProfile, updateProfile, getUserAppointments } = require('../controllers/userController');
 const { protect } = require('../middleware/auth');
 
 const router = express.Router();
@@ -16,6 +16,13 @@ router.use(protect);
  * @access  Protected
  */
 router.get('/profile', getProfile);
+
+/**
+ * @route   GET /api/users/appointments
+ * @desc    Get authenticated user's appointments list
+ * @access  Protected
+ */
+router.get('/appointments', getUserAppointments);
 
 /**
  * @route   PUT /api/users/profile

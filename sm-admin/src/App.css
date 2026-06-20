@@ -674,3 +674,9 @@
     align-items: center;
   }
 }
+
+/* Custom Refresh Button Spin Class */
+.spin {
+  animation: spin 1s linear infinite;
+}
+

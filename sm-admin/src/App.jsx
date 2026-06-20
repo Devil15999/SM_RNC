@@ -402,6 +402,7 @@ function App() {
   const [reportPayments, setReportPayments] = useState([]);
   const [reportEmployees, setReportEmployees] = useState([]);
   const [reportAppointments, setReportAppointments] = useState([]);
+  const [reportPincodeRequests, setReportPincodeRequests] = useState([]);
   const [loadingReportData, setLoadingReportData] = useState(false);
   const [showAddAppointmentModal, setShowAddAppointmentModal] = useState(false);
   const [newAppointment, setNewAppointment] = useState({ customerName: '', customerMobile: '', customerAddress: '', dateTime: '', details: '', assignedEmployee: '' });
@@ -428,6 +429,7 @@ function App() {
         payments: [],
         employees: [],
         appointments: [],
+        pincodeRequests: [],
         userEmployeeCounts: { users: 0, employees: 0 },
         packageStats: { mother: 0, baby: 0, muma: 0 },
         revenueTrend: { labels: [], data: [] },
@@ -440,6 +442,7 @@ function App() {
     const filteredPayments = reportPayments.filter(p => filterByDateRange(p, 'createdAt', reportStartDate, reportEndDate));
     const filteredEmployees = reportEmployees.filter(e => filterByDateRange(e, 'createdAt', reportStartDate, reportEndDate));
     const filteredAppointments = reportAppointments.filter(appt => appt.checkinTime && filterByDateRange(appt, 'checkinTime', reportStartDate, reportEndDate));
+    const filteredPincodeRequests = reportPincodeRequests.filter(req => filterByDateRange(req, 'createdAt', reportStartDate, reportEndDate));
 
     // Count Users vs Employees signup
     const userEmployeeCounts = {
@@ -467,12 +470,13 @@ function App() {
       payments: filteredPayments,
       employees: filteredEmployees,
       appointments: filteredAppointments,
+      pincodeRequests: filteredPincodeRequests,
       userEmployeeCounts,
       packageStats,
       revenueTrend,
       employeeTrend
     };
-  }, [activeTab, reportUsers, reportOrders, reportPayments, reportEmployees, reportAppointments, reportStartDate, reportEndDate]);
+  }, [activeTab, reportUsers, reportOrders, reportPayments, reportEmployees, reportAppointments, reportPincodeRequests, reportStartDate, reportEndDate]);
 
   // Toast Helper
   const showToast = (message, type = 'success') => {
@@ -680,12 +684,14 @@ function App() {
   const fetchAppointments = async () => {
     setIsLoading(true);
     try {
-      const { search, status } = appointmentsFilters;
       let query = '';
-      const params = [];
-      if (search) params.push(`search=${encodeURIComponent(search)}`);
-      if (status) params.push(`status=${status}`);
-      if (params.length > 0) query = `?${params.join('&')}`;
+      if (activeTab === 'appointments') {
+        const { search, status } = appointmentsFilters;
+        const params = [];
+        if (search) params.push(`search=${encodeURIComponent(search)}`);
+        if (status) params.push(`status=${status}`);
+        if (params.length > 0) query = `?${params.join('&')}`;
+      }
 
       const res = await apiFetch(`/admin/appointments${query}`);
       if (res.success) {
@@ -749,6 +755,18 @@ function App() {
   };
 
   const handleScheduleFromOrder = (order) => {
+    if (order.startDate) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const orderStartDate = new Date(order.startDate);
+      orderStartDate.setHours(0, 0, 0, 0);
+      if (orderStartDate > today) {
+        showToast("Cannot schedule appointment. The subscription start date is in the future.", "error");
+        alert("Cannot schedule appointment. The subscription start date is in the future.");
+        return;
+      }
+    }
+
     const formattedAddress = order.address ? [
       order.address.flatNo,
       order.address.street,
@@ -774,19 +792,54 @@ function App() {
       customerName: order.user?.name || order.address?.fullName || order.motherName || '',
       customerMobile: order.user?.mobile || order.address?.mobile || '',
       customerAddress: formattedAddress,
-      dateTime: getAppointmentDateTime(order.startDate, order.selectedTime),
+      dateTime: getAppointmentDateTime(order.activatedAt || order.startDate, order.selectedTime),
       details: detailsParts.join(' | '),
       assignedEmployee: ''
     });
 
+    setSelectedOrder(order);
+    setSelectedOrderId(order._id);
     setActiveTab('appointments');
     setShowAddAppointmentModal(true);
   };
 
   const handleSelectUnscheduledOrder = (orderId) => {
-    setSelectedOrderId(orderId);
+    if (!orderId) {
+      setSelectedOrderId('');
+      setNewAppointment({
+        customerName: '',
+        customerMobile: '',
+        customerAddress: '',
+        dateTime: '',
+        details: '',
+        assignedEmployee: ''
+      });
+      return;
+    }
     const order = unscheduledOrders.find(o => o._id === orderId);
     if (order) {
+      if (order.startDate) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const orderStartDate = new Date(order.startDate);
+        orderStartDate.setHours(0, 0, 0, 0);
+        if (orderStartDate > today) {
+          showToast("Cannot schedule appointment. The subscription start date is in the future.", "error");
+          alert("Cannot schedule appointment. The subscription start date is in the future.");
+          setSelectedOrderId('');
+          setNewAppointment({
+            customerName: '',
+            customerMobile: '',
+            customerAddress: '',
+            dateTime: '',
+            details: '',
+            assignedEmployee: ''
+          });
+          return;
+        }
+      }
+
+      setSelectedOrderId(orderId);
       const formattedAddress = order.address ? [
         order.address.flatNo,
         order.address.street,
@@ -812,11 +865,12 @@ function App() {
         customerName: order.user?.name || order.address?.fullName || order.motherName || '',
         customerMobile: order.user?.mobile || order.address?.mobile || '',
         customerAddress: formattedAddress,
-        dateTime: getAppointmentDateTime(order.startDate, order.selectedTime),
+        dateTime: getAppointmentDateTime(order.activatedAt || order.startDate, order.selectedTime),
         details: detailsParts.join(' | '),
         assignedEmployee: ''
       });
     } else {
+      setSelectedOrderId('');
       setNewAppointment({
         customerName: '',
         customerMobile: '',
@@ -830,10 +884,28 @@ function App() {
 
   const handleCreateAppointment = async (e) => {
     e.preventDefault();
+    if (selectedOrderId) {
+      const order = unscheduledOrders.find(o => o._id === selectedOrderId);
+      if (order && order.startDate) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const orderStartDate = new Date(order.startDate);
+        orderStartDate.setHours(0, 0, 0, 0);
+        if (orderStartDate > today) {
+          showToast("Cannot create appointment. The subscription start date is in the future.", "error");
+          alert("Cannot create appointment. The subscription start date is in the future.");
+          return;
+        }
+      }
+    }
     try {
+      const payload = {
+        ...newAppointment,
+        dateTime: newAppointment.dateTime ? new Date(newAppointment.dateTime).toISOString() : ''
+      };
       const res = await apiFetch('/admin/appointments', {
         method: 'POST',
-        body: JSON.stringify(newAppointment)
+        body: JSON.stringify(payload)
       });
       if (res.success) {
         showToast('Appointment created and assigned successfully');
@@ -871,7 +943,7 @@ function App() {
           customerName: editAppointment.customerName,
           customerMobile: editAppointment.customerMobile,
           customerAddress: editAppointment.customerAddress,
-          dateTime: editAppointment.dateTime,
+          dateTime: editAppointment.dateTime ? new Date(editAppointment.dateTime).toISOString() : '',
           details: editAppointment.details,
           assignedEmployee: editAppointment.assignedEmployee || null,
           status: editAppointment.status
@@ -1059,18 +1131,20 @@ function App() {
   const fetchReportData = async () => {
     setLoadingReportData(true);
     try {
-      const [usersRes, ordersRes, paymentsRes, employeesRes, appointmentsRes] = await Promise.all([
+      const [usersRes, ordersRes, paymentsRes, employeesRes, appointmentsRes, pincodesRes] = await Promise.all([
         apiFetch(`/admin/users?page=1&limit=100000`),
         apiFetch(`/admin/orders?page=1&limit=100000`),
         apiFetch(`/admin/payments?page=1&limit=100000`),
         apiFetch(`/admin/employees`),
-        apiFetch(`/admin/appointments`)
+        apiFetch(`/admin/appointments`),
+        apiFetch(`/admin/pincode-requests`)
       ]);
       if (usersRes.success) setReportUsers(usersRes.data.users || []);
       if (ordersRes.success) setReportOrders(ordersRes.data.orders || []);
       if (paymentsRes.success) setReportPayments(paymentsRes.data.payments || []);
       if (employeesRes.success) setReportEmployees(employeesRes.data || []);
       if (appointmentsRes.success) setReportAppointments(appointmentsRes.data || []);
+      if (pincodesRes.success) setReportPincodeRequests(pincodesRes.data || []);
     } catch (err) {
       console.error("Failed to fetch reports datasets:", err);
       showToast("Failed to fetch reports datasets", "error");
@@ -1094,6 +1168,22 @@ function App() {
     } finally {
       setLoadingPincodes(false);
     }
+  };
+
+  const handleRefresh = () => {
+    if (activeTab === 'dashboard') fetchStats();
+    else if (activeTab === 'users') fetchUsers(usersPagination.page || 1);
+    else if (activeTab === 'orders') fetchOrders(ordersPagination.page || 1);
+    else if (activeTab === 'payments') fetchPayments(paymentsPagination.page || 1);
+    else if (activeTab === 'packages') fetchPackages();
+    else if (activeTab === 'employees') fetchEmployees();
+    else if (activeTab === 'timeslots') fetchTimeslots();
+    else if (activeTab === 'appointments' || activeTab === 'checkins') {
+      fetchAppointments();
+      fetchEmployees();
+    }
+    else if (activeTab === 'reports') fetchReportData();
+    else if (activeTab === 'pincodes') fetchPincodesData();
   };
 
   const handleAddPincode = async (e) => {
@@ -1211,6 +1301,18 @@ function App() {
           'Latitude': appt.checkinLocation?.latitude || '',
           'Longitude': appt.checkinLocation?.longitude || '',
           'Status': appt.status
+        }));
+      } else if (type === 'pincodes') {
+        const filtered = reportFilteredData.pincodeRequests;
+        headers = ['Request ID', 'Mobile Number', 'Requested Pincode', 'User ID', 'User Name', 'User Email', 'Requested At'];
+        data = filtered.map(req => ({
+          'Request ID': req._id,
+          'Mobile Number': req.mobile || '',
+          'Requested Pincode': req.pincode || '',
+          'User ID': req.user?._id || '',
+          'User Name': req.user?.name || 'Guest User',
+          'User Email': req.user?.email || '',
+          'Requested At': req.createdAt ? new Date(req.createdAt).toLocaleString('en-IN') : ''
         }));
       }
 
@@ -1564,8 +1666,38 @@ function App() {
             <button className="menu-toggle-btn" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
               {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
             </button>
-            <div className="header-title">
+            <div className="header-title" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <h1>{activeTab === 'checkins' ? 'Daily Check-ins' : activeTab === 'reports' ? 'Export Reports' : activeTab === 'pincodes' ? 'Serviceable Pincodes' : activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}</h1>
+              <button 
+                onClick={handleRefresh} 
+                className={`refresh-btn ${isLoading ? 'spin' : ''}`}
+                title="Refresh Current Tab Data"
+                style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  background: 'rgba(0, 0, 0, 0.03)', 
+                  border: '1px solid var(--border-color)', 
+                  borderRadius: '50%', 
+                  width: '32px', 
+                  height: '32px', 
+                  cursor: 'pointer',
+                  color: 'var(--text-muted)',
+                  transition: 'all 0.2s ease',
+                  padding: 0,
+                  marginTop: '2px'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color = 'var(--text-main)';
+                  e.currentTarget.style.background = 'var(--bg-panel-hover)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = 'var(--text-muted)';
+                  e.currentTarget.style.background = 'rgba(0, 0, 0, 0.03)';
+                }}
+              >
+                <RefreshCw size={14} />
+              </button>
             </div>
           </div>
 
@@ -2513,13 +2645,12 @@ function App() {
 
               {/* Tab: Check-ins */}
               {activeTab === 'checkins' && (() => {
-                // Filter appointments with valid checkins
+                // Filter appointments (showing check-ins and pending check-ins)
                 const checkedInAppts = appointments.filter(appt => {
-                  if (!appt.checkinTime) return false;
-                  
                   // Filter by date
                   if (checkinDateFilter) {
-                    const apptDateStr = toLocalDateString(appt.checkinTime);
+                    const targetDate = appt.checkinTime || appt.dateTime;
+                    const apptDateStr = toLocalDateString(targetDate);
                     if (apptDateStr !== checkinDateFilter) return false;
                   }
                   
@@ -2535,20 +2666,37 @@ function App() {
                   return true;
                 });
 
+                // Sort: checked_in first, then pending, then completed. Newest time first within each status.
+                const sortedCheckedInAppts = [...checkedInAppts].sort((a, b) => {
+                  const statusWeight = {
+                    checked_in: 1,
+                    pending: 2,
+                    completed: 3
+                  };
+                  const wA = statusWeight[a.status] || 99;
+                  const wB = statusWeight[b.status] || 99;
+                  if (wA !== wB) return wA - wB;
+                  
+                  const tA = new Date(a.checkinTime || a.dateTime).getTime();
+                  const tB = new Date(b.checkinTime || b.dateTime).getTime();
+                  return tB - tA;
+                });
+
                 // Calculate metrics for selected date (or overall if date is cleared)
                 const todayStr = toLocalDateString(new Date());
                 const checkinsToday = appointments.filter(appt => appt.checkinTime && toLocalDateString(appt.checkinTime) === todayStr);
                 const totalCheckinsTodayCount = checkinsToday.length;
                 const completedTodayCount = checkinsToday.filter(appt => appt.status === 'completed').length;
                 const activeServicesCount = appointments.filter(appt => appt.status === 'checked_in').length;
+                const pendingTodayCount = appointments.filter(appt => appt.status === 'pending' && toLocalDateString(appt.dateTime) === todayStr).length;
 
                 return (
                   <div className="glass-panel animate-fade-in" style={{ padding: '24px' }}>
                     
                     {/* Metrics Header */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', marginBottom: '24px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', marginBottom: '24px' }}>
                       <div className="stat-card" style={{ padding: '16px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
-                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Check-ins Today</div>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Checked In Today</div>
                         <div style={{ fontSize: '1.8rem', fontWeight: 'bold', marginTop: '6px', color: 'var(--text)' }}>{totalCheckinsTodayCount}</div>
                       </div>
                       <div className="stat-card" style={{ padding: '16px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
@@ -2558,6 +2706,10 @@ function App() {
                       <div className="stat-card" style={{ padding: '16px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
                         <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Currently Checked In (Active)</div>
                         <div style={{ fontSize: '1.8rem', fontWeight: 'bold', marginTop: '6px', color: '#10b981' }}>{activeServicesCount}</div>
+                      </div>
+                      <div className="stat-card" style={{ padding: '16px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Pending Check-ins Today</div>
+                        <div style={{ fontSize: '1.8rem', fontWeight: 'bold', marginTop: '6px', color: 'var(--warning)' }}>{pendingTodayCount}</div>
                       </div>
                     </div>
 
@@ -2624,12 +2776,12 @@ function App() {
                           </tr>
                         </thead>
                         <tbody>
-                          {checkedInAppts.map(appt => (
+                          {sortedCheckedInAppts.map(appt => (
                             <tr key={appt._id}>
                               <td style={{ fontSize: '0.85rem' }}>
                                 <div style={{ fontWeight: '600' }}>{formatDate(appt.checkinTime)}</div>
                                 <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                                  Scheduled: {formatOnlyDate(appt.dateTime)}
+                                  Scheduled: {formatDate(appt.dateTime)}
                                 </div>
                               </td>
                               <td>
@@ -2676,15 +2828,15 @@ function App() {
                               </td>
                               <td>
                                 <span className={`badge badge-${appt.status === 'checked_in' ? 'success' : appt.status === 'completed' ? 'info' : 'warning'}`}>
-                                  {appt.status === 'checked_in' ? 'In Progress' : appt.status}
+                                  {appt.status === 'checked_in' ? 'In Progress' : appt.status === 'pending' ? 'Pending' : appt.status}
                                 </span>
                               </td>
                             </tr>
                           ))}
-                          {checkedInAppts.length === 0 && (
+                          {sortedCheckedInAppts.length === 0 && (
                             <tr>
                               <td colSpan="6" style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)' }}>
-                                No service check-ins recorded for this day
+                                No check-ins or pending services for this day
                               </td>
                             </tr>
                           )}
@@ -3140,9 +3292,7 @@ function App() {
                               <Download size={16} />
                               {exportingType === 'employees' ? 'Exporting...' : 'Export Employees'}
                             </button>
-                          </div>
-
-                          {/* Checkins Card */}
+                           {/* Checkins Card */}
                           <div className="glass-panel" style={{ padding: '20px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', border: '1px solid var(--border-color)', borderRadius: '12px', minHeight: '180px' }}>
                             <div>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
@@ -3165,6 +3315,32 @@ function App() {
                               {exportingType === 'checkins' ? 'Exporting...' : 'Export Check-ins'}
                             </button>
                           </div>
+
+                          {/* Requested Pincodes Card */}
+                          <div className="glass-panel" style={{ padding: '20px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', border: '1px solid var(--border-color)', borderRadius: '12px', minHeight: '180px' }}>
+                            <div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+                                <div style={{ padding: '10px', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', borderRadius: '8px' }}>
+                                  <MapPin size={20} />
+                                </div>
+                                <h3 style={{ fontSize: '1.1rem', fontWeight: 'bold', margin: 0 }}>Requested Pincodes</h3>
+                              </div>
+                              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: '1.4', margin: '0 0 16px 0' }}>
+                                Download customer service requests (leads) for currently unserviced areas, including contact numbers, requested pincodes, and timestamps.
+                              </p>
+                            </div>
+                            <button 
+                              className="btn btn-primary" 
+                              style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                              onClick={() => handleExport('pincodes')}
+                              disabled={exportingType !== null}
+                            >
+                              <Download size={16} />
+                              {exportingType === 'pincodes' ? 'Exporting...' : 'Export Pincode Requests'}
+                            </button>
+                          </div>
+
+                        </div>
 
                         </div>
                       </div>
@@ -3485,37 +3661,6 @@ function App() {
                     </div>
                   </div>
                 </div>
-
-                {editOrder.paymentStatus === 'success' && (
-                  <div style={{
-                    marginTop: '20px',
-                    padding: '12px 16px',
-                    background: 'rgba(233, 30, 138, 0.08)',
-                    border: '1px dashed var(--accent-pink)',
-                    borderRadius: '10px',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center'
-                  }}>
-                    <div style={{ fontSize: '0.85rem' }}>
-                      <strong style={{ color: 'var(--accent-pink)' }}>Schedule Appointment:</strong>
-                      <span style={{ marginLeft: '4px', color: 'var(--text-muted)' }}>
-                        This successful order is ready to be scheduled.
-                      </span>
-                    </div>
-                    <button
-                      type="button"
-                      className="btn btn-primary btn-sm"
-                      style={{ padding: '6px 12px', fontSize: '0.8rem' }}
-                      onClick={() => {
-                        handleScheduleFromOrder(editOrder);
-                        setEditOrder(null);
-                      }}
-                    >
-                      <Calendar size={14} style={{ marginRight: '6px' }} /> Schedule Now
-                    </button>
-                  </div>
-                )}
               </div>
               <div className="modal-footer">
                 <button type="button" className="btn btn-secondary" onClick={() => setEditOrder(null)}>
@@ -4165,12 +4310,13 @@ function App() {
 
                 <div className="form-group">
                   <label className="form-label">Details / Special Notes</label>
-                  <input
-                    type="text"
+                  <textarea
                     className="form-control"
                     placeholder="Enter baby care details or support requirements"
+                    rows="3"
                     value={newAppointment.details}
                     onChange={(e) => setNewAppointment(prev => ({ ...prev, details: e.target.value }))}
+                    style={{ resize: 'none', height: 'auto' }}
                   />
                 </div>
 
@@ -4272,12 +4418,13 @@ function App() {
 
                 <div className="form-group">
                   <label className="form-label">Details / Special Notes</label>
-                  <input
-                    type="text"
+                  <textarea
                     className="form-control"
                     placeholder="Enter baby care details or support requirements"
+                    rows="3"
                     value={editAppointment.details}
                     onChange={(e) => setEditAppointment(prev => ({ ...prev, details: e.target.value }))}
+                    style={{ resize: 'none', height: 'auto' }}
                   />
                 </div>
 
