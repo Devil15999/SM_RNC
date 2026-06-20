@@ -2,6 +2,7 @@
 
 const Appointment = require('../models/Appointment');
 const Order = require('../models/Order');
+const { fillVirtualAppointments, getDeterministicOtp } = require('../utils/appointmentHelper');
 
 /**
  * GET /api/employee/appointments
@@ -12,31 +13,11 @@ const getAppointments = async (req, res, next) => {
         const appointments = await Appointment.find({ assignedEmployee: req.user._id })
             .sort({ dateTime: 1 });
 
-        // Filter out pending appointments where the subscription is expired or inactive
-        const filteredAppointments = [];
-        for (const appt of appointments) {
-            if (appt.status === 'pending') {
-                const orderIdMatch = appt.details && appt.details.match(/Order ID:\s*([a-f\d]{24})/i);
-                if (orderIdMatch) {
-                    const orderId = orderIdMatch[1];
-                    const order = await Order.findById(orderId);
-                    if (!order || order.status !== 'active') {
-                        // Skip if order is not active
-                        continue;
-                    }
-                    const now = new Date();
-                    if (order.expiresAt && new Date(order.expiresAt) <= now) {
-                        // Skip if subscription is expired
-                        continue;
-                    }
-                }
-            }
-            filteredAppointments.push(appt);
-        }
+        const filledAppointments = await fillVirtualAppointments(appointments);
 
         res.status(200).json({
             success: true,
-            data: filteredAppointments
+            data: filledAppointments
         });
     } catch (err) {
         next(err);
@@ -56,7 +37,59 @@ const checkinAppointment = async (req, res, next) => {
             return res.status(400).json({ success: false, message: 'Customer verification OTP is required' });
         }
 
-        const appointment = await Appointment.findById(appointmentId);
+        let appointment;
+
+        if (appointmentId.startsWith('virtual-')) {
+            const parts = appointmentId.split('-');
+            const orderId = parts[1];
+            const dateStr = parts.slice(2).join('-'); // YYYY-MM-DD
+            
+            const dateObj = new Date(dateStr);
+            const startOfDay = new Date(dateObj);
+            startOfDay.setHours(0, 0, 0, 0);
+            const endOfDay = new Date(dateObj);
+            endOfDay.setHours(23, 59, 59, 999);
+
+            appointment = await Appointment.findOne({
+                details: { $regex: orderId, $options: 'i' },
+                dateTime: { $gte: startOfDay, $lte: endOfDay }
+            });
+
+            if (!appointment) {
+                const templateAppt = await Appointment.findOne({
+                    details: { $regex: orderId, $options: 'i' }
+                });
+
+                if (!templateAppt) {
+                    return res.status(404).json({ success: false, message: 'Template appointment not found' });
+                }
+
+                const apptTime = new Date(templateAppt.dateTime);
+                const targetDateTime = new Date(dateObj);
+                targetDateTime.setHours(
+                    apptTime.getHours(),
+                    apptTime.getMinutes(),
+                    apptTime.getSeconds(),
+                    apptTime.getMilliseconds()
+                );
+
+                const deterministicOtp = getDeterministicOtp(orderId, dateStr);
+
+                appointment = await Appointment.create({
+                    customerName: templateAppt.customerName,
+                    customerMobile: templateAppt.customerMobile,
+                    customerAddress: templateAppt.customerAddress,
+                    dateTime: targetDateTime,
+                    details: templateAppt.details,
+                    assignedEmployee: templateAppt.assignedEmployee,
+                    otp: deterministicOtp,
+                    status: 'pending'
+                });
+            }
+        } else {
+            appointment = await Appointment.findById(appointmentId);
+        }
+
         if (!appointment) {
             return res.status(404).json({ success: false, message: 'Appointment not found' });
         }

@@ -7,6 +7,7 @@ const { createError } = require('../middleware/errorHandler');
 const { saveBase64Image } = require('../utils/uploadHelper');
 const Appointment = require('../models/Appointment');
 const Order = require('../models/Order');
+const { fillVirtualAppointments } = require('../utils/appointmentHelper');
 
 /**
  * GET /api/users/profile
@@ -132,29 +133,11 @@ const getUserAppointments = async (req, res, next) => {
             .populate('assignedEmployee', 'name email mobile occupation userPhoto')
             .sort({ dateTime: -1 });
 
-        // Filter out pending appointments where the subscription is expired or inactive
-        const filteredAppointments = [];
-        for (const appt of appointments) {
-            if (appt.status === 'pending') {
-                const orderIdMatch = appt.details && appt.details.match(/Order ID:\s*([a-f\d]{24})/i);
-                if (orderIdMatch) {
-                    const orderId = orderIdMatch[1];
-                    const order = await Order.findById(orderId);
-                    if (!order || order.status !== 'active') {
-                        continue;
-                    }
-                    const now = new Date();
-                    if (order.expiresAt && new Date(order.expiresAt) <= now) {
-                        continue;
-                    }
-                }
-            }
-            filteredAppointments.push(appt);
-        }
+        const filledAppointments = await fillVirtualAppointments(appointments);
 
         res.status(200).json({
             success: true,
-            data: filteredAppointments
+            data: filledAppointments
         });
     } catch (err) {
         next(err);

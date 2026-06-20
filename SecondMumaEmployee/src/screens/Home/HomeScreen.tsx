@@ -53,6 +53,10 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     const { user, token } = useAppSelector(state => state.auth);
     const [appointments, setAppointments] = useState<Appointment[]>([]);
     const [activeTab, setActiveTab] = useState<'today' | 'my_appointments'>('today');
+    const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
+    const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+    const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({});
+    const [isCalendarExpanded, setIsCalendarExpanded] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [isCheckingStatus, setIsCheckingStatus] = useState(false);
@@ -191,6 +195,14 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     const upcoming = appointments.filter(a => a.status === 'pending');
     const completed = appointments.filter(a => a.status === 'checked_in' || a.status === 'completed');
 
+    const isSameDate = (dateStr: string, targetDate: Date) => {
+        if (!dateStr) return false;
+        const d = new Date(dateStr);
+        return d.getDate() === targetDate.getDate() &&
+               d.getMonth() === targetDate.getMonth() &&
+               d.getFullYear() === targetDate.getFullYear();
+    };
+
     const isDateToday = (dateStr: string) => {
         if (!dateStr) return false;
         const d = new Date(dateStr);
@@ -209,9 +221,43 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         return d > t;
     };
 
+    const getDaysInMonthGrid = (monthDate: Date) => {
+        const year = monthDate.getFullYear();
+        const month = monthDate.getMonth();
+        
+        const firstDay = new Date(year, month, 1);
+        const startDayOfWeek = firstDay.getDay(); // 0 is Sunday
+        const daysCount = new Date(year, month + 1, 0).getDate();
+        
+        const grid: (Date | null)[] = [];
+        for (let i = 0; i < startDayOfWeek; i++) {
+            grid.push(null);
+        }
+        for (let d = 1; d <= daysCount; d++) {
+            grid.push(new Date(year, month, d));
+        }
+        return grid;
+    };
+
+    const hasAppointmentOnDate = (date: Date) => {
+        return appointments.some(appt => {
+            const d = new Date(appt.dateTime);
+            return d.getDate() === date.getDate() &&
+                   d.getMonth() === date.getMonth() &&
+                   d.getFullYear() === date.getFullYear();
+        });
+    };
+
+    const toggleCard = (id: string) => {
+        setExpandedCards(prev => ({
+            ...prev,
+            [id]: !prev[id]
+        }));
+    };
+
     const filteredAppointments = appointments.filter(appt => {
         if (activeTab === 'today') {
-            return isDateToday(appt.dateTime) || (appt.checkinTime && isDateToday(appt.checkinTime));
+            return isSameDate(appt.dateTime, selectedDate) || (appt.checkinTime && isSameDate(appt.checkinTime, selectedDate));
         }
         return true;
     });
@@ -360,29 +406,131 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                     </Text>
                 </View>
 
-                {/* Tabs Selector */}
-                <View style={styles.tabContainer}>
-                    <TouchableOpacity
-                        style={[styles.tabButton, activeTab === 'today' && styles.tabButtonActive]}
-                        activeOpacity={0.8}
-                        onPress={() => setActiveTab('today')}
-                    >
-                        <Icon name="calendar-day" size={14} color={activeTab === 'today' ? Colors.WHITE : Colors.TEXT_SECONDARY} style={{ marginRight: 8 }} />
-                        <Text style={[styles.tabButtonText, activeTab === 'today' && styles.tabButtonTextActive]}>Today</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={[styles.tabButton, activeTab === 'my_appointments' && styles.tabButtonActive]}
-                        activeOpacity={0.8}
-                        onPress={() => setActiveTab('my_appointments')}
-                    >
-                        <Icon name="list" size={14} color={activeTab === 'my_appointments' ? Colors.WHITE : Colors.TEXT_SECONDARY} style={{ marginRight: 8 }} />
-                        <Text style={[styles.tabButtonText, activeTab === 'my_appointments' && styles.tabButtonTextActive]}>My Appointments</Text>
-                    </TouchableOpacity>
+                {/* Tabs & Calendar Toggle Row */}
+                <View style={styles.tabsRowContainer}>
+                    <View style={[styles.tabContainer, { flex: 1, marginBottom: 0 }]}>
+                        <TouchableOpacity
+                            style={[styles.tabButton, activeTab === 'today' && styles.tabButtonActive]}
+                            activeOpacity={0.8}
+                            onPress={() => setActiveTab('today')}
+                        >
+                            <Icon name="calendar-day" size={14} color={activeTab === 'today' ? Colors.WHITE : Colors.TEXT_SECONDARY} style={{ marginRight: 8 }} />
+                            <Text style={[styles.tabButtonText, activeTab === 'today' && styles.tabButtonTextActive]}>Today</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={[styles.tabButton, activeTab === 'my_appointments' && styles.tabButtonActive]}
+                            activeOpacity={0.8}
+                            onPress={() => setActiveTab('my_appointments')}
+                        >
+                            <Icon name="list" size={14} color={activeTab === 'my_appointments' ? Colors.WHITE : Colors.TEXT_SECONDARY} style={{ marginRight: 8 }} />
+                            <Text style={[styles.tabButtonText, activeTab === 'my_appointments' && styles.tabButtonTextActive]}>My Appointments</Text>
+                        </TouchableOpacity>
+                    </View>
+
+                    {activeTab === 'today' && (
+                        <TouchableOpacity
+                            style={[styles.tabCalendarIconBtn, isCalendarExpanded && styles.tabCalendarIconBtnActive]}
+                            onPress={() => setIsCalendarExpanded(!isCalendarExpanded)}
+                            activeOpacity={0.7}
+                        >
+                            <Icon name="calendar-alt" size={16} color={isCalendarExpanded ? Colors.WHITE : Colors.PRIMARY} />
+                        </TouchableOpacity>
+                    )}
                 </View>
+
+                {/* Custom Calendar view (Only visible in 'Today' tab when expanded) */}
+                {activeTab === 'today' && isCalendarExpanded && (
+                    <View style={styles.calendarCard}>
+                        {/* Calendar Month Header */}
+                        <View style={styles.calendarHeader}>
+                            <TouchableOpacity 
+                                onPress={() => {
+                                    const prev = new Date(currentMonth);
+                                    prev.setMonth(prev.getMonth() - 1);
+                                    setCurrentMonth(prev);
+                                }}
+                                style={styles.chevronBtn}
+                            >
+                                <Icon name="chevron-left" size={14} color={Colors.TEXT_PRIMARY} />
+                            </TouchableOpacity>
+                            <Text style={styles.monthText}>
+                                {currentMonth.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}
+                            </Text>
+                            <TouchableOpacity 
+                                onPress={() => {
+                                    const next = new Date(currentMonth);
+                                    next.setMonth(next.getMonth() + 1);
+                                    setCurrentMonth(next);
+                                }}
+                                style={styles.chevronBtn}
+                            >
+                                <Icon name="chevron-right" size={14} color={Colors.TEXT_PRIMARY} />
+                            </TouchableOpacity>
+                        </View>
+
+                        {/* Week days row */}
+                        <View style={styles.weekDaysRow}>
+                            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+                                <Text key={day} style={styles.weekDayText}>{day.slice(0, 2)}</Text>
+                            ))}
+                        </View>
+
+                        {/* Days Grid */}
+                        <View style={styles.daysGrid}>
+                            {getDaysInMonthGrid(currentMonth).map((day, index) => {
+                                if (!day) {
+                                    return <View key={`empty-${index}`} style={styles.dayCell} />;
+                                }
+
+                                const isSelected = day.getDate() === selectedDate.getDate() &&
+                                                   day.getMonth() === selectedDate.getMonth() &&
+                                                   day.getFullYear() === selectedDate.getFullYear();
+                                
+                                const todayDate = new Date();
+                                const isToday = day.getDate() === todayDate.getDate() &&
+                                                day.getMonth() === todayDate.getMonth() &&
+                                                day.getFullYear() === todayDate.getFullYear();
+
+                                const hasAppt = hasAppointmentOnDate(day);
+
+                                return (
+                                    <TouchableOpacity
+                                        key={day.toISOString()}
+                                        style={[
+                                            styles.dayCell,
+                                            isSelected && styles.selectedDayCell,
+                                            isToday && !isSelected && styles.todayDayCell,
+                                        ]}
+                                        activeOpacity={0.8}
+                                        onPress={() => {
+                                            setSelectedDate(day);
+                                        }}
+                                    >
+                                        <Text style={[
+                                            styles.dayText,
+                                            isSelected && styles.selectedDayText,
+                                            isToday && styles.todayDayText,
+                                        ]}>
+                                            {day.getDate()}
+                                        </Text>
+                                        {hasAppt && (
+                                            <View style={[
+                                                styles.dotIndicator,
+                                                isSelected && styles.selectedDotIndicator
+                                            ]} />
+                                        )}
+                                    </TouchableOpacity>
+                                );
+                            })}
+                        </View>
+                    </View>
+                )}
 
                 {/* Section Title */}
                 <Text style={styles.sectionTitle}>
-                    {activeTab === 'today' ? "Today's Schedule" : "My Appointments"} ({sortedAppointments.length})
+                    {activeTab === 'today' 
+                        ? `Schedule for ${selectedDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}` 
+                        : "My Appointments"} ({sortedAppointments.length})
                 </Text>
 
                 {isLoading && (
@@ -404,7 +552,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                         <Icon name="calendar-check" size={36} color={Colors.TEXT_HINT} style={{ marginBottom: 12 }} />
                         <Text style={styles.emptyText}>
                             {activeTab === 'today' 
-                                ? "No appointments scheduled for today." 
+                                ? "No appointments scheduled for this date." 
                                 : "No appointments assigned to you."}
                         </Text>
                     </View>
@@ -415,106 +563,124 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                     const isCheckedIn = appt.status === 'checked_in';
                     const isPending = appt.status === 'pending';
                     const isFuture = isPending && isFutureDate(appt.dateTime);
+                    const isExpanded = !!expandedCards[appt._id];
 
                     return (
                         <View key={appt._id} style={[styles.apptCard, isCompleted && styles.apptCardCompleted]}>
-                            <View style={styles.apptHeader}>
-                                <View style={[styles.clientIconBox, !isPending && { backgroundColor: 'rgba(39, 174, 96, 0.1)' }]}>
-                                    <Icon 
-                                        name={isPending ? "user" : (isCompleted ? "check" : "user-clock")} 
-                                        size={14} 
-                                        color={isPending ? Colors.PRIMARY : Colors.SUCCESS} 
-                                    />
+                            {/* Clickable Header for collapsing/expanding */}
+                            <TouchableOpacity
+                                activeOpacity={0.7}
+                                onPress={() => toggleCard(appt._id)}
+                                style={styles.cardHeaderToggle}
+                            >
+                                <View style={styles.apptHeader}>
+                                    <View style={[styles.clientIconBox, !isPending && { backgroundColor: 'rgba(39, 174, 96, 0.1)' }]}>
+                                        <Icon 
+                                            name={isPending ? "user" : (isCompleted ? "check" : "user-clock")} 
+                                            size={14} 
+                                            color={isPending ? Colors.PRIMARY : Colors.SUCCESS} 
+                                        />
+                                    </View>
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={styles.clientName}>{appt.customerName}</Text>
+                                        <Text style={styles.clientPhone}>{appt.customerMobile}</Text>
+                                        <Text style={styles.clientTimeMuted}>{formatDateTime(appt.dateTime)}</Text>
+                                    </View>
+                                    <View style={{ alignItems: 'flex-end', justifyContent: 'center' }}>
+                                        <View style={[
+                                            styles.timeBadge,
+                                            isCompleted 
+                                                ? { backgroundColor: 'rgba(39, 174, 96, 0.12)' }
+                                                : (isCheckedIn ? { backgroundColor: 'rgba(245, 158, 11, 0.1)' } : { backgroundColor: 'rgba(245, 158, 11, 0.1)' }),
+                                            { marginBottom: 6 }
+                                        ]}>
+                                            <Text style={[
+                                                styles.timeBadgeText,
+                                                isCompleted 
+                                                    ? { color: Colors.SUCCESS }
+                                                    : { color: '#f59e0b' }
+                                            ]}>
+                                                {appt.status === 'checked_in' ? 'IN PROGRESS' : appt.status.toUpperCase()}
+                                            </Text>
+                                        </View>
+                                        <Icon name={isExpanded ? "chevron-up" : "chevron-down"} size={12} color={Colors.TEXT_SECONDARY} />
+                                    </View>
                                 </View>
-                                <View style={{ flex: 1 }}>
-                                    <Text style={styles.clientName}>{appt.customerName}</Text>
-                                    <Text style={styles.clientPhone}>{appt.customerMobile}</Text>
+                            </TouchableOpacity>
+
+                            {/* Expanded Details Content */}
+                            {isExpanded && (
+                                <View style={styles.expandedContent}>
+                                    <View style={styles.apptDivider} />
+
+                                    <View style={styles.detailsRow}>
+                                        <Icon name="clock" size={13} color={Colors.TEXT_SECONDARY} style={styles.detailIcon} />
+                                        <Text style={styles.detailsText}>Scheduled: {formatDateTime(appt.dateTime)}</Text>
+                                    </View>
+
+                                    {appt.checkinTime && (
+                                        <View style={styles.detailsRow}>
+                                            <Icon name="user-clock" size={13} color={Colors.TEXT_SECONDARY} style={styles.detailIcon} />
+                                            <Text style={styles.detailsText}>Checked in: {formatDateTime(appt.checkinTime)}</Text>
+                                        </View>
+                                    )}
+
+                                    <View style={styles.detailsRow}>
+                                        <Icon name="map-marker-alt" size={13} color={Colors.TEXT_SECONDARY} style={styles.detailIcon} />
+                                        <Text style={[styles.detailsText, { fontWeight: '600' }]}>{appt.customerAddress}</Text>
+                                    </View>
+
+                                    {appt.checkinLocation && appt.checkinLocation.latitude != null && appt.checkinLocation.longitude != null && (
+                                        <View style={styles.detailsRow}>
+                                            <Icon name="map-marked" size={13} color={Colors.TEXT_SECONDARY} style={styles.detailIcon} />
+                                            <Text style={styles.detailsText}>
+                                                Coordinates: Lat {appt.checkinLocation.latitude.toFixed(5)}, Lng {appt.checkinLocation.longitude.toFixed(5)}
+                                            </Text>
+                                        </View>
+                                    )}
+
+                                    {appt.details ? (
+                                        <View style={[styles.detailsRow, { alignItems: 'flex-start' }]}>
+                                            <Icon name="align-left" size={13} color={Colors.TEXT_SECONDARY} style={[styles.detailIcon, { marginTop: 3 }]} />
+                                            <Text style={styles.detailsText}>{appt.details}</Text>
+                                        </View>
+                                    ) : null}
+
+                                    {isPending && (
+                                        <TouchableOpacity
+                                            style={[styles.checkinBtn, isFuture && styles.checkinBtnDisabled]}
+                                            activeOpacity={isFuture ? 1 : 0.8}
+                                            onPress={() => {
+                                                if (isFuture) {
+                                                    Alert.alert(
+                                                        'Future Appointment',
+                                                        'You cannot check in for appointments scheduled on future dates.'
+                                                    );
+                                                    return;
+                                                }
+                                                navigation.navigate(Routes.CHECKIN, {
+                                                    appointmentId: appt._id,
+                                                    customerName: appt.customerName,
+                                                    customerMobile: appt.customerMobile,
+                                                });
+                                            }}
+                                        >
+                                            <Icon name="key" size={14} color={Colors.WHITE} style={{ marginRight: 8 }} />
+                                            <Text style={styles.checkinBtnText}>Check In with Customer OTP</Text>
+                                        </TouchableOpacity>
+                                    )}
+
+                                    {isCheckedIn && (
+                                        <TouchableOpacity
+                                            style={styles.completeBtn}
+                                            activeOpacity={0.8}
+                                            onPress={() => handleCompleteAppointment(appt._id)}
+                                        >
+                                            <Icon name="check-double" size={14} color={Colors.WHITE} style={{ marginRight: 8 }} />
+                                            <Text style={styles.completeBtnText}>Mark as Completed</Text>
+                                        </TouchableOpacity>
+                                    )}
                                 </View>
-                                <View style={[
-                                    styles.timeBadge,
-                                    isCompleted 
-                                        ? { backgroundColor: 'rgba(39, 174, 96, 0.12)' }
-                                        : (isCheckedIn ? { backgroundColor: 'rgba(245, 158, 11, 0.1)' } : { backgroundColor: 'rgba(245, 158, 11, 0.1)' })
-                                ]}>
-                                    <Text style={[
-                                        styles.timeBadgeText,
-                                        isCompleted 
-                                            ? { color: Colors.SUCCESS }
-                                            : { color: '#f59e0b' }
-                                    ]}>
-                                        {appt.status === 'checked_in' ? 'IN PROGRESS' : appt.status.toUpperCase()}
-                                    </Text>
-                                </View>
-                            </View>
-
-                            <View style={styles.apptDivider} />
-
-                            <View style={styles.detailsRow}>
-                                <Icon name="clock" size={13} color={Colors.TEXT_SECONDARY} style={styles.detailIcon} />
-                                <Text style={styles.detailsText}>Scheduled: {formatDateTime(appt.dateTime)}</Text>
-                            </View>
-
-                            {appt.checkinTime && (
-                                <View style={styles.detailsRow}>
-                                    <Icon name="user-clock" size={13} color={Colors.TEXT_SECONDARY} style={styles.detailIcon} />
-                                    <Text style={styles.detailsText}>Checked in: {formatDateTime(appt.checkinTime)}</Text>
-                                </View>
-                            )}
-
-                            <View style={styles.detailsRow}>
-                                <Icon name="map-marker-alt" size={13} color={Colors.TEXT_SECONDARY} style={styles.detailIcon} />
-                                <Text style={[styles.detailsText, { fontWeight: '600' }]}>{appt.customerAddress}</Text>
-                            </View>
-
-                            {appt.checkinLocation && appt.checkinLocation.latitude != null && appt.checkinLocation.longitude != null && (
-                                <View style={styles.detailsRow}>
-                                    <Icon name="map-marked" size={13} color={Colors.TEXT_SECONDARY} style={styles.detailIcon} />
-                                    <Text style={styles.detailsText}>
-                                        Coordinates: Lat {appt.checkinLocation.latitude.toFixed(5)}, Lng {appt.checkinLocation.longitude.toFixed(5)}
-                                    </Text>
-                                </View>
-                            )}
-
-                            {appt.details ? (
-                                <View style={[styles.detailsRow, { alignItems: 'flex-start' }]}>
-                                    <Icon name="align-left" size={13} color={Colors.TEXT_SECONDARY} style={[styles.detailIcon, { marginTop: 3 }]} />
-                                    <Text style={styles.detailsText}>{appt.details}</Text>
-                                </View>
-                            ) : null}
-
-                            {isPending && (
-                                <TouchableOpacity
-                                    style={[styles.checkinBtn, isFuture && styles.checkinBtnDisabled]}
-                                    activeOpacity={isFuture ? 1 : 0.8}
-                                    onPress={() => {
-                                        if (isFuture) {
-                                            Alert.alert(
-                                                'Future Appointment',
-                                                'You cannot check in for appointments scheduled on future dates.'
-                                            );
-                                            return;
-                                        }
-                                        navigation.navigate(Routes.CHECKIN, {
-                                            appointmentId: appt._id,
-                                            customerName: appt.customerName,
-                                            customerMobile: appt.customerMobile,
-                                        });
-                                    }}
-                                >
-                                    <Icon name="key" size={14} color={Colors.WHITE} style={{ marginRight: 8 }} />
-                                    <Text style={styles.checkinBtnText}>Check In with Customer OTP</Text>
-                                </TouchableOpacity>
-                            )}
-
-                            {isCheckedIn && (
-                                <TouchableOpacity
-                                    style={styles.completeBtn}
-                                    activeOpacity={0.8}
-                                    onPress={() => handleCompleteAppointment(appt._id)}
-                                >
-                                    <Icon name="check-double" size={14} color={Colors.WHITE} style={{ marginRight: 8 }} />
-                                    <Text style={styles.completeBtnText}>Mark as Completed</Text>
-                                </TouchableOpacity>
                             )}
                         </View>
                     );
@@ -863,6 +1029,119 @@ const styles = StyleSheet.create({
     },
     tabButtonTextActive: {
         color: Colors.WHITE,
+    },
+    tabsRowContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 20,
+        gap: 10,
+    },
+    tabCalendarIconBtn: {
+        width: 44,
+        height: 44,
+        backgroundColor: Colors.PRIMARY_LIGHT,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: Colors.BORDER,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    tabCalendarIconBtnActive: {
+        backgroundColor: Colors.PRIMARY,
+        borderColor: Colors.PRIMARY,
+    },
+    calendarCard: {
+        backgroundColor: Colors.SURFACE,
+        borderRadius: 18,
+        borderWidth: 1,
+        borderColor: Colors.BORDER,
+        padding: 16,
+        marginBottom: 20,
+    },
+    calendarHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 16,
+    },
+    chevronBtn: {
+        width: 32,
+        height: 32,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderRadius: 16,
+        backgroundColor: Colors.PRIMARY_LIGHT,
+    },
+    monthText: {
+        fontSize: 16,
+        fontWeight: '800',
+        color: Colors.TEXT_PRIMARY,
+    },
+    weekDaysRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginBottom: 8,
+    },
+    weekDayText: {
+        width: `${100 / 7}%`,
+        textAlign: 'center',
+        fontSize: 12,
+        fontWeight: '700',
+        color: Colors.TEXT_SECONDARY,
+    },
+    daysGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+    },
+    dayCell: {
+        width: `${100 / 7}%`,
+        height: 40,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginVertical: 2,
+        borderRadius: 20,
+    },
+    dayText: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: Colors.TEXT_PRIMARY,
+    },
+    selectedDayCell: {
+        backgroundColor: Colors.PRIMARY,
+    },
+    selectedDayText: {
+        color: Colors.WHITE,
+        fontWeight: '700',
+    },
+    todayDayCell: {
+        borderWidth: 1.5,
+        borderColor: Colors.PRIMARY,
+    },
+    todayDayText: {
+        color: Colors.PRIMARY,
+        fontWeight: '700',
+    },
+    dotIndicator: {
+        width: 4,
+        height: 4,
+        borderRadius: 2,
+        backgroundColor: Colors.PRIMARY,
+        marginTop: 2,
+    },
+    selectedDotIndicator: {
+        backgroundColor: Colors.WHITE,
+    },
+    cardHeaderToggle: {
+        width: '100%',
+    },
+    clientTimeMuted: {
+        fontSize: 12,
+        color: Colors.TEXT_HINT,
+        marginTop: 3,
+    },
+    expandedContent: {
+        marginTop: 0,
+        paddingBottom: 4,
     },
     checkinBtnDisabled: {
         backgroundColor: Colors.DISABLED,
