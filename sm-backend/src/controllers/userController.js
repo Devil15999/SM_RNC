@@ -135,9 +135,12 @@ const getUserAppointments = async (req, res, next) => {
 
         const filledAppointments = await fillVirtualAppointments(appointments);
 
+        // Only show appointments that are assigned to an employee
+        const assignedOnly = filledAppointments.filter(appt => appt.assignedEmployee != null);
+
         res.status(200).json({
             success: true,
-            data: filledAppointments
+            data: assignedOnly
         });
     } catch (err) {
         next(err);
