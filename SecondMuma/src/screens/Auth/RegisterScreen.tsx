@@ -11,6 +11,7 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../types/navigation';
@@ -243,15 +244,22 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
 
                 {/* CTA */}
                 <TouchableOpacity
-                    style={[styles.button, isLoading && styles.buttonOff]}
+                    style={isLoading ? styles.buttonOff : null}
                     onPress={handleContinue}
                     disabled={isLoading}
                     activeOpacity={0.85}>
-                    {isLoading ? (
-                        <ActivityIndicator color={Colors.WHITE} />
-                    ) : (
-                        <Text style={styles.buttonText}>Complete & Proceed</Text>
-                    )}
+                    <LinearGradient
+                        colors={isLoading ? [Colors.DISABLED, Colors.DISABLED] : [Colors.PRIMARY, Colors.PRIMARY_DARK]}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={styles.button}
+                    >
+                        {isLoading ? (
+                            <ActivityIndicator color={Colors.WHITE} />
+                        ) : (
+                            <Text style={styles.buttonText}>Complete & Proceed</Text>
+                        )}
+                    </LinearGradient>
                 </TouchableOpacity>
 
                 {/* Login link */}

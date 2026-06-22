@@ -13,12 +13,15 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import Icon from 'react-native-vector-icons/FontAwesome5';
+import LinearGradient from 'react-native-linear-gradient';
 import CustomDatePicker from '../../components/CustomDatePicker';
 import { RootStackParamList } from '../../types/navigation';
 import { Colors } from '../../constants/theme';
 import { Routes } from '../../constants/routes';
 import { useAppSelector } from '../../store';
 import { API_BASE_URL } from '../../config';
+
+const GRADIENT_COLORS: [string, string] = ['#e91e8a', '#7b2d8b'];
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Checkout'>;
 
@@ -597,10 +600,16 @@ const CheckoutScreen: React.FC<Props> = ({ navigation, route }) => {
 
                     {/* Proceed Button */}
                     <TouchableOpacity
-                        style={[styles.btn, { backgroundColor: accentColor }]}
+                        style={styles.btnWrapper}
                         activeOpacity={0.85}
                         onPress={handleProceedToPay}>
-                        <Text style={styles.btnText}>Proceed to Payment</Text>
+                        <LinearGradient
+                            colors={GRADIENT_COLORS}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 0 }}
+                            style={styles.btn}>
+                            <Text style={styles.btnText}>Proceed to Payment</Text>
+                        </LinearGradient>
                     </TouchableOpacity>
                 </ScrollView>
             </SafeAreaView>
@@ -698,6 +707,15 @@ const styles = StyleSheet.create({
     inputErrorBorder: { borderColor: Colors.ERROR },
     errorText: { color: Colors.ERROR, fontSize: 10, marginTop: 4, marginLeft: 2 },
 
+    btnWrapper: {
+        borderRadius: 16,
+        overflow: 'hidden',
+        shadowColor: '#e91e8a',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.35,
+        shadowRadius: 12,
+        elevation: 8,
+    },
     btn: {
         height: 56,
         borderRadius: 16,

@@ -12,6 +12,7 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import Icon from 'react-native-vector-icons/FontAwesome5';
@@ -373,18 +374,25 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                                     </View>
                                 </View>
 
-                                <TouchableOpacity
-                                    style={[styles.btn, isUpdatingProfile && styles.btnDisabled]}
-                                    activeOpacity={0.85}
-                                    onPress={handleUpdateProfile}
-                                    disabled={isUpdatingProfile}
-                                >
-                                    {isUpdatingProfile ? (
-                                        <ActivityIndicator color={Colors.WHITE} />
-                                    ) : (
-                                        <Text style={styles.btnText}>Save Changes</Text>
-                                    )}
-                                </TouchableOpacity>
+                                 <TouchableOpacity
+                                     style={isUpdatingProfile ? styles.btnDisabled : null}
+                                     activeOpacity={0.85}
+                                     onPress={handleUpdateProfile}
+                                     disabled={isUpdatingProfile}
+                                 >
+                                     <LinearGradient
+                                         colors={isUpdatingProfile ? [Colors.DISABLED, Colors.DISABLED] : [Colors.PRIMARY, Colors.PRIMARY_DARK]}
+                                         start={{ x: 0, y: 0 }}
+                                         end={{ x: 1, y: 0 }}
+                                         style={styles.btn}
+                                     >
+                                         {isUpdatingProfile ? (
+                                             <ActivityIndicator color={Colors.WHITE} />
+                                         ) : (
+                                             <Text style={styles.btnText}>Save Changes</Text>
+                                         )}
+                                     </LinearGradient>
+                                 </TouchableOpacity>
                             </View>
 
                             {/* Account Details */}

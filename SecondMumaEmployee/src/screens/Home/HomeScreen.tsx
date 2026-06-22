@@ -38,6 +38,7 @@ interface Appointment {
         longitude: number;
     };
     checkinTime?: string;
+    isVirtual?: boolean;
 }
 
 const getImageUrl = (photoPath: string | undefined | null) => {
@@ -192,9 +193,6 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         fetchAppointments();
     };
 
-    const upcoming = appointments.filter(a => a.status === 'pending');
-    const completed = appointments.filter(a => a.status === 'checked_in' || a.status === 'completed');
-
     const isSameDate = (dateStr: string, targetDate: Date) => {
         if (!dateStr) return false;
         const d = new Date(dateStr);
@@ -211,6 +209,12 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                d.getMonth() === t.getMonth() &&
                d.getFullYear() === t.getFullYear();
     };
+
+    const upcomingToday = appointments.filter(a => a.status === 'pending' && isDateToday(a.dateTime));
+    const completedToday = appointments.filter(a => 
+        (a.status === 'checked_in' || a.status === 'completed') && 
+        (isDateToday(a.dateTime) || (a.checkinTime && isDateToday(a.checkinTime)))
+    );
 
     const isFutureDate = (dateStr: string) => {
         if (!dateStr) return false;
@@ -259,7 +263,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         if (activeTab === 'today') {
             return isSameDate(appt.dateTime, selectedDate) || (appt.checkinTime && isSameDate(appt.checkinTime, selectedDate));
         }
-        return true;
+        return !appt.isVirtual;
     });
 
     const sortedAppointments = [...filteredAppointments].sort((a, b) => {
@@ -357,7 +361,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                         ) : (
                             <Image 
                                 source={require('../../assets/user.png')} 
-                                style={styles.avatarImg}
+                                style={{ width: '50%', height: '50%', tintColor: Colors.WHITE }}
                             />
                         )}
                     </TouchableOpacity>
@@ -385,13 +389,13 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                 <View style={styles.statsRow}>
                     <View style={styles.statCard}>
                         <Icon name="calendar-alt" size={20} color={Colors.PRIMARY} style={styles.statIcon} />
-                        <Text style={styles.statVal}>{upcoming.length}</Text>
-                        <Text style={styles.statLabel}>Upcoming</Text>
+                        <Text style={styles.statVal}>{upcomingToday.length}</Text>
+                        <Text style={styles.statLabel}>Upcoming Today</Text>
                     </View>
                     <View style={styles.statCard}>
                         <Icon name="check-circle" size={20} color={Colors.SUCCESS} style={styles.statIcon} />
-                        <Text style={styles.statVal}>{completed.length}</Text>
-                        <Text style={styles.statLabel}>Completed</Text>
+                        <Text style={styles.statVal}>{completedToday.length}</Text>
+                        <Text style={styles.statLabel}>Completed Today</Text>
                     </View>
                 </View>
 
@@ -412,10 +416,14 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                         <TouchableOpacity
                             style={[styles.tabButton, activeTab === 'today' && styles.tabButtonActive]}
                             activeOpacity={0.8}
-                            onPress={() => setActiveTab('today')}
+                            onPress={() => {
+                                setActiveTab('today');
+                                setSelectedDate(new Date());
+                                setIsCalendarExpanded(false);
+                            }}
                         >
                             <Icon name="calendar-day" size={14} color={activeTab === 'today' ? Colors.WHITE : Colors.TEXT_SECONDARY} style={{ marginRight: 8 }} />
-                            <Text style={[styles.tabButtonText, activeTab === 'today' && styles.tabButtonTextActive]}>Today</Text>
+                            <Text style={[styles.tabButtonText, activeTab === 'today' && styles.tabButtonTextActive]}>Today Checkin</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
                             style={[styles.tabButton, activeTab === 'my_appointments' && styles.tabButtonActive]}
@@ -504,6 +512,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                                         activeOpacity={0.8}
                                         onPress={() => {
                                             setSelectedDate(day);
+                                            setIsCalendarExpanded(false);
                                         }}
                                     >
                                         <Text style={[
@@ -574,11 +583,14 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                                 style={styles.cardHeaderToggle}
                             >
                                 <View style={styles.apptHeader}>
-                                    <View style={[styles.clientIconBox, !isPending && { backgroundColor: 'rgba(39, 174, 96, 0.1)' }]}>
+                                    <View style={[
+                                        styles.clientIconBox,
+                                        activeTab === 'today' && !isPending && { backgroundColor: 'rgba(39, 174, 96, 0.1)' }
+                                    ]}>
                                         <Icon 
-                                            name={isPending ? "user" : (isCompleted ? "check" : "user-clock")} 
+                                            name={(activeTab === 'today' && !isPending) ? (isCompleted ? "check" : "user-clock") : "user"} 
                                             size={14} 
-                                            color={isPending ? Colors.PRIMARY : Colors.SUCCESS} 
+                                            color={(activeTab === 'today' && !isPending) ? Colors.SUCCESS : Colors.PRIMARY} 
                                         />
                                     </View>
                                     <View style={{ flex: 1 }}>
@@ -587,22 +599,24 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                                         <Text style={styles.clientTimeMuted}>{formatDateTime(appt.dateTime)}</Text>
                                     </View>
                                     <View style={{ alignItems: 'flex-end', justifyContent: 'center' }}>
-                                        <View style={[
-                                            styles.timeBadge,
-                                            isCompleted 
-                                                ? { backgroundColor: 'rgba(39, 174, 96, 0.12)' }
-                                                : (isCheckedIn ? { backgroundColor: 'rgba(245, 158, 11, 0.1)' } : { backgroundColor: 'rgba(245, 158, 11, 0.1)' }),
-                                            { marginBottom: 6 }
-                                        ]}>
-                                            <Text style={[
-                                                styles.timeBadgeText,
+                                        {activeTab === 'today' && (
+                                            <View style={[
+                                                styles.timeBadge,
                                                 isCompleted 
-                                                    ? { color: Colors.SUCCESS }
-                                                    : { color: '#f59e0b' }
+                                                    ? { backgroundColor: 'rgba(39, 174, 96, 0.12)' }
+                                                    : (isCheckedIn ? { backgroundColor: 'rgba(245, 158, 11, 0.1)' } : { backgroundColor: 'rgba(245, 158, 11, 0.1)' }),
+                                                { marginBottom: 6 }
                                             ]}>
-                                                {appt.status === 'checked_in' ? 'IN PROGRESS' : appt.status.toUpperCase()}
-                                            </Text>
-                                        </View>
+                                                <Text style={[
+                                                    styles.timeBadgeText,
+                                                    isCompleted 
+                                                        ? { color: Colors.SUCCESS }
+                                                        : { color: '#f59e0b' }
+                                                ]}>
+                                                    {appt.status === 'checked_in' ? 'IN PROGRESS' : appt.status.toUpperCase()}
+                                                </Text>
+                                            </View>
+                                        )}
                                         <Icon name={isExpanded ? "chevron-up" : "chevron-down"} size={12} color={Colors.TEXT_SECONDARY} />
                                     </View>
                                 </View>
@@ -618,7 +632,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                                         <Text style={styles.detailsText}>Scheduled: {formatDateTime(appt.dateTime)}</Text>
                                     </View>
 
-                                    {appt.checkinTime && (
+                                    {activeTab === 'today' && appt.checkinTime && (
                                         <View style={styles.detailsRow}>
                                             <Icon name="user-clock" size={13} color={Colors.TEXT_SECONDARY} style={styles.detailIcon} />
                                             <Text style={styles.detailsText}>Checked in: {formatDateTime(appt.checkinTime)}</Text>
@@ -630,7 +644,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                                         <Text style={[styles.detailsText, { fontWeight: '600' }]}>{appt.customerAddress}</Text>
                                     </View>
 
-                                    {appt.checkinLocation && appt.checkinLocation.latitude != null && appt.checkinLocation.longitude != null && (
+                                    {activeTab === 'today' && appt.checkinLocation && appt.checkinLocation.latitude != null && appt.checkinLocation.longitude != null && (
                                         <View style={styles.detailsRow}>
                                             <Icon name="map-marked" size={13} color={Colors.TEXT_SECONDARY} style={styles.detailIcon} />
                                             <Text style={styles.detailsText}>
@@ -646,7 +660,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                                         </View>
                                     ) : null}
 
-                                    {isPending && (
+                                    {activeTab === 'today' && isPending && (
                                         <TouchableOpacity
                                             style={[styles.checkinBtn, isFuture && styles.checkinBtnDisabled]}
                                             activeOpacity={isFuture ? 1 : 0.8}
@@ -670,7 +684,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                                         </TouchableOpacity>
                                     )}
 
-                                    {isCheckedIn && (
+                                    {activeTab === 'today' && isCheckedIn && (
                                         <TouchableOpacity
                                             style={styles.completeBtn}
                                             activeOpacity={0.8}

@@ -235,10 +235,12 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                                 style={styles.avatarImg}
                             />
                         ) : (
-                            <Image
-                                source={require('../../assets/user.png')}
-                                style={styles.avatarImg}
-                            />
+                            <View style={styles.avatarPlaceholder}>
+                                <Image
+                                    source={require('../../assets/user.png')}
+                                    style={{ width: '45%', height: '45%', tintColor: Colors.WHITE }}
+                                />
+                            </View>
                         )}
                         {/* Camera overlay */}
                         <View style={styles.avatarEditOverlay}>

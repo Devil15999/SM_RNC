@@ -1623,7 +1623,7 @@ function App() {
             onClick={() => handleTabChange('checkins')}
           >
             <MapPin size={20} />
-            <span>Check-ins</span>
+            <span>Attendance</span>
           </button>
 
           <button
@@ -1667,7 +1667,7 @@ function App() {
               {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
             </button>
             <div className="header-title" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <h1>{activeTab === 'checkins' ? 'Daily Check-ins' : activeTab === 'reports' ? 'Export Reports' : activeTab === 'pincodes' ? 'Serviceable Pincodes' : activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}</h1>
+              <h1>{activeTab === 'checkins' ? 'Attendance' : activeTab === 'reports' ? 'Export Reports' : activeTab === 'pincodes' ? 'Serviceable Pincodes' : activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}</h1>
               <button 
                 onClick={handleRefresh} 
                 className={`refresh-btn ${isLoading ? 'spin' : ''}`}
@@ -2696,7 +2696,7 @@ function App() {
                     {/* Metrics Header */}
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', marginBottom: '24px' }}>
                       <div className="stat-card" style={{ padding: '16px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
-                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Checked In Today</div>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Present Today</div>
                         <div style={{ fontSize: '1.8rem', fontWeight: 'bold', marginTop: '6px', color: 'var(--text)' }}>{totalCheckinsTodayCount}</div>
                       </div>
                       <div className="stat-card" style={{ padding: '16px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
@@ -2708,7 +2708,7 @@ function App() {
                         <div style={{ fontSize: '1.8rem', fontWeight: 'bold', marginTop: '6px', color: '#10b981' }}>{activeServicesCount}</div>
                       </div>
                       <div className="stat-card" style={{ padding: '16px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
-                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Pending Check-ins Today</div>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Pending Attendance Today</div>
                         <div style={{ fontSize: '1.8rem', fontWeight: 'bold', marginTop: '6px', color: 'var(--warning)' }}>{pendingTodayCount}</div>
                       </div>
                     </div>
@@ -2767,7 +2767,7 @@ function App() {
                       <table className="admin-table">
                         <thead>
                           <tr>
-                            <th>Check-in Time</th>
+                            <th>Attendance Time</th>
                             <th>Employee</th>
                             <th>Customer</th>
                             <th>Appointment Address</th>
@@ -2836,7 +2836,7 @@ function App() {
                           {sortedCheckedInAppts.length === 0 && (
                             <tr>
                               <td colSpan="6" style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)' }}>
-                                No check-ins or pending services for this day
+                                No attendance or pending services for this day
                               </td>
                             </tr>
                           )}

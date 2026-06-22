@@ -11,6 +11,7 @@ import {
     StatusBar,
     ScrollView,
 } from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../types/navigation';
@@ -123,15 +124,22 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
 
                 {/* CTA */}
                 <TouchableOpacity
-                    style={[styles.button, (!isValid || isLoading) && styles.buttonOff]}
+                    style={(!isValid || isLoading) ? styles.buttonOff : null}
                     onPress={handleSendOtp}
                     disabled={!isValid || isLoading}
                     activeOpacity={0.85}>
-                    {isLoading ? (
-                        <ActivityIndicator color={Colors.WHITE} />
-                    ) : (
-                        <Text style={styles.buttonText}>Send OTP</Text>
-                    )}
+                    <LinearGradient
+                        colors={(!isValid || isLoading) ? [Colors.DISABLED, Colors.DISABLED] : [Colors.PRIMARY, Colors.PRIMARY_DARK]}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={styles.button}
+                    >
+                        {isLoading ? (
+                            <ActivityIndicator color={Colors.WHITE} />
+                        ) : (
+                            <Text style={styles.buttonText}>Send OTP</Text>
+                        )}
+                    </LinearGradient>
                 </TouchableOpacity>
 
                 <Text style={styles.tnc}>

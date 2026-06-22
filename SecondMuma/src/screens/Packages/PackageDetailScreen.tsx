@@ -10,10 +10,13 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import Icon from 'react-native-vector-icons/FontAwesome5';
+import LinearGradient from 'react-native-linear-gradient';
 import { RootStackParamList } from '../../types/navigation';
 import { Colors } from '../../constants/theme';
 import { useAppSelector } from '../../store';
 import { API_BASE_URL } from '../../config';
+
+const GRADIENT_COLORS: [string, string] = ['#e91e8a', '#7b2d8b'];
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PackageDetail'>;
 
@@ -285,7 +288,11 @@ const PackageDetailScreen: React.FC<Props> = ({ navigation, route }) => {
             <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
 
             {/* Header */}
-            <View style={[styles.header, { backgroundColor: accent, paddingTop: insets.top }]}>
+            <LinearGradient
+                colors={GRADIENT_COLORS}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={[styles.header, { paddingTop: insets.top }]}>
                 <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
                     <Icon name="chevron-left" size={20} color={Colors.WHITE} />
                 </TouchableOpacity>
@@ -294,7 +301,7 @@ const PackageDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                     <Text style={styles.headerTitle}>{pkg.title}</Text>
                     <Text style={styles.headerSubtitle}>{pkg.subtitle}</Text>
                 </View>
-            </View>
+            </LinearGradient>
 
             <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
                 {/* Plan Selector Tabs */}
@@ -397,7 +404,7 @@ const PackageDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                     </View>
                 ) : (
                     <TouchableOpacity
-                        style={[styles.ctaBtn, { backgroundColor: accent }]}
+                        style={styles.ctaBtnWrapper}
                         activeOpacity={0.85}
                         onPress={() => {
                             navigation.navigate('Checkout', {
@@ -410,7 +417,13 @@ const PackageDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                                 accentColor: accent,
                             });
                         }}>
-                        <Text style={styles.ctaText}>Get {plan.label} Plan</Text>
+                        <LinearGradient
+                            colors={GRADIENT_COLORS}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 0 }}
+                            style={styles.ctaBtn}>
+                            <Text style={styles.ctaText}>Get {plan.label} Plan</Text>
+                        </LinearGradient>
                     </TouchableOpacity>
                 )}
 
@@ -605,16 +618,21 @@ const styles = StyleSheet.create({
     },
 
     // CTA
+    ctaBtnWrapper: {
+        borderRadius: 16,
+        marginBottom: 14,
+        shadowColor: '#e91e8a',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.35,
+        shadowRadius: 14,
+        elevation: 8,
+        overflow: 'hidden',
+    },
     ctaBtn: {
         height: 56,
         borderRadius: 16,
         justifyContent: 'center',
         alignItems: 'center',
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.35,
-        shadowRadius: 14,
-        elevation: 8,
-        marginBottom: 14,
     },
     ctaText: {
         color: Colors.WHITE,

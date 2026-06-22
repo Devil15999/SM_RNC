@@ -11,6 +11,7 @@ import {
     View,
     ScrollView,
 } from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../types/navigation';
@@ -234,17 +235,24 @@ const OTPScreen: React.FC<Props> = ({ navigation, route }) => {
 
                 {/* Verify Button */}
                 <TouchableOpacity
-                    style={[styles.button, (!isComplete || isLoading) && styles.buttonOff]}
+                    style={(!isComplete || isLoading) ? styles.buttonOff : null}
                     onPress={handleVerify}
                     disabled={!isComplete || isLoading}
                     activeOpacity={0.85}>
-                    {isLoading ? (
-                        <ActivityIndicator color={Colors.WHITE} />
-                    ) : (
-                        <Text style={styles.buttonText}>
-                            {isRegisterFlow ? 'Verify & Create Account' : 'Verify & Continue'}
-                        </Text>
-                    )}
+                    <LinearGradient
+                        colors={(!isComplete || isLoading) ? [Colors.DISABLED, Colors.DISABLED] : [Colors.PRIMARY, Colors.PRIMARY_DARK]}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={styles.button}
+                    >
+                        {isLoading ? (
+                            <ActivityIndicator color={Colors.WHITE} />
+                        ) : (
+                            <Text style={styles.buttonText}>
+                                {isRegisterFlow ? 'Verify & Create Account' : 'Verify & Continue'}
+                            </Text>
+                        )}
+                    </LinearGradient>
                 </TouchableOpacity>
 
                 {/* Resend */}
