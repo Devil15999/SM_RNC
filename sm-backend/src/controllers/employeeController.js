@@ -2,7 +2,7 @@
 
 const Appointment = require('../models/Appointment');
 const Order = require('../models/Order');
-const { fillVirtualAppointments, getDeterministicOtp } = require('../utils/appointmentHelper');
+const { fillVirtualAppointments, getDeterministicOtp, getLocalDateKey } = require('../utils/appointmentHelper');
 
 /**
  * GET /api/employee/appointments
@@ -92,6 +92,16 @@ const checkinAppointment = async (req, res, next) => {
 
         if (!appointment) {
             return res.status(404).json({ success: false, message: 'Appointment not found' });
+        }
+
+        // Prevent check-in for future date appointments
+        const apptDateKey = getLocalDateKey(appointment.dateTime);
+        const todayDateKey = getLocalDateKey(new Date());
+        if (apptDateKey > todayDateKey) {
+            return res.status(400).json({
+                success: false,
+                message: 'You cannot check in for appointments scheduled on future dates.'
+            });
         }
 
         // Verify assignment

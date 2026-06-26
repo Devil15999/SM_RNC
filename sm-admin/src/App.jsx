@@ -755,6 +755,8 @@ function App() {
   };
 
   const handleScheduleFromOrder = (order) => {
+    // Enabled scheduling future appointments for admin
+    /*
     if (order.startDate) {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -766,6 +768,7 @@ function App() {
         return;
       }
     }
+    */
 
     const formattedAddress = order.address ? [
       order.address.flatNo,
@@ -818,6 +821,8 @@ function App() {
     }
     const order = unscheduledOrders.find(o => o._id === orderId);
     if (order) {
+      // Enabled scheduling future appointments for admin
+      /*
       if (order.startDate) {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -838,6 +843,7 @@ function App() {
           return;
         }
       }
+      */
 
       setSelectedOrderId(orderId);
       const formattedAddress = order.address ? [
@@ -886,6 +892,8 @@ function App() {
     e.preventDefault();
     if (selectedOrderId) {
       const order = unscheduledOrders.find(o => o._id === selectedOrderId);
+      // Enabled scheduling future appointments for admin
+      /*
       if (order && order.startDate) {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -897,6 +905,7 @@ function App() {
           return;
         }
       }
+      */
     }
     try {
       const payload = {
