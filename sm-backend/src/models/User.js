@@ -40,6 +40,14 @@ const userSchema = new mongoose.Schema(
             type: String,
             select: false,
         },
+        babies: [
+            {
+                name: { type: String, trim: true, required: true },
+                age: { type: String, trim: true, default: '' },
+                dob: { type: String, trim: true, default: '' },
+                gender: { type: String, enum: ['boy', 'girl', 'other', ''], default: '' },
+            },
+        ],
     },
     { timestamps: true }
 );

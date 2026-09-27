@@ -105,6 +105,11 @@ const formatOnlyDate = (dateString) => {
   });
 };
 
+const cleanDetails = (details) => {
+  if (!details) return '';
+  return details.replace(/\s*\|\s*Order ID:\s*[a-f\d]{24}/i, '').replace(/\s*Order ID:\s*[a-f\d]{24}/i, '');
+};
+
 const getAppointmentDateTime = (startDateStr, selectedTimeStr) => {
   if (!startDateStr) return '';
   
@@ -789,7 +794,6 @@ function App() {
     if (order.timeSlot) {
       detailsParts.push(`Preferred Time: ${order.timeSlot} ${order.selectedTime ? `(${order.selectedTime})` : ''}`);
     }
-    detailsParts.push(`Order ID: ${order._id}`);
 
     setNewAppointment({
       customerName: order.user?.name || order.address?.fullName || order.motherName || '',
@@ -865,7 +869,6 @@ function App() {
       if (order.timeSlot) {
         detailsParts.push(`Preferred Time: ${order.timeSlot} ${order.selectedTime ? `(${order.selectedTime})` : ''}`);
       }
-      detailsParts.push(`Order ID: ${order._id}`);
 
       setNewAppointment({
         customerName: order.user?.name || order.address?.fullName || order.motherName || '',
@@ -908,8 +911,12 @@ function App() {
       */
     }
     try {
+      const detailsWithOrder = selectedOrderId 
+        ? `${newAppointment.details}${newAppointment.details ? ' | ' : ''}Order ID: ${selectedOrderId}`
+        : newAppointment.details;
       const payload = {
         ...newAppointment,
+        details: detailsWithOrder,
         dateTime: newAppointment.dateTime ? new Date(newAppointment.dateTime).toISOString() : ''
       };
       const res = await apiFetch('/admin/appointments', {
@@ -946,6 +953,14 @@ function App() {
   const handleUpdateAppointment = async (e) => {
     e.preventDefault();
     try {
+      const originalAppt = appointments.find(appt => appt._id === editAppointment._id);
+      const orderIdMatch = originalAppt && originalAppt.details && originalAppt.details.match(/Order ID:\s*([a-f\d]{24})/i);
+      const orderId = orderIdMatch ? orderIdMatch[1] : null;
+
+      const detailsWithOrder = orderId
+        ? `${editAppointment.details}${editAppointment.details ? ' | ' : ''}Order ID: ${orderId}`
+        : editAppointment.details;
+
       const res = await apiFetch(`/admin/appointments/${editAppointment._id}`, {
         method: 'PUT',
         body: JSON.stringify({
@@ -953,7 +968,7 @@ function App() {
           customerMobile: editAppointment.customerMobile,
           customerAddress: editAppointment.customerAddress,
           dateTime: editAppointment.dateTime ? new Date(editAppointment.dateTime).toISOString() : '',
-          details: editAppointment.details,
+          details: detailsWithOrder,
           assignedEmployee: editAppointment.assignedEmployee || null,
           status: editAppointment.status
         })
@@ -2585,8 +2600,8 @@ function App() {
                               <div style={{ fontWeight: '600' }}>{appt.customerName}</div>
                               <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{appt.customerMobile}</div>
                             </td>
-                            <td style={{ fontSize: '0.85rem', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={appt.details || '—'}>
-                              {appt.details || '—'}
+                            <td style={{ fontSize: '0.85rem', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={cleanDetails(appt.details) || '—'}>
+                              {cleanDetails(appt.details) || '—'}
                             </td>
                             <td style={{ fontSize: '0.8rem' }}>{formatDate(appt.dateTime)}</td>
                             <td>
@@ -2624,7 +2639,7 @@ function App() {
                                     customerMobile: appt.customerMobile || '',
                                     customerAddress: appt.customerAddress || '',
                                     dateTime: toLocalISOString(appt.dateTime),
-                                    details: appt.details || '',
+                                    details: cleanDetails(appt.details || ''),
                                     assignedEmployee: appt.assignedEmployee ? (appt.assignedEmployee._id || appt.assignedEmployee) : '',
                                     status: appt.status || 'pending'
                                   });

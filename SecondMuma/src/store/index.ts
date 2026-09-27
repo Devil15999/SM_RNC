@@ -18,6 +18,7 @@ export {
     logout,
     clearError,
     updateProfileSuccess,
+    updateMobileSuccess,
 } from './slices/authSlice';
 export type { User } from './slices/authSlice';
 

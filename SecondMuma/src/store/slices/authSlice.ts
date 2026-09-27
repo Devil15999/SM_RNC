@@ -80,6 +80,14 @@ const authSlice = createSlice({
                 state.user.email = action.payload.email;
             }
         },
+        updateMobileSuccess(state, action: PayloadAction<{ mobile: string; token?: string }>) {
+            if (state.user) {
+                state.user.mobile = action.payload.mobile;
+                if (action.payload.token) {
+                    state.user.token = action.payload.token;
+                }
+            }
+        },
     },
 });
 
@@ -93,6 +101,7 @@ export const {
     logout,
     clearError,
     updateProfileSuccess,
+    updateMobileSuccess,
 } = authSlice.actions;
 
 export default authSlice.reducer;

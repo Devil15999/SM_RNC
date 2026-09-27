@@ -3,6 +3,7 @@ import {
     ActivityIndicator,
     Alert,
     KeyboardAvoidingView,
+    Modal,
     Platform,
     ScrollView,
     StatusBar,
@@ -19,7 +20,7 @@ import Icon from 'react-native-vector-icons/FontAwesome5';
 import { RootStackParamList } from '../../types/navigation';
 import { Colors } from '../../constants/theme';
 import { Routes } from '../../constants/routes';
-import { useAppDispatch, useAppSelector, updateProfileSuccess, logout } from '../../store';
+import { useAppDispatch, useAppSelector, updateProfileSuccess, updateMobileSuccess, logout } from '../../store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_BASE_URL } from '../../config';
 
@@ -58,6 +59,14 @@ interface OrderItem {
     createdAt: string;
 }
 
+interface BabyItem {
+    _id: string;
+    name: string;
+    age?: string;
+    dob?: string;
+    gender?: string;
+}
+
 const ProfileScreen: React.FC<Props> = ({ navigation }) => {
     const dispatch = useAppDispatch();
     const token = useAppSelector(state => state.auth.user?.token);
@@ -69,6 +78,117 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
     const [name, setName] = useState(user?.name || '');
     const [email, setEmail] = useState(user?.email || '');
     const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
+
+    // Change Mobile State
+    const [showChangeMobileModal, setShowChangeMobileModal] = useState(false);
+    const [newMobile, setNewMobile] = useState('');
+    const [mobileOtp, setMobileOtp] = useState('');
+    const [mobileStep, setMobileStep] = useState<'input' | 'otp'>('input');
+    const [isSendingMobileOtp, setIsSendingMobileOtp] = useState(false);
+    const [isVerifyingMobileOtp, setIsVerifyingMobileOtp] = useState(false);
+    const [mobileError, setMobileError] = useState('');
+
+    const resetMobileForm = () => {
+        setShowChangeMobileModal(false);
+        setNewMobile('');
+        setMobileOtp('');
+        setMobileStep('input');
+        setMobileError('');
+        setIsSendingMobileOtp(false);
+        setIsVerifyingMobileOtp(false);
+    };
+
+    const handleSendChangeMobileOtp = async () => {
+        const cleanMobile = newMobile.replace(/[^0-9]/g, '');
+        if (cleanMobile.length !== 10 || !/^[6-9]\d{9}$/.test(cleanMobile)) {
+            setMobileError('Enter a valid 10-digit Indian mobile number');
+            return;
+        }
+        if (cleanMobile === user?.mobile) {
+            setMobileError('New mobile number must be different from current mobile number');
+            return;
+        }
+        if (!token) {
+            await handleUnauthorized();
+            return;
+        }
+        setIsSendingMobileOtp(true);
+        setMobileError('');
+        try {
+            const res = await fetch(`${API_BASE_URL}/users/change-mobile/send-otp`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ newMobile: cleanMobile })
+            });
+            const data = await res.json();
+            if (res.status === 401) {
+                await handleUnauthorized(data.message);
+                return;
+            }
+            if (res.ok && data.success) {
+                setMobileStep('otp');
+            } else {
+                setMobileError(data.message || 'Failed to send OTP');
+            }
+        } catch (err) {
+            setMobileError('Network error. Failed to send OTP');
+        } finally {
+            setIsSendingMobileOtp(false);
+        }
+    };
+
+    const handleVerifyChangeMobileOtp = async () => {
+        const cleanMobile = newMobile.replace(/[^0-9]/g, '');
+        const cleanOtp = mobileOtp.replace(/[^0-9]/g, '');
+        if (cleanOtp.length !== 6) {
+            setMobileError('Enter a 6-digit OTP');
+            return;
+        }
+        if (!token) {
+            await handleUnauthorized();
+            return;
+        }
+        setIsVerifyingMobileOtp(true);
+        setMobileError('');
+        try {
+            const res = await fetch(`${API_BASE_URL}/users/change-mobile/verify-otp`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ newMobile: cleanMobile, otp: cleanOtp })
+            });
+            const data = await res.json();
+            if (res.status === 401) {
+                await handleUnauthorized(data.message);
+                return;
+            }
+            if (res.ok && data.success && data.user) {
+                dispatch(updateMobileSuccess({ mobile: data.user.mobile, token: data.token }));
+
+                // Update stored session
+                const sessionStr = await AsyncStorage.getItem('@session');
+                if (sessionStr) {
+                    const session = JSON.parse(sessionStr);
+                    const updatedSession = { ...session, mobile: data.user.mobile, token: data.token };
+                    await AsyncStorage.setItem('@session', JSON.stringify(updatedSession));
+                }
+
+                Alert.alert('Success', 'Mobile number updated successfully!');
+                resetMobileForm();
+            } else {
+                setMobileError(data.message || 'Failed to verify OTP');
+            }
+        } catch (err) {
+            setMobileError('Network error verifying OTP');
+        } finally {
+            setIsVerifyingMobileOtp(false);
+        }
+    };
 
     // Address Book State
     const [addresses, setAddresses] = useState<SavedAddress[]>([]);
@@ -88,6 +208,154 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
     const [orders, setOrders] = useState<OrderItem[]>([]);
     const [isLoadingOrders, setIsLoadingOrders] = useState(false);
 
+    // Baby Details State
+    const [babies, setBabies] = useState<BabyItem[]>((user as any)?.babies || []);
+    const [showBabyForm, setShowBabyForm] = useState(false);
+    const [editingBabyId, setEditingBabyId] = useState<string | null>(null);
+    const [babyName, setBabyName] = useState('');
+    const [babyAge, setBabyAge] = useState('');
+    const [babyGender, setBabyGender] = useState<'boy' | 'girl' | 'other' | ''>('');
+    const [isSavingBaby, setIsSavingBaby] = useState(false);
+    const [babyError, setBabyError] = useState('');
+
+    const fetchProfileData = async () => {
+        if (!token) return;
+        try {
+            const res = await fetch(`${API_BASE_URL}/users/profile`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await res.json();
+            if (res.ok && data.success && data.user) {
+                if (data.user.babies) setBabies(data.user.babies);
+            }
+        } catch (err) {
+            console.log('Error fetching user profile:', err);
+        }
+    };
+
+    useEffect(() => {
+        fetchProfileData();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    const resetBabyForm = () => {
+        setShowBabyForm(false);
+        setEditingBabyId(null);
+        setBabyName('');
+        setBabyAge('');
+        setBabyGender('');
+        setBabyError('');
+    };
+
+    const openEditBabyModal = (baby: BabyItem) => {
+        setEditingBabyId(baby._id);
+        setBabyName(baby.name);
+        setBabyAge(baby.age || '');
+        setBabyGender((baby.gender as any) || '');
+        setShowBabyForm(true);
+    };
+
+    const handleSaveBaby = async () => {
+        if (!babyName.trim()) {
+            setBabyError('Baby name is required');
+            return;
+        }
+        if (!token) {
+            await handleUnauthorized();
+            return;
+        }
+        setIsSavingBaby(true);
+        setBabyError('');
+        try {
+            const url = editingBabyId
+                ? `${API_BASE_URL}/users/babies/${editingBabyId}`
+                : `${API_BASE_URL}/users/babies`;
+            const method = editingBabyId ? 'PUT' : 'POST';
+
+            const res = await fetch(url, {
+                method,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    name: babyName.trim(),
+                    age: babyAge.trim(),
+                    gender: babyGender
+                })
+            });
+            const data = await res.json();
+            if (res.status === 401) {
+                await handleUnauthorized(data.message);
+                return;
+            }
+            if (res.ok && data.success) {
+                Alert.alert('Success', editingBabyId ? 'Baby details updated successfully!' : 'Baby details added successfully!');
+                setBabies(data.babies || []);
+                resetBabyForm();
+            } else {
+                Alert.alert('Error', data.message || 'Failed to save baby details');
+            }
+        } catch (err) {
+            Alert.alert('Error', 'Network error saving baby details');
+        } finally {
+            setIsSavingBaby(false);
+        }
+    };
+
+    const handleDeleteBaby = (babyId: string, name: string) => {
+        Alert.alert(
+            'Delete Baby Details',
+            `Are you sure you want to delete details for ${name || 'this baby'}?`,
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Delete',
+                    style: 'destructive',
+                    onPress: async () => {
+                        if (!token) return;
+                        try {
+                            const res = await fetch(`${API_BASE_URL}/users/babies/${babyId}`, {
+                                method: 'DELETE',
+                                headers: { 'Authorization': `Bearer ${token}` }
+                            });
+                            const data = await res.json();
+                            if (res.status === 401) {
+                                await handleUnauthorized(data.message);
+                                return;
+                            }
+                            if (res.ok && data.success) {
+                                setBabies(data.babies || []);
+                                Alert.alert('Success', 'Baby details deleted successfully!');
+                            } else {
+                                Alert.alert('Error', data.message || 'Failed to delete baby details');
+                            }
+                        } catch (err) {
+                            Alert.alert('Error', 'Network error deleting baby details');
+                        }
+                    }
+                }
+            ]
+        );
+    };
+
+    // Handle 401 / Token Expired
+    const handleUnauthorized = async (msg?: string) => {
+        Alert.alert(
+            'Session Expired',
+            msg || 'Your session has expired or token is invalid. Please log in again.',
+            [
+                {
+                    text: 'Log In',
+                    onPress: async () => {
+                        await handleLogout();
+                    },
+                },
+            ],
+            { cancelable: false }
+        );
+    };
+
     // Fetch addresses
     const fetchAddresses = async () => {
         if (!token) return;
@@ -97,6 +365,10 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await res.json();
+            if (res.status === 401) {
+                await handleUnauthorized(data.message);
+                return;
+            }
             if (res.ok && data.success) {
                 setAddresses(data.data);
             }
@@ -116,6 +388,10 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await res.json();
+            if (res.status === 401) {
+                await handleUnauthorized(data.message);
+                return;
+            }
             if (res.ok && data.success) {
                 setOrders(data.data);
             }
@@ -155,6 +431,10 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
             Alert.alert('Error', 'Enter a valid email');
             return;
         }
+        if (!token) {
+            await handleUnauthorized();
+            return;
+        }
         setIsUpdatingProfile(true);
         try {
             const res = await fetch(`${API_BASE_URL}/users/profile`, {
@@ -166,6 +446,10 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                 body: JSON.stringify({ name: name.trim(), email: email.trim().toLowerCase() }),
             });
             const data = await res.json();
+            if (res.status === 401) {
+                await handleUnauthorized(data.message);
+                return;
+            }
             if (res.ok && data.success && data.user) {
                 dispatch(updateProfileSuccess({ name: data.user.name, email: data.user.email }));
                 
@@ -207,6 +491,10 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
     // Add Address
     const handleAddAddress = async () => {
         if (!validateAddress()) return;
+        if (!token) {
+            await handleUnauthorized();
+            return;
+        }
         setIsSavingAddress(true);
         try {
             const res = await fetch(`${API_BASE_URL}/addresses`, {
@@ -226,6 +514,10 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                 }),
             });
             const data = await res.json();
+            if (res.status === 401) {
+                await handleUnauthorized(data.message);
+                return;
+            }
             if (res.ok && data.success) {
                 Alert.alert('Success', 'Address saved successfully!');
                 setShowAddAddressForm(false);
@@ -262,6 +554,10 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                                 headers: { 'Authorization': `Bearer ${token}` }
                             });
                             const data = await res.json();
+                            if (res.status === 401) {
+                                await handleUnauthorized(data.message);
+                                return;
+                            }
                             if (res.ok && data.success) {
                                 fetchAddresses();
                             } else {
@@ -368,7 +664,21 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                                 {renderInput('Email Address', email, setEmail, 'email', {}, { keyboardType: 'email-address', autoCapitalize: 'none' })}
 
                                 <View style={styles.inputGroup}>
-                                    <Text style={styles.label}>Mobile Number (Linked)</Text>
+                                    <View style={styles.labelRow}>
+                                        <Text style={styles.label}>Mobile Number (Linked)</Text>
+                                        <TouchableOpacity
+                                            onPress={() => {
+                                                setNewMobile('');
+                                                setMobileOtp('');
+                                                setMobileStep('input');
+                                                setMobileError('');
+                                                setShowChangeMobileModal(true);
+                                            }}
+                                            activeOpacity={0.7}
+                                        >
+                                            <Text style={styles.changeMobileLink}>Change Mobile</Text>
+                                        </TouchableOpacity>
+                                    </View>
                                     <View style={[styles.input, styles.disabledInput]}>
                                         <Text style={styles.disabledInputText}>+91 {user?.mobile}</Text>
                                     </View>
@@ -393,6 +703,106 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                                          )}
                                      </LinearGradient>
                                  </TouchableOpacity>
+                            </View>
+
+                            {/* Baby Details Card */}
+                            <View style={styles.card}>
+                                <View style={styles.cardHeaderRow}>
+                                    <View style={styles.cardHeaderLeft}>
+                                        <Icon name="baby" size={18} color={Colors.PRIMARY} style={{ marginRight: 8 }} />
+                                        <Text style={styles.cardHeader}>Baby Details</Text>
+                                    </View>
+                                    <TouchableOpacity
+                                        style={styles.addSmallBtn}
+                                        onPress={() => {
+                                            resetBabyForm();
+                                            setShowBabyForm(true);
+                                        }}
+                                        activeOpacity={0.8}
+                                    >
+                                        <Icon name="plus" size={12} color={Colors.PRIMARY} style={{ marginRight: 4 }} />
+                                        <Text style={styles.addSmallBtnText}>Add Baby</Text>
+                                    </TouchableOpacity>
+                                </View>
+
+                                {babies.length === 0 && !showBabyForm ? (
+                                    <Text style={styles.emptySubText}>No baby details added yet. Click "+ Add Baby" to add details.</Text>
+                                ) : null}
+
+                                {/* List of Babies */}
+                                {babies.map((baby) => (
+                                    <View key={baby._id} style={styles.babyCardItem}>
+                                        <View style={styles.babyInfo}>
+                                            <Text style={styles.babyNameText}>{baby.name}</Text>
+                                            {baby.age ? <Text style={styles.babySubText}>Age: {baby.age}</Text> : null}
+                                            {baby.gender ? <Text style={styles.babySubText}>Gender: {baby.gender.charAt(0).toUpperCase() + baby.gender.slice(1)}</Text> : null}
+                                        </View>
+                                        <View style={styles.babyActionRow}>
+                                            <TouchableOpacity
+                                                style={styles.babyActionBtn}
+                                                onPress={() => openEditBabyModal(baby)}
+                                                activeOpacity={0.7}
+                                            >
+                                                <Icon name="edit" size={14} color={Colors.PRIMARY} />
+                                            </TouchableOpacity>
+                                            <TouchableOpacity
+                                                style={[styles.babyActionBtn, { marginLeft: 10 }]}
+                                                onPress={() => handleDeleteBaby(baby._id, baby.name)}
+                                                activeOpacity={0.7}
+                                            >
+                                                <Icon name="trash-alt" size={14} color={Colors.ERROR} />
+                                            </TouchableOpacity>
+                                        </View>
+                                    </View>
+                                ))}
+
+                                {/* Inline Add / Edit Baby Form */}
+                                {showBabyForm && (
+                                    <View style={styles.babyFormBox}>
+                                        <Text style={styles.babyFormTitle}>{editingBabyId ? 'Edit Baby Details' : 'Add New Baby Details'}</Text>
+
+                                        {renderInput("Baby's Name", babyName, setBabyName, 'name', babyError ? { name: babyError } : {})}
+                                        {renderInput("Age / Age Range (e.g. 0-3 months)", babyAge, setBabyAge, 'age', {})}
+
+                                        <Text style={styles.label}>Gender</Text>
+                                        <View style={styles.genderRow}>
+                                            {(['boy', 'girl', 'other'] as const).map((g) => (
+                                                <TouchableOpacity
+                                                    key={g}
+                                                    style={[styles.genderChip, babyGender === g && styles.genderChipActive]}
+                                                    onPress={() => setBabyGender(g)}
+                                                    activeOpacity={0.8}
+                                                >
+                                                    <Text style={[styles.genderChipText, babyGender === g && styles.genderChipTextActive]}>
+                                                        {g.charAt(0).toUpperCase() + g.slice(1)}
+                                                    </Text>
+                                                </TouchableOpacity>
+                                            ))}
+                                        </View>
+
+                                        <View style={[styles.row, { marginTop: 14 }]}>
+                                            <TouchableOpacity
+                                                style={[styles.btn, styles.cancelBtn, styles.flex1]}
+                                                onPress={resetBabyForm}
+                                                disabled={isSavingBaby}
+                                            >
+                                                <Text style={styles.cancelBtnText}>Cancel</Text>
+                                            </TouchableOpacity>
+                                            <View style={styles.space} />
+                                            <TouchableOpacity
+                                                style={[styles.btn, styles.flex1, isSavingBaby && styles.btnDisabled]}
+                                                onPress={handleSaveBaby}
+                                                disabled={isSavingBaby}
+                                            >
+                                                {isSavingBaby ? (
+                                                    <ActivityIndicator color={Colors.WHITE} />
+                                                ) : (
+                                                    <Text style={styles.btnText}>{editingBabyId ? 'Update' : 'Save'}</Text>
+                                                )}
+                                            </TouchableOpacity>
+                                        </View>
+                                    </View>
+                                )}
                             </View>
 
                             {/* Account Details */}
@@ -620,6 +1030,109 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                     )}
 
                 </ScrollView>
+
+                {/* Change Mobile Modal */}
+                <Modal
+                    visible={showChangeMobileModal}
+                    transparent
+                    animationType="fade"
+                    onRequestClose={resetMobileForm}
+                >
+                    <TouchableOpacity
+                        style={styles.modalOverlay}
+                        activeOpacity={1}
+                        onPress={resetMobileForm}
+                    >
+                        <TouchableOpacity
+                            style={styles.modalContentBox}
+                            activeOpacity={1}
+                            onPress={(e) => e.stopPropagation()}
+                        >
+                            <View style={styles.modalHeaderRow}>
+                                <Text style={styles.modalTitle}>
+                                    {mobileStep === 'input' ? 'Update Mobile Number' : 'Verify New Mobile Number'}
+                                </Text>
+                                <TouchableOpacity onPress={resetMobileForm} activeOpacity={0.7}>
+                                    <Icon name="times" size={18} color={Colors.TEXT_SECONDARY} />
+                                </TouchableOpacity>
+                            </View>
+
+                            {mobileStep === 'input' ? (
+                                <View style={{ marginTop: 10 }}>
+                                    <Text style={styles.modalSubtitle}>
+                                        Current Mobile: +91 {user?.mobile}
+                                    </Text>
+                                    {renderInput(
+                                        'New 10-Digit Mobile Number',
+                                        newMobile,
+                                        (t) => {
+                                            setMobileError('');
+                                            setNewMobile(t.replace(/[^0-9]/g, ''));
+                                        },
+                                        'newMobile',
+                                        mobileError ? { newMobile: mobileError } : {},
+                                        { keyboardType: 'number-pad', maxLength: 10, placeholder: 'Enter new 10-digit number' }
+                                    )}
+
+                                    <TouchableOpacity
+                                        style={[styles.btn, { marginTop: 16 }, isSendingMobileOtp && styles.btnDisabled]}
+                                        onPress={handleSendChangeMobileOtp}
+                                        disabled={isSendingMobileOtp}
+                                        activeOpacity={0.85}
+                                    >
+                                        {isSendingMobileOtp ? (
+                                            <ActivityIndicator color={Colors.WHITE} />
+                                        ) : (
+                                            <Text style={styles.btnText}>Send OTP</Text>
+                                        )}
+                                    </TouchableOpacity>
+                                </View>
+                            ) : (
+                                <View style={{ marginTop: 10 }}>
+                                    <Text style={styles.modalSubtitle}>
+                                        Enter 6-digit OTP sent to +91 {newMobile}
+                                    </Text>
+                                    {renderInput(
+                                        '6-Digit OTP',
+                                        mobileOtp,
+                                        (t) => {
+                                            setMobileError('');
+                                            setMobileOtp(t.replace(/[^0-9]/g, ''));
+                                        },
+                                        'mobileOtp',
+                                        mobileError ? { mobileOtp: mobileError } : {},
+                                        { keyboardType: 'number-pad', maxLength: 6, placeholder: '123456' }
+                                    )}
+
+                                    <View style={[styles.row, { marginTop: 16 }]}>
+                                        <TouchableOpacity
+                                            style={[styles.btn, styles.cancelBtn, styles.flex1]}
+                                            onPress={() => {
+                                                setMobileStep('input');
+                                                setMobileError('');
+                                            }}
+                                            disabled={isVerifyingMobileOtp}
+                                        >
+                                            <Text style={styles.cancelBtnText}>Back</Text>
+                                        </TouchableOpacity>
+                                        <View style={styles.space} />
+                                        <TouchableOpacity
+                                            style={[styles.btn, styles.flex1, isVerifyingMobileOtp && styles.btnDisabled]}
+                                            onPress={handleVerifyChangeMobileOtp}
+                                            disabled={isVerifyingMobileOtp}
+                                        >
+                                            {isVerifyingMobileOtp ? (
+                                                <ActivityIndicator color={Colors.WHITE} />
+                                            ) : (
+                                                <Text style={styles.btnText}>Verify & Update</Text>
+                                            )}
+                                        </TouchableOpacity>
+                                    </View>
+                                </View>
+                            )}
+                        </TouchableOpacity>
+                    </TouchableOpacity>
+                </Modal>
             </SafeAreaView>
         </KeyboardAvoidingView>
     );
@@ -983,6 +1496,162 @@ const styles = StyleSheet.create({
         color: Colors.ERROR,
         fontSize: 15,
         fontWeight: '700',
+    },
+
+    // Baby Details Styles
+    cardHeaderRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 16,
+    },
+    cardHeaderLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    addSmallBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 20,
+        backgroundColor: '#FFF0F5',
+        borderWidth: 1,
+        borderColor: Colors.PRIMARY_LIGHT,
+    },
+    addSmallBtnText: {
+        color: Colors.PRIMARY,
+        fontSize: 12,
+        fontWeight: '700',
+    },
+    emptySubText: {
+        color: Colors.TEXT_HINT,
+        fontSize: 13,
+        fontStyle: 'italic',
+        marginTop: 4,
+    },
+    babyCardItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: 14,
+        borderRadius: 12,
+        backgroundColor: '#F9FAFB',
+        borderWidth: 1,
+        borderColor: Colors.BORDER,
+        marginBottom: 10,
+    },
+    babyInfo: {
+        flex: 1,
+    },
+    babyNameText: {
+        fontSize: 15,
+        fontWeight: '700',
+        color: Colors.TEXT_PRIMARY,
+        marginBottom: 2,
+    },
+    babySubText: {
+        fontSize: 12,
+        color: Colors.TEXT_SECONDARY,
+        marginTop: 1,
+    },
+    babyActionRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    babyActionBtn: {
+        padding: 8,
+        borderRadius: 8,
+        backgroundColor: '#FFFFFF',
+        borderWidth: 1,
+        borderColor: Colors.BORDER,
+    },
+    babyFormBox: {
+        marginTop: 14,
+        paddingTop: 14,
+        borderTopWidth: 1,
+        borderTopColor: Colors.DIVIDER,
+    },
+    babyFormTitle: {
+        fontSize: 15,
+        fontWeight: '700',
+        color: Colors.TEXT_PRIMARY,
+        marginBottom: 12,
+    },
+    genderRow: {
+        flexDirection: 'row',
+        gap: 8,
+        marginTop: 6,
+        marginBottom: 12,
+    },
+    genderChip: {
+        flex: 1,
+        paddingVertical: 8,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: Colors.BORDER,
+        backgroundColor: Colors.SURFACE,
+        alignItems: 'center',
+    },
+    genderChipActive: {
+        borderColor: Colors.PRIMARY,
+        backgroundColor: '#FFF0F5',
+    },
+    genderChipText: {
+        fontSize: 12,
+        fontWeight: '600',
+        color: Colors.TEXT_SECONDARY,
+    },
+    genderChipTextActive: {
+        color: Colors.PRIMARY,
+        fontWeight: '700',
+    },
+
+    // Mobile Update Styles
+    labelRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 8,
+    },
+    changeMobileLink: {
+        fontSize: 13,
+        fontWeight: '700',
+        color: Colors.PRIMARY,
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+    },
+    modalContentBox: {
+        width: '100%',
+        backgroundColor: Colors.SURFACE,
+        borderRadius: 20,
+        padding: 24,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 12,
+        elevation: 6,
+    },
+    modalHeaderRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 8,
+    },
+    modalTitle: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: Colors.TEXT_PRIMARY,
+    },
+    modalSubtitle: {
+        fontSize: 13,
+        color: Colors.TEXT_SECONDARY,
+        marginBottom: 16,
     },
 });
 
