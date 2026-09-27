@@ -570,7 +570,7 @@ const styles = StyleSheet.create({
         color: '#1A202C',
     },
     scrollContent: {
-        paddingBottom: 24,
+        paddingBottom: 110,
     },
 
     // Hero Banner & Gallery

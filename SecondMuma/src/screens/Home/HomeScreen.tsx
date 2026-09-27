@@ -32,6 +32,8 @@ interface PackageCardItem {
     accentColor: string;
     bgColor: string;
     borderColor: string;
+    footerBg: string;
+    iconCircleBg: string;
     image: any;
     badge?: string;
     planName: string;
@@ -42,15 +44,24 @@ interface PackageCardItem {
     features: string[];
 }
 
+const FEATURES_STRIP = [
+    { icon: 'user-shield', label: 'Background\nVerified Staff' },
+    { icon: 'hands-wash', label: 'Safe & Hygienic\nPractices' },
+    { icon: 'headset', label: '24/7 Expert\nSupport' },
+    { icon: 'ambulance', label: 'Emergency\nAssistance' },
+];
+
 const DEFAULT_PACKAGES: PackageCardItem[] = [
     {
         type: 'baby',
         title: 'Newborn Care',
         tagline: 'Professional nursing care for your baby\'s healthy start.',
         icon: 'baby',
-        accentColor: '#E91E8A',
-        bgColor: '#FFF0F6',
-        borderColor: '#FFD6E8',
+        accentColor: '#FF176B',
+        bgColor: '#FFF0F5',
+        borderColor: '#FFDAEA',
+        footerBg: '#FFEBF3',
+        iconCircleBg: '#FFE4F0',
         image: require('../../assets/post1.png'),
         planName: 'Monthly Plan',
         planDetails: '26 visits × 3 hours (78 hours)',
@@ -69,9 +80,11 @@ const DEFAULT_PACKAGES: PackageCardItem[] = [
         title: 'Mother + Baby Bundle',
         tagline: 'Complete nursing care for both you and your baby.',
         icon: 'heart',
-        accentColor: '#E91E8A',
-        bgColor: '#FFF0F6',
-        borderColor: '#FFD6E8',
+        accentColor: '#FF176B',
+        bgColor: '#FFF0F5',
+        borderColor: '#FFDAEA',
+        footerBg: '#FFEBF3',
+        iconCircleBg: '#FFE4F0',
         image: require('../../assets/post2.png'),
         badge: 'Most Popular',
         planName: 'Monthly Plan',
@@ -92,8 +105,10 @@ const DEFAULT_PACKAGES: PackageCardItem[] = [
         tagline: 'Overnight nursing support for peaceful nights.',
         icon: 'moon',
         accentColor: '#5C54E5',
-        bgColor: '#F3F0FF',
+        bgColor: '#F4F0FF',
         borderColor: '#DDD6FE',
+        footerBg: '#EBE5FF',
+        iconCircleBg: '#EBE5FF',
         image: require('../../assets/post3.png'),
         planName: 'Monthly Plan',
         planDetails: '26 nights × 10 hours (260 hours)',
@@ -109,6 +124,16 @@ const DEFAULT_PACKAGES: PackageCardItem[] = [
     },
 ];
 
+const mapIconName = (rawIcon: string, type: string): string => {
+    let clean = (rawIcon || '').replace(/^fa-/, '').trim();
+    if (!clean || clean === 'question' || clean === 'box' || clean === 'user-pregnant' || clean === 'hand-holding-heart') {
+        if (type === 'baby') return 'baby';
+        if (type === 'muma') return 'heart';
+        if (type === 'mother') return 'moon';
+    }
+    return clean || 'heart';
+};
+
 const HomeScreen: React.FC<Props> = ({ navigation }) => {
     const insets = useSafeAreaInsets();
     const user = useAppSelector(state => state.auth.user);
@@ -123,24 +148,43 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
             if (res.ok && data.success && Array.isArray(data.data) && data.data.length > 0) {
                 const formatted: PackageCardItem[] = data.data.map((p: any) => {
                     const month1 = p.plans?.['1month'] || {};
+                    const isNight = p.type === 'mother';
+                    const isMuma = p.type === 'muma';
+
                     const fallbackImg = p.type === 'baby'
                         ? require('../../assets/post1.png')
-                        : p.type === 'muma'
+                        : isMuma
                         ? require('../../assets/post2.png')
                         : require('../../assets/post3.png');
 
+                    const cleanIcon = mapIconName(p.icon, p.type);
+
+                    // Dynamic Title Mapping
+                    let cleanTitle = p.title;
+                    if (!cleanTitle || cleanTitle.includes('Mother Care') && !isMuma && !isNight) {
+                        cleanTitle = 'Newborn Care';
+                    } else if (p.type === 'baby') {
+                        cleanTitle = 'Newborn Care';
+                    } else if (isMuma) {
+                        cleanTitle = 'Mother + Baby Bundle';
+                    } else if (isNight) {
+                        cleanTitle = 'Night Nursing';
+                    }
+
                     return {
                         type: p.type as PackageType,
-                        title: p.title || 'Care Package',
+                        title: cleanTitle,
                         tagline: p.tagline || p.subtitle || '',
-                        icon: (p.icon ?? '').replace(/^fa-/, ''),
-                        accentColor: p.accentColor || (p.type === 'mother' ? '#5C54E5' : '#E91E8A'),
-                        bgColor: p.type === 'mother' ? '#F3F0FF' : '#FFF0F6',
-                        borderColor: p.type === 'mother' ? '#DDD6FE' : '#FFD6E8',
+                        icon: cleanIcon,
+                        accentColor: isNight ? '#5C54E5' : '#FF176B',
+                        bgColor: isNight ? '#F4F0FF' : '#FFF0F5',
+                        borderColor: isNight ? '#DDD6FE' : '#FFDAEA',
+                        footerBg: isNight ? '#EBE5FF' : '#FFEBF3',
+                        iconCircleBg: isNight ? '#EBE5FF' : '#FFE4F0',
                         image: fallbackImg,
-                        badge: p.badge || month1.badge || (p.type === 'muma' ? 'Most Popular' : undefined),
+                        badge: p.badge || month1.badge || (isMuma ? 'Most Popular' : undefined),
                         planName: month1.label || 'Monthly Plan',
-                        planDetails: month1.visitInfo || (p.type === 'mother' ? '26 nights × 10 hours (260 hours)' : '26 visits × 3 hours (78 hours)'),
+                        planDetails: month1.visitInfo || (isNight ? '26 nights × 10 hours (260 hours)' : '26 visits × 3 hours (78 hours)'),
                         price: month1.price ? `₹ ${month1.price.toLocaleString('en-IN')}` : `₹ ${p.startingPrice?.toLocaleString('en-IN')}`,
                         originalPrice: month1.originalPrice ? `₹ ${month1.originalPrice.toLocaleString('en-IN')}` : '',
                         savings: month1.savings || 'Save 22%',
@@ -201,7 +245,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                 <View style={styles.brandCenter}>
                     <View style={styles.brandRow}>
                         <View style={styles.brandIconCircle}>
-                            <Icon name="heart" size={14} color="#E91E8A" solid />
+                            <Icon name="heart" size={14} color="#FF176B" solid />
                         </View>
                         <Text style={styles.brandTitle}>Second Muma</Text>
                     </View>
@@ -223,12 +267,31 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                 </TouchableOpacity>
 
                 <View style={styles.verifiedBadge}>
-                    <Icon name="check-circle" size={13} color="#E91E8A" solid style={{ marginRight: 5 }} />
+                    <Icon name="check-circle" size={13} color="#FF176B" solid style={{ marginRight: 5 }} />
                     <Text style={styles.verifiedText}>Verified Nurses</Text>
                 </View>
             </View>
 
             <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+
+                {/* ── Top Banner Image ── */}
+                <Image
+                    source={require('../../assets/banner.png')}
+                    style={styles.heroBanner}
+                    resizeMode="cover"
+                />
+
+                {/* ── Features Strip ── */}
+                <View style={styles.featuresStrip}>
+                    {FEATURES_STRIP.map((f, i) => (
+                        <View key={f.label} style={[styles.featureItem, i < FEATURES_STRIP.length - 1 && styles.featureItemBorder]}>
+                            <View style={styles.featureIconBox}>
+                                <Icon name={f.icon} size={15} color="#FF176B" />
+                            </View>
+                            <Text style={styles.featureLabel}>{f.label}</Text>
+                        </View>
+                    ))}
+                </View>
 
                 {/* ── Care Packages Title Section ── */}
                 <View style={styles.sectionHeader}>
@@ -292,8 +355,8 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
 
                                 {/* Popular Badge */}
                                 {pkg.badge && (
-                                    <View style={styles.popularBadge}>
-                                        <Icon name="crown" size={10} color="#FFF" style={{ marginRight: 4 }} />
+                                    <View style={[styles.popularBadge, { backgroundColor: pkg.accentColor }]}>
+                                        <Icon name="crown" size={9} color="#FFF" style={{ marginRight: 4 }} />
                                         <Text style={styles.popularBadgeText}>{pkg.badge}</Text>
                                     </View>
                                 )}
@@ -305,47 +368,54 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                                     </View>
                                 )}
 
-                                {/* Card Header Row */}
-                                <View style={styles.cardHeaderRow}>
-                                    <View style={styles.cardHeaderLeft}>
-                                        <View style={[styles.iconCircle, { backgroundColor: pkg.accentColor + '1E' }]}>
-                                            <Icon name={pkg.icon} size={22} color={pkg.accentColor} />
-                                        </View>
-                                        <Text style={styles.cardTitle}>{pkg.title}</Text>
-                                        <Text style={styles.cardTagline}>{pkg.tagline}</Text>
-                                    </View>
+                                {/* Top Main Section (Header + Checklist + Right Nurse Image) */}
+                                <View style={styles.cardTopArea}>
 
-                                    {/* Right Image */}
-                                    <View style={styles.cardImageWrapper}>
-                                        <Image source={pkg.image} style={styles.cardImage} resizeMode="cover" />
-                                    </View>
-                                </View>
-
-                                {/* Features Checklist */}
-                                <View style={styles.featuresGrid}>
-                                    {pkg.features.map((feature, idx) => (
-                                        <View key={idx} style={styles.featureRow}>
-                                            <View style={[styles.checkCircle, { backgroundColor: pkg.accentColor }]}>
-                                                <Icon name="check" size={10} color="#FFF" />
+                                    {/* Left Content Column */}
+                                    <View style={styles.cardLeftCol}>
+                                        {/* Icon + Title Header Row */}
+                                        <View style={styles.cardTitleRow}>
+                                            <View style={[styles.iconCircleBadge, { backgroundColor: pkg.iconCircleBg }]}>
+                                                <Icon name={pkg.icon} size={24} color={pkg.accentColor} />
                                             </View>
-                                            <Text style={styles.featureText}>{feature}</Text>
+                                            <View style={styles.titleTextWrapper}>
+                                                <Text style={styles.cardTitleText}>{pkg.title}</Text>
+                                                <Text style={styles.cardTaglineText}>{pkg.tagline}</Text>
+                                            </View>
                                         </View>
-                                    ))}
+
+                                        {/* Features Vertical Checklist */}
+                                        <View style={styles.checklistGrid}>
+                                            {pkg.features.map((feature, idx) => (
+                                                <View key={idx} style={styles.checklistRow}>
+                                                    <View style={[styles.checkCircleBadge, { backgroundColor: pkg.accentColor }]}>
+                                                        <Icon name="check" size={9} color="#FFF" />
+                                                    </View>
+                                                    <Text style={styles.checkText}>{feature}</Text>
+                                                </View>
+                                            ))}
+                                        </View>
+                                    </View>
+
+                                    {/* Right Nurse Image (Positioned in Top Right) */}
+                                    <View style={styles.rightImageWrapper}>
+                                        <Image source={pkg.image} style={styles.nurseRightImage} resizeMode="cover" />
+                                    </View>
                                 </View>
 
                                 {/* Price Footer Box */}
-                                <View style={styles.priceFooterBox}>
+                                <View style={[styles.priceFooterBox, { backgroundColor: pkg.footerBg }]}>
                                     <View style={styles.priceFooterLeft}>
-                                        <Text style={[styles.planNameText, { color: pkg.accentColor }]}>{pkg.planName}</Text>
-                                        <Text style={styles.planDetailsText}>{pkg.planDetails}</Text>
+                                        <Text style={[styles.footerPlanTitle, { color: pkg.accentColor }]}>{pkg.planName}</Text>
+                                        <Text style={styles.footerPlanSub}>{pkg.planDetails}</Text>
                                     </View>
 
                                     <View style={styles.priceFooterRight}>
-                                        <Text style={styles.mainPriceText}>{pkg.price}</Text>
+                                        <Text style={styles.footerMainPrice}>{pkg.price}</Text>
                                         {!!pkg.originalPrice && (
-                                            <View style={styles.originalPriceRow}>
-                                                <Text style={styles.originalPriceText}>{pkg.originalPrice}</Text>
-                                                <View style={[styles.savePill, { backgroundColor: pkg.accentColor }]}>
+                                            <View style={styles.footerMrpRow}>
+                                                <Text style={styles.footerMrpText}>{pkg.originalPrice}</Text>
+                                                <View style={[styles.savePillBadge, { backgroundColor: pkg.accentColor }]}>
                                                     <Text style={styles.savePillText}>{pkg.savings}</Text>
                                                 </View>
                                             </View>
@@ -353,13 +423,13 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                                     </View>
                                 </View>
 
-                                {/* Full-Width Action Button */}
+                                {/* Full-Width Action Button Pill */}
                                 <TouchableOpacity
-                                    style={[styles.viewPlanButton, { backgroundColor: pkg.accentColor }]}
+                                    style={[styles.viewPlanButtonPill, { backgroundColor: pkg.accentColor }]}
                                     activeOpacity={0.88}
                                     onPress={() => navigation.navigate(Routes.PACKAGE_DETAIL, { packageType: pkg.type })}>
                                     <Text style={styles.viewPlanButtonText}>View Plan</Text>
-                                    <Icon name="arrow-right" size={14} color="#FFF" style={{ marginLeft: 8 }} />
+                                    <Icon name="arrow-right" size={14} color="#FFF" style={{ marginLeft: 6 }} />
                                 </TouchableOpacity>
                             </View>
                         );
@@ -372,7 +442,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
             {/* ── Bottom Navigation Bar ── */}
             <View style={[styles.bottomNav, { paddingBottom: Math.max(insets.bottom, 8) }]}>
                 <TouchableOpacity style={styles.navItem} activeOpacity={0.8}>
-                    <Icon name="home" size={20} color="#E91E8A" />
+                    <Icon name="home" size={20} color="#FF176B" />
                     <Text style={[styles.navLabel, styles.navLabelActive]}>Home</Text>
                 </TouchableOpacity>
 
@@ -439,7 +509,7 @@ const styles = StyleSheet.create({
         width: 7,
         height: 7,
         borderRadius: 4,
-        backgroundColor: '#E91E8A',
+        backgroundColor: '#FF176B',
     },
     brandCenter: {
         alignItems: 'center',
@@ -452,7 +522,7 @@ const styles = StyleSheet.create({
         width: 22,
         height: 22,
         borderRadius: 11,
-        backgroundColor: '#FFF0F6',
+        backgroundColor: '#FFE4F0',
         justifyContent: 'center',
         alignItems: 'center',
         marginRight: 6,
@@ -460,7 +530,7 @@ const styles = StyleSheet.create({
     brandTitle: {
         fontSize: 18,
         fontWeight: '900',
-        color: '#E91E8A',
+        color: '#FF176B',
         letterSpacing: -0.3,
     },
     brandSubtitle: {
@@ -495,22 +565,67 @@ const styles = StyleSheet.create({
     verifiedBadge: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#FFF0F6',
+        backgroundColor: '#FFE4F0',
         paddingHorizontal: 10,
         paddingVertical: 6,
         borderRadius: 20,
         borderWidth: 1,
-        borderColor: '#FFD6E8',
+        borderColor: '#FFDAEA',
     },
     verifiedText: {
         fontSize: 11,
         fontWeight: '700',
-        color: '#E91E8A',
+        color: '#FF176B',
     },
     scrollContent: {
         paddingHorizontal: 16,
-        paddingTop: 12,
+        paddingTop: 8,
         paddingBottom: 24,
+    },
+    heroBanner: {
+        width: '100%',
+        height: 180,
+        borderRadius: 16,
+        marginBottom: 12,
+    },
+    featuresStrip: {
+        flexDirection: 'row',
+        backgroundColor: '#FFFFFF',
+        borderRadius: 14,
+        borderWidth: 1,
+        borderColor: '#EDF2F7',
+        marginBottom: 16,
+        paddingVertical: 10,
+        paddingHorizontal: 6,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.03,
+        shadowRadius: 6,
+        elevation: 1,
+    },
+    featureItem: {
+        flex: 1,
+        alignItems: 'center',
+        gap: 4,
+    },
+    featureItemBorder: {
+        borderRightWidth: 1,
+        borderRightColor: '#EDF2F7',
+    },
+    featureIconBox: {
+        width: 32,
+        height: 32,
+        borderRadius: 10,
+        backgroundColor: '#FFE4F0',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    featureLabel: {
+        fontSize: 9,
+        fontWeight: '600',
+        color: '#718096',
+        textAlign: 'center',
+        lineHeight: 12,
     },
     sectionHeader: {
         marginBottom: 16,
@@ -518,7 +633,7 @@ const styles = StyleSheet.create({
     sectionTitle: {
         fontSize: 22,
         fontWeight: '900',
-        color: '#1A202C',
+        color: '#1A1D36',
         letterSpacing: -0.3,
     },
     sectionSubtitle: {
@@ -529,44 +644,48 @@ const styles = StyleSheet.create({
     packageCardsList: {
         gap: 18,
     },
+
+    // ── Package Card Styling (Matching Screenshot Exactly) ──────────────────────
     cardContainer: {
-        borderRadius: 20,
+        borderRadius: 24,
         borderWidth: 1,
         padding: 16,
         position: 'relative',
-        shadowColor: '#000',
+        overflow: 'hidden',
+        shadowColor: '#FF176B',
         shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.05,
-        shadowRadius: 10,
-        elevation: 2,
+        shadowOpacity: 0.06,
+        shadowRadius: 12,
+        elevation: 3,
     },
     popularBadge: {
         position: 'absolute',
-        top: -10,
-        left: 16,
+        top: 0,
+        left: 18,
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#E91E8A',
         paddingHorizontal: 10,
         paddingVertical: 4,
-        borderRadius: 12,
+        borderBottomLeftRadius: 10,
+        borderBottomRightRadius: 10,
         zIndex: 10,
     },
     popularBadgeText: {
         color: '#FFFFFF',
-        fontSize: 10,
+        fontSize: 9,
         fontWeight: '800',
         textTransform: 'uppercase',
     },
     activeSubRibbon: {
         position: 'absolute',
-        top: -10,
-        right: 16,
+        top: 0,
+        right: 18,
         flexDirection: 'row',
         alignItems: 'center',
         paddingHorizontal: 8,
         paddingVertical: 3,
-        borderRadius: 10,
+        borderBottomLeftRadius: 10,
+        borderBottomRightRadius: 10,
         zIndex: 10,
     },
     activeSubRibbonText: {
@@ -574,54 +693,52 @@ const styles = StyleSheet.create({
         fontSize: 9,
         fontWeight: '800',
     },
-    cardHeaderRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginBottom: 14,
+    cardTopArea: {
+        position: 'relative',
+        minHeight: 160,
+        marginBottom: 12,
         marginTop: 4,
     },
-    cardHeaderLeft: {
-        flex: 1,
-        paddingRight: 10,
+    cardLeftCol: {
+        width: '62%',
+        paddingRight: 6,
     },
-    iconCircle: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
+    cardTitleRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 6,
+    },
+    iconCircleBadge: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
         justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: 8,
+        marginRight: 10,
     },
-    cardTitle: {
-        fontSize: 17,
+    titleTextWrapper: {
+        flex: 1,
+    },
+    cardTitleText: {
+        fontSize: 18,
         fontWeight: '900',
-        color: '#1A202C',
-        marginBottom: 4,
+        color: '#1A1D36',
     },
-    cardTagline: {
+    cardTaglineText: {
         fontSize: 11,
-        color: '#718096',
-        lineHeight: 16,
+        color: '#5C6079',
+        lineHeight: 15,
+        marginTop: 1,
     },
-    cardImageWrapper: {
-        width: 105,
-        height: 105,
-        borderRadius: 16,
-        overflow: 'hidden',
+    checklistGrid: {
+        gap: 6,
+        marginTop: 4,
     },
-    cardImage: {
-        width: '100%',
-        height: '100%',
-    },
-    featuresGrid: {
-        marginBottom: 14,
-        gap: 8,
-    },
-    featureRow: {
+    checklistRow: {
         flexDirection: 'row',
         alignItems: 'center',
     },
-    checkCircle: {
+    checkCircleBadge: {
         width: 16,
         height: 16,
         borderRadius: 8,
@@ -629,74 +746,88 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginRight: 8,
     },
-    featureText: {
+    checkText: {
         fontSize: 12,
-        fontWeight: '600',
-        color: '#2D3748',
+        fontWeight: '700',
+        color: '#2C2E4A',
     },
+    rightImageWrapper: {
+        position: 'absolute',
+        right: -16,
+        top: -16,
+        width: 150,
+        height: 185,
+        borderTopRightRadius: 24,
+        overflow: 'hidden',
+    },
+    nurseRightImage: {
+        width: '100%',
+        height: '100%',
+    },
+
+    // Footer Price Box
     priceFooterBox: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        backgroundColor: '#FFFFFF',
-        borderRadius: 14,
-        paddingHorizontal: 12,
-        paddingVertical: 10,
+        borderRadius: 16,
+        paddingHorizontal: 14,
+        paddingVertical: 12,
         marginBottom: 12,
-        borderWidth: 1,
-        borderColor: 'rgba(0,0,0,0.05)',
     },
     priceFooterLeft: {
         flex: 1,
     },
-    planNameText: {
-        fontSize: 13,
-        fontWeight: '800',
+    footerPlanTitle: {
+        fontSize: 15,
+        fontWeight: '900',
     },
-    planDetailsText: {
-        fontSize: 10,
-        color: '#718096',
+    footerPlanSub: {
+        fontSize: 11,
+        color: '#4A506B',
         marginTop: 2,
     },
     priceFooterRight: {
         alignItems: 'flex-end',
     },
-    mainPriceText: {
-        fontSize: 18,
+    footerMainPrice: {
+        fontSize: 22,
         fontWeight: '900',
-        color: '#1A202C',
+        color: '#1A1D36',
     },
-    originalPriceRow: {
+    footerMrpRow: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 6,
         marginTop: 2,
     },
-    originalPriceText: {
-        fontSize: 11,
-        color: '#A0AEC0',
+    footerMrpText: {
+        fontSize: 12,
+        color: '#9498AB',
         textDecorationLine: 'line-through',
     },
-    savePill: {
-        paddingHorizontal: 6,
-        paddingVertical: 2,
-        borderRadius: 6,
+    savePillBadge: {
+        paddingHorizontal: 7,
+        paddingVertical: 3,
+        borderRadius: 10,
     },
     savePillText: {
         color: '#FFFFFF',
         fontSize: 9,
         fontWeight: '800',
     },
-    viewPlanButton: {
-        height: 44,
-        borderRadius: 12,
+
+    // Button Pill
+    viewPlanButtonPill: {
+        height: 48,
+        borderRadius: 24,
         flexDirection: 'row',
         justifyContent: 'center',
         alignItems: 'center',
     },
     viewPlanButtonText: {
         color: '#FFFFFF',
-        fontSize: 14,
+        fontSize: 15,
         fontWeight: '800',
     },
 
@@ -707,7 +838,7 @@ const styles = StyleSheet.create({
     activeSubsTitle: {
         fontSize: 15,
         fontWeight: '800',
-        color: '#1A202C',
+        color: '#1A1D36',
         marginBottom: 8,
     },
     activeSubCard: {
@@ -723,7 +854,7 @@ const styles = StyleSheet.create({
         justifyContent: 'center', alignItems: 'center',
     },
     activeSubTitle: {
-        fontSize: 14, fontWeight: '800', color: '#1A202C',
+        fontSize: 14, fontWeight: '800', color: '#1A1D36',
     },
     activeSubPlan: { fontSize: 11, color: '#718096', marginTop: 1 },
     activeStatusBadge: { paddingHorizontal: 6, paddingVertical: 3, borderRadius: 10 },
@@ -754,7 +885,7 @@ const styles = StyleSheet.create({
         marginTop: 3,
     },
     navLabelActive: {
-        color: '#E91E8A',
+        color: '#FF176B',
         fontWeight: '800',
     },
 });
