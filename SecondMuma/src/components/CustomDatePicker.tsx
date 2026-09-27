@@ -15,6 +15,7 @@ interface CustomDatePickerProps {
     value: Date | null;
     onChange: (date: Date) => void;
     minimumDate?: Date;
+    maximumDate?: Date;
     accentColor?: string;
 }
 
@@ -24,6 +25,7 @@ const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
     value,
     onChange,
     minimumDate = new Date(),
+    maximumDate,
     accentColor = Colors.PRIMARY,
 }) => {
     // Current viewed month/year in the calendar
@@ -50,6 +52,26 @@ const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
     const daysInMonth = getDaysInMonth(year, month);
     const firstDayIndex = getFirstDayOfMonth(year, month);
 
+    // Date bounds (min date = today/minimumDate, max date = 6 months from minDate or maximumDate)
+    const minDateLimit = new Date(minimumDate);
+    minDateLimit.setHours(0, 0, 0, 0);
+
+    const maxDateLimit = maximumDate
+        ? new Date(maximumDate)
+        : (() => {
+            const d = new Date(minimumDate);
+            d.setMonth(d.getMonth() + 6);
+            return d;
+        })();
+    maxDateLimit.setHours(23, 59, 59, 999);
+
+    // Month Navigation bounds
+    const isPrevDisabled = (year < minDateLimit.getFullYear()) ||
+        (year === minDateLimit.getFullYear() && month <= minDateLimit.getMonth());
+
+    const isNextDisabled = (year > maxDateLimit.getFullYear()) ||
+        (year === maxDateLimit.getFullYear() && month >= maxDateLimit.getMonth());
+
     // Grid cells array
     const cells: { date?: Date; label: string; isPadding: boolean; disabled: boolean }[] = [];
 
@@ -59,16 +81,11 @@ const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
     }
 
     // Current month cells
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const minDateLimit = new Date(minimumDate);
-    minDateLimit.setHours(0, 0, 0, 0);
-
     for (let day = 1; day <= daysInMonth; day++) {
         const cellDate = new Date(year, month, day);
         cellDate.setHours(0, 0, 0, 0);
 
-        const disabled = cellDate.getTime() < minDateLimit.getTime();
+        const disabled = cellDate.getTime() < minDateLimit.getTime() || cellDate.getTime() > maxDateLimit.getTime();
 
         cells.push({
             date: cellDate,
@@ -79,11 +96,15 @@ const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
     }
 
     const handlePrevMonth = () => {
-        setCurrentDate(new Date(year, month - 1, 1));
+        if (!isPrevDisabled) {
+            setCurrentDate(new Date(year, month - 1, 1));
+        }
     };
 
     const handleNextMonth = () => {
-        setCurrentDate(new Date(year, month + 1, 1));
+        if (!isNextDisabled) {
+            setCurrentDate(new Date(year, month + 1, 1));
+        }
     };
 
     const handleSelectDate = (date: Date) => {
@@ -108,7 +129,10 @@ const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
                 <View style={styles.container}>
                     {/* Header */}
                     <View style={styles.header}>
-                        <Text style={styles.headerTitle}>Select Start Date</Text>
+                        <View>
+                            <Text style={styles.headerTitle}>Select Start Date</Text>
+                            <Text style={styles.headerSubtitle}>Up to 6 months in advance</Text>
+                        </View>
                         <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
                             <Icon name="times" size={16} color={Colors.TEXT_SECONDARY} />
                         </TouchableOpacity>
@@ -116,12 +140,20 @@ const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
 
                     {/* Month Picker Header */}
                     <View style={styles.monthHeader}>
-                        <TouchableOpacity onPress={handlePrevMonth} style={styles.navBtn}>
-                            <Icon name="chevron-left" size={12} color={Colors.PRIMARY} />
+                        <TouchableOpacity
+                            onPress={handlePrevMonth}
+                            disabled={isPrevDisabled}
+                            style={[styles.navBtn, isPrevDisabled && styles.disabledNavBtn]}
+                        >
+                            <Icon name="chevron-left" size={12} color={isPrevDisabled ? Colors.TEXT_HINT : Colors.PRIMARY} />
                         </TouchableOpacity>
                         <Text style={styles.monthText}>{monthNames[month]} {year}</Text>
-                        <TouchableOpacity onPress={handleNextMonth} style={styles.navBtn}>
-                            <Icon name="chevron-right" size={12} color={Colors.PRIMARY} />
+                        <TouchableOpacity
+                            onPress={handleNextMonth}
+                            disabled={isNextDisabled}
+                            style={[styles.navBtn, isNextDisabled && styles.disabledNavBtn]}
+                        >
+                            <Icon name="chevron-right" size={12} color={isNextDisabled ? Colors.TEXT_HINT : Colors.PRIMARY} />
                         </TouchableOpacity>
                     </View>
 
@@ -202,6 +234,11 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         color: Colors.TEXT_PRIMARY,
     },
+    headerSubtitle: {
+        fontSize: 11,
+        color: Colors.TEXT_SECONDARY,
+        marginTop: 2,
+    },
     closeBtn: {
         padding: 4,
     },
@@ -215,6 +252,10 @@ const styles = StyleSheet.create({
         padding: 10,
         borderRadius: 10,
         backgroundColor: Colors.PRIMARY_LIGHT,
+    },
+    disabledNavBtn: {
+        backgroundColor: '#F3F4F6',
+        opacity: 0.5,
     },
     monthText: {
         fontSize: 15,
