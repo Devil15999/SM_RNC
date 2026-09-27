@@ -131,6 +131,35 @@ const CheckoutScreen: React.FC<Props> = ({ navigation, route }) => {
         return () => { isMounted = false; };
     }, [token]);
 
+    // Saved Babies state & auto-population
+    const [savedBabies, setSavedBabies] = useState<Array<{ _id: string; name: string; age?: string; gender?: string }>>([]);
+
+    useEffect(() => {
+        if (!token) return;
+        let isMounted = true;
+        const fetchUserProfile = async () => {
+            try {
+                const res = await fetch(`${API_BASE_URL}/users/profile`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if (res.ok && data.success && data.user && isMounted) {
+                    const babiesList = data.user.babies || [];
+                    setSavedBabies(babiesList);
+                    if (babiesList.length > 0) {
+                        const firstBaby = babiesList[0];
+                        if (firstBaby.name) setBabyName(firstBaby.name);
+                        if (firstBaby.age) setBabyAge(firstBaby.age);
+                    }
+                }
+            } catch (err) {
+                console.log('Error fetching user profile in CheckoutScreen:', err);
+            }
+        };
+        fetchUserProfile();
+        return () => { isMounted = false; };
+    }, [token]);
+
     const handleVerifyPincode = async () => {
         if (!pincode.trim() || pincode.length !== 6) {
             setErrors(prev => ({ ...prev, pincode: 'Enter valid 6-digit pincode' }));
@@ -322,6 +351,37 @@ const CheckoutScreen: React.FC<Props> = ({ navigation, route }) => {
                         {packageType !== 'mother' && (
                             <View>
                                 <Text style={styles.formSubSectionTitle}>Baby's Profile</Text>
+
+                                {savedBabies.length > 0 && (
+                                    <View style={{ marginBottom: 14 }}>
+                                        <Text style={styles.label}>Auto-fill from Saved Profiles:</Text>
+                                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 6 }}>
+                                            {savedBabies.map(baby => {
+                                                const isSelected = babyName === baby.name;
+                                                return (
+                                                    <TouchableOpacity
+                                                        key={baby._id}
+                                                        style={[
+                                                            styles.chip,
+                                                            isSelected && { backgroundColor: accentColor, borderColor: accentColor }
+                                                        ]}
+                                                        onPress={() => {
+                                                            setBabyName(baby.name);
+                                                            if (baby.age) setBabyAge(baby.age);
+                                                            setErrors(prev => ({ ...prev, babyName: '', babyAge: '' }));
+                                                        }}
+                                                        activeOpacity={0.8}
+                                                    >
+                                                        <Text style={[styles.chipText, isSelected && { color: Colors.WHITE, fontWeight: '700' }]}>
+                                                            👶 {baby.name} {baby.age ? `(${baby.age})` : ''}
+                                                        </Text>
+                                                    </TouchableOpacity>
+                                                );
+                                            })}
+                                        </View>
+                                    </View>
+                                )}
+
                                 {renderInput("Baby's Name", babyName, setBabyName, 'babyName', { placeholder: "Enter baby's name (or Baby of Mother's Name)" })}
                                 
                                 <View style={styles.inputGroup}>

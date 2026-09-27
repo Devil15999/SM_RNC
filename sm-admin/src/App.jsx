@@ -1405,7 +1405,14 @@ function App() {
           status: editOrder.status,
           paymentStatus: editOrder.paymentStatus,
           activatedAt: editOrder.activatedAt,
-          expiresAt: editOrder.expiresAt
+          expiresAt: editOrder.expiresAt,
+          motherName: editOrder.motherName || '',
+          motherAge: editOrder.motherAge || '',
+          babyName: editOrder.babyName || '',
+          babyAge: editOrder.babyAge || '',
+          startDate: editOrder.startDate || null,
+          timeSlot: editOrder.timeSlot || '',
+          selectedTime: editOrder.selectedTime || '',
         })
       });
       if (res.success) {
@@ -3600,19 +3607,63 @@ function App() {
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 24px', fontSize: '0.85rem', color: 'var(--text)' }}>
                     <div>
                       <span style={{ color: 'var(--text-muted)' }}>Mother's Name:</span>
-                      <div style={{ fontWeight: '600', marginTop: '2px' }}>{editOrder.motherName || 'Not specified'}</div>
+                      <input
+                        type="text"
+                        className="form-control"
+                        style={{ marginTop: '4px' }}
+                        value={editOrder.motherName || ''}
+                        onChange={(e) => setEditOrder({ ...editOrder, motherName: e.target.value })}
+                        placeholder="Mother's name"
+                      />
                     </div>
                     <div>
                       <span style={{ color: 'var(--text-muted)' }}>Mother's Age:</span>
-                      <div style={{ fontWeight: '600', marginTop: '2px' }}>{editOrder.motherAge ? `${editOrder.motherAge} years` : 'Not specified'}</div>
+                      <input
+                        type="text"
+                        className="form-control"
+                        style={{ marginTop: '4px' }}
+                        value={editOrder.motherAge || ''}
+                        onChange={(e) => setEditOrder({ ...editOrder, motherAge: e.target.value })}
+                        placeholder="Mother's age"
+                      />
                     </div>
                     <div>
-                      <span style={{ color: 'var(--text-muted)' }}>Baby's Name:</span>
-                      <div style={{ fontWeight: '600', marginTop: '2px' }}>{editOrder.babyName || 'Not specified'}</div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ color: 'var(--text-muted)' }}>Baby's Name:</span>
+                        {(editOrder.babyName || editOrder.babyAge) ? (
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-outline-danger"
+                            style={{ padding: '1px 6px', fontSize: '0.7rem' }}
+                            onClick={() => {
+                              if (window.confirm('Are you sure you want to delete baby details from this order?')) {
+                                setEditOrder({ ...editOrder, babyName: '', babyAge: '' });
+                              }
+                            }}
+                          >
+                            Delete Baby Details
+                          </button>
+                        ) : null}
+                      </div>
+                      <input
+                        type="text"
+                        className="form-control"
+                        style={{ marginTop: '4px' }}
+                        value={editOrder.babyName || ''}
+                        onChange={(e) => setEditOrder({ ...editOrder, babyName: e.target.value })}
+                        placeholder="Baby's name"
+                      />
                     </div>
                     <div>
                       <span style={{ color: 'var(--text-muted)' }}>Baby's Age Range:</span>
-                      <div style={{ fontWeight: '600', marginTop: '2px' }}>{editOrder.babyAge || 'Not specified'}</div>
+                      <input
+                        type="text"
+                        className="form-control"
+                        style={{ marginTop: '4px' }}
+                        value={editOrder.babyAge || ''}
+                        onChange={(e) => setEditOrder({ ...editOrder, babyAge: e.target.value })}
+                        placeholder="e.g. 0-3 months"
+                      />
                     </div>
                     <div>
                       <span style={{ color: 'var(--text-muted)' }}>Appointment Start:</span>
