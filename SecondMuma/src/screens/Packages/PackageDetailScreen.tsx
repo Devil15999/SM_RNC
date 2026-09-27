@@ -48,72 +48,10 @@ interface PackageDetailInfo {
 }
 
 const DEFAULT_PACKAGES: Record<string, PackageDetailInfo> = {
-    muma: {
-        type: 'muma',
-        title: 'Mother + Baby Bundle',
-        subtitle: 'Complete nursing care for both you and your baby at the comfort of your home.',
-        badge: 'Most Popular',
-        icon: 'heart',
-        accentColor: '#E91E8A',
-        mainImage: require('../../assets/post2.png'),
-        gallery: [
-            require('../../assets/post2.png'),
-            require('../../assets/post1.png'),
-            require('../../assets/post3.png'),
-            require('../../assets/banner.png'),
-            require('../../assets/post2.png'),
-        ],
-        iconsList: [
-            { icon: 'baby', label: 'Newborn\nCare' },
-            { icon: 'female', label: 'Mother\nCare' },
-            { icon: 'spa', label: 'Recovery\nSupport' },
-            { icon: 'prescription-bottle', label: 'Feeding\nSupport' },
-            { icon: 'book-open', label: 'Guidance\n& Updates' },
-        ],
-        includedCol1: [
-            'All newborn care services',
-            'All mother care services',
-            'Breastfeeding support',
-            'Mother\'s recovery support',
-        ],
-        includedCol2: [
-            'Daily routine & care planning',
-            'Emotional support & guidance',
-            'Regular progress updates',
-            'Dedicated nurse (subject to availability)',
-        ],
-        plans: {
-            '1month': {
-                key: '1month',
-                label: '1 Month Plan',
-                subtitle: '26 visits × 3 hours (78 hours)',
-                price: 34999,
-                originalPrice: 45000,
-                savings: 'Save 22%',
-                badge: 'Most Popular',
-            },
-            '3month': {
-                key: '3month',
-                label: '2 Months Plan',
-                subtitle: '52 visits × 3 hours (156 hours)',
-                price: 64999,
-                originalPrice: 90000,
-                savings: 'Save 28%',
-            },
-            '6month': {
-                key: '6month',
-                label: '3 Months Plan',
-                subtitle: '78 visits × 3 hours (234 hours)',
-                price: 89999,
-                originalPrice: 135000,
-                savings: 'Save 33%',
-            },
-        },
-    },
     baby: {
         type: 'baby',
-        title: 'Newborn Care',
-        subtitle: 'Professional nursing care for your baby\'s healthy start at home.',
+        title: 'Baby Care',
+        subtitle: 'Comprehensive newborn care, bathing, feeding routines, milestone tracking, and gentle attention.',
         icon: 'baby',
         accentColor: '#E91E8A',
         mainImage: require('../../assets/post1.png'),
@@ -121,27 +59,27 @@ const DEFAULT_PACKAGES: Record<string, PackageDetailInfo> = {
             require('../../assets/post1.png'),
             require('../../assets/post2.png'),
             require('../../assets/post3.png'),
-            require('../../assets/banner.png'),
             require('../../assets/post1.png'),
+            require('../../assets/post2.png'),
         ],
         iconsList: [
-            { icon: 'baby', label: 'Newborn\nCare' },
+            { icon: 'baby', label: 'Baby\nCare' },
             { icon: 'hands-wash', label: 'Bathing\n& Hygiene' },
             { icon: 'cookie-bite', label: 'Feeding\nSupport' },
             { icon: 'moon', label: 'Sleep\nGuidance' },
             { icon: 'heartbeat', label: 'Growth\nTracking' },
         ],
         includedCol1: [
-            'Baby bathing & hygiene',
-            'Feeding & burping support',
-            'Sleep & routine guidance',
-            'Growth & wellness monitoring',
+            'Hygiene care, bathing & cord care',
+            'Feeding, burping & colic relief',
+            'Sleep routine & bedtime support',
+            'Growth & milestone tracking',
         ],
         includedCol2: [
-            'Milestone development tracking',
-            'Vaccination schedule assistance',
-            'Sanitation & hygiene support',
-            'Dedicated baby nurse',
+            'Sanitation of baby gear & bottles',
+            'Pediatric checkup assistance',
+            'Vaccination schedule support',
+            'Dedicated certified baby nurse',
         ],
         plans: {
             '1month': {
@@ -173,62 +111,124 @@ const DEFAULT_PACKAGES: Record<string, PackageDetailInfo> = {
     },
     mother: {
         type: 'mother',
-        title: 'Night Nursing',
-        subtitle: 'Overnight nursing support for peaceful nights and restful sleep.',
-        icon: 'moon',
+        title: 'Mother Care',
+        subtitle: 'Dedicated postpartum recovery support, lactation assistance, and physical wellness for new mothers.',
+        icon: 'female',
         accentColor: '#5C54E5',
         mainImage: require('../../assets/post3.png'),
         gallery: [
             require('../../assets/post3.png'),
             require('../../assets/post1.png'),
             require('../../assets/post2.png'),
-            require('../../assets/banner.png'),
             require('../../assets/post3.png'),
+            require('../../assets/post1.png'),
         ],
         iconsList: [
-            { icon: 'moon', label: 'Night\nCare' },
-            { icon: 'baby', label: 'Diaper\n& Feeding' },
-            { icon: 'bed', label: 'Sleep\nTraining' },
-            { icon: 'heartbeat', label: 'Vitals\nMonitor' },
-            { icon: 'user-shield', label: 'Night\nNurse' },
+            { icon: 'female', label: 'Mother\nCare' },
+            { icon: 'spa', label: 'Recovery\nSupport' },
+            { icon: 'prescription-bottle', label: 'Lactation\nSupport' },
+            { icon: 'heartbeat', label: 'Health\nMonitor' },
+            { icon: 'book-open', label: 'Wellness\nGuidance' },
         ],
         includedCol1: [
-            'Overnight care (8–12 hours)',
-            'Baby feeding & diaper support',
-            'Sleep routine establishment',
-            'Monitoring mother & baby',
+            'Postpartum recovery assistance',
+            'Breastfeeding & lactation support',
+            'Nutritional guidance & meal help',
+            'Emotional wellness & vitals log',
         ],
         includedCol2: [
-            'Night shift nurse assignment',
-            'Constant vital monitoring',
-            'Peace of mind for parents',
-            'Dedicated support team',
+            'Post-caesarean & wound care',
+            'Gentle massage & relaxation',
+            'Consultation & progress updates',
+            'Dedicated care coordinator',
         ],
         plans: {
             '1month': {
                 key: '1month',
                 label: '1 Month Plan',
-                subtitle: '26 nights × 10 hours (260 hours)',
-                price: 64999,
-                originalPrice: 80000,
-                savings: 'Save 19%',
+                subtitle: '26 visits × 3 hours (78 hours)',
+                price: 34999,
+                originalPrice: 45000,
+                savings: 'Save 22%',
             },
             '3month': {
                 key: '3month',
                 label: '2 Months Plan',
-                subtitle: '52 nights × 10 hours (520 hours)',
-                price: 124999,
-                originalPrice: 160000,
-                savings: 'Save 22%',
+                subtitle: '52 visits × 3 hours (156 hours)',
+                price: 64999,
+                originalPrice: 90000,
+                savings: 'Save 28%',
                 badge: 'Most Popular',
             },
             '6month': {
                 key: '6month',
                 label: '3 Months Plan',
-                subtitle: '78 nights × 10 hours (780 hours)',
-                price: 179999,
-                originalPrice: 240000,
+                subtitle: '78 visits × 3 hours (234 hours)',
+                price: 89999,
+                originalPrice: 135000,
+                savings: 'Save 33%',
+            },
+        },
+    },
+    muma: {
+        type: 'muma',
+        title: 'Mother + Baby Care',
+        subtitle: 'The ultimate 360° care bundle providing dual dedicated support for both mother\'s recovery and baby\'s healthy start.',
+        badge: 'Most Popular',
+        icon: 'heart',
+        accentColor: '#E91E8A',
+        mainImage: require('../../assets/post2.png'),
+        gallery: [
+            require('../../assets/post2.png'),
+            require('../../assets/post1.png'),
+            require('../../assets/post3.png'),
+            require('../../assets/post2.png'),
+            require('../../assets/post1.png'),
+        ],
+        iconsList: [
+            { icon: 'baby', label: 'Baby\nCare' },
+            { icon: 'female', label: 'Mother\nCare' },
+            { icon: 'spa', label: 'Recovery\nSupport' },
+            { icon: 'prescription-bottle', label: 'Feeding\nSupport' },
+            { icon: 'book-open', label: 'Guidance\n& Updates' },
+        ],
+        includedCol1: [
+            'All essential Baby Care services',
+            'All specialized Mother Care services',
+            'Lactation & breastfeeding assistance',
+            'Postpartum recovery & routine planning',
+        ],
+        includedCol2: [
+            'Dual nurse care coordination',
+            'Daily vitals & progress logs',
+            '24/7 dedicated support team',
+            'Comprehensive care reports',
+        ],
+        plans: {
+            '1month': {
+                key: '1month',
+                label: '1 Month Plan',
+                subtitle: '26 visits × 3 hours (78 hours)',
+                price: 49999,
+                originalPrice: 65000,
+                savings: 'Save 23%',
+                badge: 'Most Popular',
+            },
+            '3month': {
+                key: '3month',
+                label: '2 Months Plan',
+                subtitle: '52 visits × 3 hours (156 hours)',
+                price: 89999,
+                originalPrice: 120000,
                 savings: 'Save 25%',
+            },
+            '6month': {
+                key: '6month',
+                label: '3 Months Plan',
+                subtitle: '78 visits × 3 hours (234 hours)',
+                price: 129999,
+                originalPrice: 180000,
+                savings: 'Save 28%',
             },
         },
     },
@@ -279,9 +279,14 @@ const PackageDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                     col2 = fetched.features.slice(half);
                 }
 
+                let cleanTitle = fetched.title || baseDefault.title;
+                if (packageType === 'mother') cleanTitle = 'Mother Care';
+                else if (packageType === 'baby') cleanTitle = 'Baby Care';
+                else if (packageType === 'muma') cleanTitle = 'Mother + Baby Care';
+
                 setPkgData({
                     ...baseDefault,
-                    title: fetched.title || baseDefault.title,
+                    title: cleanTitle,
                     subtitle: fetched.subtitle || fetched.tagline || baseDefault.subtitle,
                     badge: fetched.badge !== undefined ? fetched.badge : baseDefault.badge,
                     icon: (fetched.icon ?? baseDefault.icon).replace(/^fa-/, ''),
@@ -520,7 +525,7 @@ const PackageDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                     </View>
                 </View>
 
-                <View style={{ height: 24 }} />
+                <View style={{ height: 40 }} />
             </ScrollView>
 
             {/* ── Sticky Bottom Action Footer ── */}

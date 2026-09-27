@@ -54,8 +54,8 @@ const FEATURES_STRIP = [
 const DEFAULT_PACKAGES: PackageCardItem[] = [
     {
         type: 'baby',
-        title: 'Newborn Care',
-        tagline: 'Professional nursing care for your baby\'s healthy start.',
+        title: 'Baby Care',
+        tagline: 'Gentle, expert newborn nursing care for your baby\'s healthy growth.',
         icon: 'baby',
         accentColor: '#FF176B',
         bgColor: '#FFF0F5',
@@ -63,22 +63,45 @@ const DEFAULT_PACKAGES: PackageCardItem[] = [
         footerBg: '#FFEBF3',
         iconCircleBg: '#FFE4F0',
         image: require('../../assets/post1.png'),
-        planName: 'Monthly Plan',
+        planName: '1 Month Plan',
         planDetails: '26 visits × 3 hours (78 hours)',
         price: '₹ 24,999',
         originalPrice: '₹ 32,000',
         savings: 'Save 22%',
         features: [
-            'Baby bathing & hygiene',
-            'Feeding & burping support',
-            'Sleep & routine guidance',
-            'Growth & wellness monitoring',
+            'Hygiene care, bathing & cord care',
+            'Feeding, burping & colic relief',
+            'Sleep routine & bedtime support',
+            'Growth & milestone tracking',
+        ],
+    },
+    {
+        type: 'mother',
+        title: 'Mother Care',
+        tagline: 'Specialized postpartum recovery & nursing care for new mothers.',
+        icon: 'female',
+        accentColor: '#5C54E5',
+        bgColor: '#F4F0FF',
+        borderColor: '#DDD6FE',
+        footerBg: '#EBE5FF',
+        iconCircleBg: '#EBE5FF',
+        image: require('../../assets/post2.png'),
+        planName: '1 Month Plan',
+        planDetails: '26 visits × 3 hours (78 hours)',
+        price: '₹ 34,999',
+        originalPrice: '₹ 45,000',
+        savings: 'Save 22%',
+        features: [
+            'Postpartum recovery & healing assistance',
+            'Breastfeeding & lactation support',
+            'Nutritional guidance & meal assistance',
+            'Emotional wellness & vital monitoring',
         ],
     },
     {
         type: 'muma',
-        title: 'Mother + Baby Bundle',
-        tagline: 'Complete nursing care for both you and your baby.',
+        title: 'Mother + Baby Care',
+        tagline: 'Complete dual nursing care bundle for both mother & newborn baby.',
         icon: 'heart',
         accentColor: '#FF176B',
         bgColor: '#FFF0F5',
@@ -87,49 +110,26 @@ const DEFAULT_PACKAGES: PackageCardItem[] = [
         iconCircleBg: '#FFE4F0',
         image: require('../../assets/post2.png'),
         badge: 'Most Popular',
-        planName: 'Monthly Plan',
+        planName: '1 Month Plan',
         planDetails: '26 visits × 3 hours (78 hours)',
-        price: '₹ 34,999',
-        originalPrice: '₹ 45,000',
-        savings: 'Save 22%',
+        price: '₹ 49,999',
+        originalPrice: '₹ 65,000',
+        savings: 'Save 23%',
         features: [
-            'All newborn care services',
-            'All mother care services',
-            'Breastfeeding support',
-            'Recovery & wellness support',
-        ],
-    },
-    {
-        type: 'mother',
-        title: 'Night Nursing',
-        tagline: 'Overnight nursing support for peaceful nights.',
-        icon: 'moon',
-        accentColor: '#5C54E5',
-        bgColor: '#F4F0FF',
-        borderColor: '#DDD6FE',
-        footerBg: '#EBE5FF',
-        iconCircleBg: '#EBE5FF',
-        image: require('../../assets/post3.png'),
-        planName: 'Monthly Plan',
-        planDetails: '26 nights × 10 hours (260 hours)',
-        price: '₹ 64,999',
-        originalPrice: '₹ 80,000',
-        savings: 'Save 19%',
-        features: [
-            'Overnight care (8–12 hours)',
-            'Baby feeding & diaper support',
-            'Sleep routine establishment',
-            'Monitoring mother & baby',
+            'All essential Baby Care services',
+            'All specialized Mother Care services',
+            'Lactation & breastfeeding assistance',
+            'Postpartum recovery & routine planning',
         ],
     },
 ];
 
 const mapIconName = (rawIcon: string, type: string): string => {
     let clean = (rawIcon || '').replace(/^fa-/, '').trim();
-    if (!clean || clean === 'question' || clean === 'box' || clean === 'user-pregnant' || clean === 'hand-holding-heart') {
+    if (!clean || clean === 'question' || clean === 'box' || clean === 'user-pregnant' || clean === 'hand-holding-heart' || clean === 'moon') {
+        if (type === 'mother') return 'female';
         if (type === 'baby') return 'baby';
         if (type === 'muma') return 'heart';
-        if (type === 'mother') return 'moon';
     }
     return clean || 'heart';
 };
@@ -148,27 +148,25 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
             if (res.ok && data.success && Array.isArray(data.data) && data.data.length > 0) {
                 const formatted: PackageCardItem[] = data.data.map((p: any) => {
                     const month1 = p.plans?.['1month'] || {};
-                    const isNight = p.type === 'mother';
+                    const isMother = p.type === 'mother';
                     const isMuma = p.type === 'muma';
 
-                    const fallbackImg = p.type === 'baby'
-                        ? require('../../assets/post1.png')
-                        : isMuma
+                    const cardImage = isMuma
                         ? require('../../assets/post2.png')
-                        : require('../../assets/post3.png');
+                        : isMother
+                            ? require('../../assets/post3.png')
+                            : require('../../assets/post1.png');
 
                     const cleanIcon = mapIconName(p.icon, p.type);
 
                     // Dynamic Title Mapping
                     let cleanTitle = p.title;
-                    if (!cleanTitle || cleanTitle.includes('Mother Care') && !isMuma && !isNight) {
-                        cleanTitle = 'Newborn Care';
+                    if (p.type === 'mother') {
+                        cleanTitle = 'Mother Care';
                     } else if (p.type === 'baby') {
-                        cleanTitle = 'Newborn Care';
+                        cleanTitle = 'Baby Care';
                     } else if (isMuma) {
-                        cleanTitle = 'Mother + Baby Bundle';
-                    } else if (isNight) {
-                        cleanTitle = 'Night Nursing';
+                        cleanTitle = 'Mother + Baby Care';
                     }
 
                     return {
@@ -176,15 +174,15 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                         title: cleanTitle,
                         tagline: p.tagline || p.subtitle || '',
                         icon: cleanIcon,
-                        accentColor: isNight ? '#5C54E5' : '#FF176B',
-                        bgColor: isNight ? '#F4F0FF' : '#FFF0F5',
-                        borderColor: isNight ? '#DDD6FE' : '#FFDAEA',
-                        footerBg: isNight ? '#EBE5FF' : '#FFEBF3',
-                        iconCircleBg: isNight ? '#EBE5FF' : '#FFE4F0',
-                        image: fallbackImg,
+                        accentColor: isMother ? '#5C54E5' : '#FF176B',
+                        bgColor: isMother ? '#F4F0FF' : '#FFF0F5',
+                        borderColor: isMother ? '#DDD6FE' : '#FFDAEA',
+                        footerBg: isMother ? '#EBE5FF' : '#FFEBF3',
+                        iconCircleBg: isMother ? '#EBE5FF' : '#FFE4F0',
+                        image: cardImage,
                         badge: p.badge || month1.badge || (isMuma ? 'Most Popular' : undefined),
-                        planName: month1.label || 'Monthly Plan',
-                        planDetails: month1.visitInfo || (isNight ? '26 nights × 10 hours (260 hours)' : '26 visits × 3 hours (78 hours)'),
+                        planName: month1.label || '1 Month Plan',
+                        planDetails: month1.visitInfo || '26 visits × 3 hours (78 hours)',
                         price: month1.price ? `₹ ${month1.price.toLocaleString('en-IN')}` : `₹ ${p.startingPrice?.toLocaleString('en-IN')}`,
                         originalPrice: month1.originalPrice ? `₹ ${month1.originalPrice.toLocaleString('en-IN')}` : '',
                         savings: month1.savings || 'Save 22%',
@@ -192,8 +190,8 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                     };
                 });
 
-                // Sort: baby, muma, mother
-                const orderMap: Record<string, number> = { baby: 0, muma: 1, mother: 2 };
+                // Sort order: baby, mother, muma
+                const orderMap: Record<string, number> = { baby: 0, mother: 1, muma: 2 };
                 formatted.sort((a, b) => (orderMap[a.type] ?? 99) - (orderMap[b.type] ?? 99));
 
                 setPackageList(formatted);
@@ -236,25 +234,29 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
             <StatusBar barStyle="dark-content" backgroundColor="#FFF" />
 
-            {/* ── Top Header ── */}
-            <View style={styles.topHeader}>
-                <TouchableOpacity style={styles.headerIconButton} activeOpacity={0.7}>
-                    <Icon name="bars" size={20} color="#2D3748" />
-                </TouchableOpacity>
-
-                <View style={styles.brandCenter}>
-                    <View style={styles.brandRow}>
-                        <View style={styles.brandIconCircle}>
-                            <Icon name="heart" size={14} color="#FF176B" solid />
-                        </View>
-                        <Text style={styles.brandTitle}>Second Muma</Text>
-                    </View>
-                    <Text style={styles.brandSubtitle}>Professional Nursing Care for Mother & Baby at Home</Text>
+            {/* ── Top Bar ── */}
+            <View style={styles.topBar}>
+                <View>
+                    <Text style={styles.welcome}>
+                        Good day <Icon name="hand-peace" size={14} color="#FFD54F" solid />
+                    </Text>
+                    <Text style={styles.name}>{user?.name ?? 'User'}</Text>
                 </View>
-
-                <TouchableOpacity style={styles.headerIconButton} activeOpacity={0.7}>
-                    <Icon name="bell" size={20} color="#2D3748" />
-                    <View style={styles.notificationDot} />
+                <TouchableOpacity
+                    style={styles.avatar}
+                    activeOpacity={0.8}
+                    onPress={() => navigation.navigate(Routes.PROFILE)}>
+                    {user?.avatar ? (
+                        <Image
+                            source={{ uri: user.avatar }}
+                            style={{ width: '100%', height: '100%', borderRadius: 19 }}
+                        />
+                    ) : (
+                        <Image
+                            source={require('../../assets/user.png')}
+                            style={{ width: '100%', height: '100%', tintColor: Colors.WHITE }}
+                        />
+                    )}
                 </TouchableOpacity>
             </View>
 
@@ -399,7 +401,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
 
                                     {/* Right Nurse Image (Positioned in Top Right) */}
                                     <View style={styles.rightImageWrapper}>
-                                        <Image source={pkg.image} style={styles.nurseRightImage} resizeMode="cover" />
+                                        <Image source={pkg.image} style={styles.nurseRightImage} resizeMode="center" />
                                     </View>
                                 </View>
 
@@ -483,61 +485,35 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: '#FFFFFF',
     },
-    topHeader: {
+    topBar: {
         flexDirection: 'row',
-        alignItems: 'center',
         justifyContent: 'space-between',
+        alignItems: 'center',
         paddingHorizontal: 16,
-        paddingVertical: 10,
+        paddingVertical: 12,
         backgroundColor: '#FFFFFF',
-        borderBottomWidth: 1,
-        borderBottomColor: '#F0F4F8',
     },
-    headerIconButton: {
+    welcome: { color: '#718096', fontSize: 13 },
+    name: {
+        color: '#1A1D36',
+        fontSize: 20,
+        fontWeight: '800',
+        marginTop: 2,
+    },
+    avatar: {
         width: 38,
         height: 38,
         borderRadius: 19,
-        backgroundColor: '#F7FAFC',
-        justifyContent: 'center',
-        alignItems: 'center',
-        position: 'relative',
-    },
-    notificationDot: {
-        position: 'absolute',
-        top: 8,
-        right: 8,
-        width: 7,
-        height: 7,
-        borderRadius: 4,
         backgroundColor: '#FF176B',
-    },
-    brandCenter: {
-        alignItems: 'center',
-    },
-    brandRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    brandIconCircle: {
-        width: 22,
-        height: 22,
-        borderRadius: 11,
-        backgroundColor: '#FFE4F0',
         justifyContent: 'center',
         alignItems: 'center',
-        marginRight: 6,
-    },
-    brandTitle: {
-        fontSize: 18,
-        fontWeight: '900',
-        color: '#FF176B',
-        letterSpacing: -0.3,
-    },
-    brandSubtitle: {
-        fontSize: 9,
-        fontWeight: '600',
-        color: '#718096',
-        marginTop: 1,
+        shadowColor: '#FF176B',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 6,
+        padding: 4,
+        overflow: 'hidden',
     },
     subBar: {
         flexDirection: 'row',
