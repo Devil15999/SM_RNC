@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
     ScrollView,
     StatusBar,
@@ -6,667 +6,888 @@ import {
     Text,
     TouchableOpacity,
     View,
+    Image,
+    Dimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import Icon from 'react-native-vector-icons/FontAwesome5';
-import LinearGradient from 'react-native-linear-gradient';
 import { RootStackParamList } from '../../types/navigation';
-import { Colors } from '../../constants/theme';
-import { useAppSelector } from '../../store';
+import { Routes } from '../../constants/routes';
 import { API_BASE_URL } from '../../config';
 
-const GRADIENT_COLORS: [string, string] = ['#e91e8a', '#7b2d8b'];
+const { width: SW } = Dimensions.get('window');
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PackageDetail'>;
 
-// ── Package data ────────────────────────────────────────────────────────────────
-
 type PlanKey = '1month' | '3month' | '6month';
 
-interface Plan {
+interface PlanDetail {
+    key: PlanKey;
     label: string;
+    subtitle: string;
     price: number;
     originalPrice: number;
     savings: string;
-    features: string[];
     badge?: string;
 }
 
-interface PackageInfo {
+interface PackageDetailInfo {
+    type: string;
     title: string;
     subtitle: string;
+    badge?: string;
     icon: string;
     accentColor: string;
-    plans: Record<PlanKey, Plan>;
+    mainImage: any;
+    gallery: any[];
+    iconsList: Array<{ icon: string; label: string }>;
+    includedCol1: string[];
+    includedCol2: string[];
+    plans: Record<PlanKey, PlanDetail>;
 }
 
-const PACKAGES: Record<string, PackageInfo> = {
-    mother: {
-        title: 'Mother Care',
-        subtitle: 'Expert health support tailored for new & expecting mothers',
-        icon: 'user-pregnant',
+const DEFAULT_PACKAGES: Record<string, PackageDetailInfo> = {
+    muma: {
+        type: 'muma',
+        title: 'Mother + Baby Bundle',
+        subtitle: 'Complete nursing care for both you and your baby at the comfort of your home.',
+        badge: 'Most Popular',
+        icon: 'heart',
         accentColor: '#E91E8A',
+        mainImage: require('../../assets/post2.png'),
+        gallery: [
+            require('../../assets/post2.png'),
+            require('../../assets/post1.png'),
+            require('../../assets/post3.png'),
+            require('../../assets/banner.png'),
+            require('../../assets/post2.png'),
+        ],
+        iconsList: [
+            { icon: 'baby', label: 'Newborn\nCare' },
+            { icon: 'female', label: 'Mother\nCare' },
+            { icon: 'spa', label: 'Recovery\nSupport' },
+            { icon: 'prescription-bottle', label: 'Feeding\nSupport' },
+            { icon: 'book-open', label: 'Guidance\n& Updates' },
+        ],
+        includedCol1: [
+            'All newborn care services',
+            'All mother care services',
+            'Breastfeeding support',
+            'Mother\'s recovery support',
+        ],
+        includedCol2: [
+            'Daily routine & care planning',
+            'Emotional support & guidance',
+            'Regular progress updates',
+            'Dedicated nurse (subject to availability)',
+        ],
         plans: {
             '1month': {
-                label: '1 Month',
-                price: 999,
-                originalPrice: 1299,
-                savings: 'Save ₹300',
-                badge: undefined,
-                features: [
-                    '✅ Prenatal diet consultation',
-                    '✅ 2 video consultations with OB-GYN',
-                    '✅ Weekly health check reminders',
-                    '✅ Postpartum recovery guide',
-                    '✅ 24/7 chat support',
-                ],
+                key: '1month',
+                label: '1 Month Plan',
+                subtitle: '26 visits × 3 hours (78 hours)',
+                price: 34999,
+                originalPrice: 45000,
+                savings: 'Save 22%',
+                badge: 'Most Popular',
             },
             '3month': {
-                label: '3 Months',
-                price: 2499,
-                originalPrice: 3897,
-                savings: 'Save ₹1,398',
-                badge: 'Most Popular',
-                features: [
-                    '✅ Everything in 1-Month plan',
-                    '✅ 8 video consultations with OB-GYN',
-                    '✅ Personalised nutrition plan',
-                    '✅ Yoga & wellness sessions',
-                    '✅ Mental health check-ins',
-                    '✅ Emergency helpline access',
-                ],
+                key: '3month',
+                label: '2 Months Plan',
+                subtitle: '52 visits × 3 hours (156 hours)',
+                price: 64999,
+                originalPrice: 90000,
+                savings: 'Save 28%',
             },
             '6month': {
-                label: '6 Months',
-                price: 4499,
-                originalPrice: 7794,
-                savings: 'Save ₹3,295',
-                badge: 'Best Value',
-                features: [
-                    '✅ Everything in 3-Month plan',
-                    '✅ 20 video consultations with OB-GYN',
-                    '✅ Home visit (1 per month)',
-                    '✅ Lactation consultant support',
-                    '✅ Dedicated care coordinator',
-                    '✅ Lab report analysis',
-                    '✅ Priority appointment booking',
-                ],
+                key: '6month',
+                label: '3 Months Plan',
+                subtitle: '78 visits × 3 hours (234 hours)',
+                price: 89999,
+                originalPrice: 135000,
+                savings: 'Save 33%',
             },
         },
     },
     baby: {
-        title: 'Baby Care',
-        subtitle: 'Complete new-born care & milestone tracking for your little one',
+        type: 'baby',
+        title: 'Newborn Care',
+        subtitle: 'Professional nursing care for your baby\'s healthy start at home.',
         icon: 'baby',
-        accentColor: '#1FBDBD',
+        accentColor: '#E91E8A',
+        mainImage: require('../../assets/post1.png'),
+        gallery: [
+            require('../../assets/post1.png'),
+            require('../../assets/post2.png'),
+            require('../../assets/post3.png'),
+            require('../../assets/banner.png'),
+            require('../../assets/post1.png'),
+        ],
+        iconsList: [
+            { icon: 'baby', label: 'Newborn\nCare' },
+            { icon: 'hands-wash', label: 'Bathing\n& Hygiene' },
+            { icon: 'cookie-bite', label: 'Feeding\nSupport' },
+            { icon: 'moon', label: 'Sleep\nGuidance' },
+            { icon: 'heartbeat', label: 'Growth\nTracking' },
+        ],
+        includedCol1: [
+            'Baby bathing & hygiene',
+            'Feeding & burping support',
+            'Sleep & routine guidance',
+            'Growth & wellness monitoring',
+        ],
+        includedCol2: [
+            'Milestone development tracking',
+            'Vaccination schedule assistance',
+            'Sanitation & hygiene support',
+            'Dedicated baby nurse',
+        ],
         plans: {
             '1month': {
-                label: '1 Month',
-                price: 799,
-                originalPrice: 1099,
-                savings: 'Save ₹300',
-                badge: undefined,
-                features: [
-                    '✅ New-born vaccination schedule',
-                    '✅ 2 paediatrician consultations',
-                    '✅ Growth & weight tracking',
-                    '✅ Sleep & feeding log',
-                    '✅ 24/7 chat support',
-                ],
+                key: '1month',
+                label: '1 Month Plan',
+                subtitle: '26 visits × 3 hours (78 hours)',
+                price: 24999,
+                originalPrice: 32000,
+                savings: 'Save 22%',
             },
             '3month': {
-                label: '3 Months',
-                price: 1999,
-                originalPrice: 3297,
-                savings: 'Save ₹1,298',
+                key: '3month',
+                label: '2 Months Plan',
+                subtitle: '52 visits × 3 hours (156 hours)',
+                price: 46999,
+                originalPrice: 64000,
+                savings: 'Save 27%',
                 badge: 'Most Popular',
-                features: [
-                    '✅ Everything in 1-Month plan',
-                    '✅ 8 paediatrician consultations',
-                    '✅ Milestone development tracker',
-                    '✅ Baby massage & activity guides',
-                    '✅ Allergy & nutrition guidance',
-                    '✅ Emergency helpline access',
-                ],
             },
             '6month': {
-                label: '6 Months',
-                price: 3799,
-                originalPrice: 6594,
-                savings: 'Save ₹2,795',
-                badge: 'Best Value',
-                features: [
-                    '✅ Everything in 3-Month plan',
-                    '✅ 20 paediatrician consultations',
-                    '✅ Home visit (1 per month)',
-                    '✅ Developmental assessment report',
-                    '✅ Speech & motor milestone alerts',
-                    '✅ Dedicated baby care coordinator',
-                    '✅ Priority appointment booking',
-                ],
+                key: '6month',
+                label: '3 Months Plan',
+                subtitle: '78 visits × 3 hours (234 hours)',
+                price: 67999,
+                originalPrice: 96000,
+                savings: 'Save 29%',
             },
         },
     },
-    muma: {
-        title: 'Muma Care',
-        subtitle: 'The ultimate care bundle for both mother & baby together',
-        icon: 'hand-holding-heart',
-        accentColor: '#7B2D8B',
+    mother: {
+        type: 'mother',
+        title: 'Night Nursing',
+        subtitle: 'Overnight nursing support for peaceful nights and restful sleep.',
+        icon: 'moon',
+        accentColor: '#5C54E5',
+        mainImage: require('../../assets/post3.png'),
+        gallery: [
+            require('../../assets/post3.png'),
+            require('../../assets/post1.png'),
+            require('../../assets/post2.png'),
+            require('../../assets/banner.png'),
+            require('../../assets/post3.png'),
+        ],
+        iconsList: [
+            { icon: 'moon', label: 'Night\nCare' },
+            { icon: 'baby', label: 'Diaper\n& Feeding' },
+            { icon: 'bed', label: 'Sleep\nTraining' },
+            { icon: 'heartbeat', label: 'Vitals\nMonitor' },
+            { icon: 'user-shield', label: 'Night\nNurse' },
+        ],
+        includedCol1: [
+            'Overnight care (8–12 hours)',
+            'Baby feeding & diaper support',
+            'Sleep routine establishment',
+            'Monitoring mother & baby',
+        ],
+        includedCol2: [
+            'Night shift nurse assignment',
+            'Constant vital monitoring',
+            'Peace of mind for parents',
+            'Dedicated support team',
+        ],
         plans: {
             '1month': {
-                label: '1 Month',
-                price: 1699,
-                originalPrice: 2398,
-                savings: 'Save ₹699',
-                badge: undefined,
-                features: [
-                    '✅ Full Mother Care – 1 Month',
-                    '✅ Full Baby Care – 1 Month',
-                    '✅ Joint family health report',
-                    '✅ 24/7 chat support',
-                    '✅ Exclusive Muma app dashboard',
-                ],
+                key: '1month',
+                label: '1 Month Plan',
+                subtitle: '26 nights × 10 hours (260 hours)',
+                price: 64999,
+                originalPrice: 80000,
+                savings: 'Save 19%',
             },
             '3month': {
-                label: '3 Months',
-                price: 3999,
-                originalPrice: 6194,
-                savings: 'Save ₹2,195',
+                key: '3month',
+                label: '2 Months Plan',
+                subtitle: '52 nights × 10 hours (520 hours)',
+                price: 124999,
+                originalPrice: 160000,
+                savings: 'Save 22%',
                 badge: 'Most Popular',
-                features: [
-                    '✅ Full Mother Care – 3 Months',
-                    '✅ Full Baby Care – 3 Months',
-                    '✅ Combined health progress reports',
-                    '✅ Family yoga & wellness sessions',
-                    '✅ Mental health & bonding guide',
-                    '✅ Emergency helpline access',
-                ],
             },
             '6month': {
-                label: '6 Months',
-                price: 7499,
-                originalPrice: 14388,
-                savings: 'Save ₹6,889',
-                badge: 'Best Value',
-                features: [
-                    '✅ Full Mother Care – 6 Months',
-                    '✅ Full Baby Care – 6 Months',
-                    '✅ 2 home visits per month',
-                    '✅ Dedicated family care coordinator',
-                    '✅ Monthly family health analytics',
-                    '✅ Lab report analysis for both',
-                    '✅ Priority booking & concierge support',
-                ],
+                key: '6month',
+                label: '3 Months Plan',
+                subtitle: '78 nights × 10 hours (780 hours)',
+                price: 179999,
+                originalPrice: 240000,
+                savings: 'Save 25%',
             },
         },
     },
 };
 
-const PLAN_KEYS: PlanKey[] = ['1month', '3month', '6month'];
-
-// ── Component ───────────────────────────────────────────────────────────────────
-
 const PackageDetailScreen: React.FC<Props> = ({ navigation, route }) => {
+    const insets = useSafeAreaInsets();
     const { packageType } = route.params;
-    const user = useAppSelector(state => state.auth.user);
-    const token = user?.token;
 
-    const [fetchedPkg, setFetchedPkg] = useState<PackageInfo | null>(null);
-    const [selectedPlan, setSelectedPlan] = useState<PlanKey>('3month');
-    const [orders, setOrders] = useState<any[]>([]);
+    const [pkgData, setPkgData] = useState<PackageDetailInfo>(DEFAULT_PACKAGES[packageType] || DEFAULT_PACKAGES.muma);
+    const [selectedPlanKey, setSelectedPlanKey] = useState<PlanKey>('1month');
+    const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+    const [isFavorite, setIsFavorite] = useState(false);
 
-    useEffect(() => {
-        let isMounted = true;
-        const fetchPackageDetail = async () => {
-            try {
-                const res = await fetch(`${API_BASE_URL}/packages/${packageType}`);
-                const data = await res.json();
-                if (res.ok && data.success && isMounted) {
-                    const fetched = data.data;
-                    const cleaned: PackageInfo = {
-                        title: fetched.title,
-                        subtitle: fetched.subtitle || fetched.tagline || '',
-                        icon: fetched.icon.replace(/^fa-/, ''),
-                        accentColor: fetched.accentColor,
-                        plans: fetched.plans,
-                    };
-                    setFetchedPkg(cleaned);
-                }
-            } catch (err) {
-                console.log('Error fetching package detail:', err);
-            }
-        };
-        fetchPackageDetail();
-        return () => { isMounted = false; };
-    }, [packageType]);
-
-    const fetchOrders = async () => {
-        if (!token) return;
+    const fetchPackageDetail = useCallback(async () => {
         try {
-            const res = await fetch(`${API_BASE_URL}/orders`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            const res = await fetch(`${API_BASE_URL}/packages/${packageType}`);
             const data = await res.json();
-            if (res.ok && data.success) {
-                setOrders(data.data || []);
+            if (res.ok && data.success && data.data) {
+                const fetched = data.data;
+                const baseDefault = DEFAULT_PACKAGES[packageType] || DEFAULT_PACKAGES.muma;
+
+                const apiPlans: Record<PlanKey, PlanDetail> = { ...baseDefault.plans };
+
+                if (fetched.plans) {
+                    (['1month', '3month', '6month'] as PlanKey[]).forEach(k => {
+                        if (fetched.plans[k]) {
+                            const p = fetched.plans[k];
+                            apiPlans[k] = {
+                                key: k,
+                                label: p.label || apiPlans[k].label,
+                                subtitle: p.visitInfo || p.subtitle || apiPlans[k].subtitle,
+                                price: p.price ?? apiPlans[k].price,
+                                originalPrice: p.originalPrice ?? apiPlans[k].originalPrice,
+                                savings: p.savings || apiPlans[k].savings,
+                                badge: p.badge !== undefined ? p.badge : apiPlans[k].badge,
+                            };
+                        }
+                    });
+                }
+
+                // If package has features, split into 2 columns
+                let col1 = baseDefault.includedCol1;
+                let col2 = baseDefault.includedCol2;
+                if (Array.isArray(fetched.features) && fetched.features.length > 0) {
+                    const half = Math.ceil(fetched.features.length / 2);
+                    col1 = fetched.features.slice(0, half);
+                    col2 = fetched.features.slice(half);
+                }
+
+                setPkgData({
+                    ...baseDefault,
+                    title: fetched.title || baseDefault.title,
+                    subtitle: fetched.subtitle || fetched.tagline || baseDefault.subtitle,
+                    badge: fetched.badge !== undefined ? fetched.badge : baseDefault.badge,
+                    icon: (fetched.icon ?? baseDefault.icon).replace(/^fa-/, ''),
+                    accentColor: fetched.accentColor || baseDefault.accentColor,
+                    includedCol1: col1,
+                    includedCol2: col2,
+                    plans: apiPlans,
+                });
             }
         } catch (err) {
-            console.log('Error fetching orders in Detail:', err);
+            console.log('Error fetching package detail:', err);
         }
+    }, [packageType]);
+
+    useEffect(() => {
+        fetchPackageDetail();
+    }, [fetchPackageDetail]);
+
+    const pkg = pkgData;
+    const currentPlan = pkg.plans[selectedPlanKey];
+
+    const handleBookNow = () => {
+        navigation.navigate(Routes.CHECKOUT, {
+            packageType: pkg.type as any,
+            packageTitle: pkg.title,
+            planKey: currentPlan.key,
+            planLabel: currentPlan.label,
+            price: currentPlan.price,
+            icon: pkg.icon,
+            accentColor: pkg.accentColor,
+        });
     };
 
-    useEffect(() => {
-        if (!token) return;
-        fetchOrders();
-        const unsubscribe = navigation.addListener('focus', () => {
-            fetchOrders();
-        });
-        return unsubscribe;
-    }, [navigation, token]);
-
-    const activeOrderForPkg = orders.find(o => 
-        o.packageType === packageType && 
-        o.status === 'active' && 
-        (!o.expiresAt || new Date(o.expiresAt) > new Date())
-    );
-
-    useEffect(() => {
-        if (activeOrderForPkg) {
-            setSelectedPlan(activeOrderForPkg.planKey as PlanKey);
-        }
-    }, [activeOrderForPkg]);
-
-    const pkg = fetchedPkg || PACKAGES[packageType];
-    const plan = pkg.plans[selectedPlan];
-    const accent = pkg.accentColor;
-
-    const insets = useSafeAreaInsets();
-
     return (
-        <View style={styles.safe}>
-            <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+        <View style={styles.container}>
+            <StatusBar barStyle="dark-content" backgroundColor="#FFF" />
 
-            {/* Header */}
-            <LinearGradient
-                colors={GRADIENT_COLORS}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={[styles.header, { paddingTop: insets.top }]}>
-                <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-                    <Icon name="chevron-left" size={20} color={Colors.WHITE} />
+            {/* ── Top Header ── */}
+            <View style={[styles.topNavHeader, { paddingTop: Math.max(insets.top, 10) }]}>
+                <TouchableOpacity style={styles.navBackButton} onPress={() => navigation.goBack()} activeOpacity={0.7}>
+                    <Icon name="chevron-left" size={18} color="#2D3748" />
                 </TouchableOpacity>
-                <View style={styles.headerContent}>
-                    <Icon name={pkg.icon} size={42} color={Colors.WHITE} style={{ marginBottom: 10 }} />
-                    <Text style={styles.headerTitle}>{pkg.title}</Text>
-                    <Text style={styles.headerSubtitle}>{pkg.subtitle}</Text>
-                </View>
-            </LinearGradient>
 
-            <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-                {/* Plan Selector Tabs */}
-                <Text style={styles.sectionLabel}>Choose Your Plan</Text>
-                <View style={styles.tabRow}>
-                    {PLAN_KEYS.map(key => {
-                        const isActive = selectedPlan === key;
-                        const hasBadge = pkg.plans[key].badge;
-                        const isActivePlan = activeOrderForPkg?.planKey === key;
-                        return (
-                            <TouchableOpacity
-                                key={key}
-                                style={[
-                                    styles.tab,
-                                    isActive && { backgroundColor: accent, borderColor: accent },
-                                    isActivePlan && { borderColor: '#D4AF37', borderWidth: 2 }
-                                ]}
-                                onPress={() => setSelectedPlan(key)}
-                                activeOpacity={0.8}>
-                                {isActivePlan ? (
-                                    <View style={[styles.tabBadge, { backgroundColor: '#D4AF37' }]}>
-                                        <Text style={styles.tabBadgeText}>ACTIVE ✓</Text>
-                                    </View>
-                                ) : hasBadge ? (
-                                    <View style={[styles.tabBadge, { backgroundColor: isActive ? 'rgba(255,255,255,0.25)' : accent }]}>
-                                        <Text style={styles.tabBadgeText}>{hasBadge}</Text>
-                                    </View>
-                                ) : null}
-                                <Text
-                                    style={[
-                                        styles.tabLabel,
-                                        isActive && styles.tabLabelActive,
-                                        isActivePlan && !isActive && { color: '#D4AF37' }
-                                    ]}>
-                                    {pkg.plans[key].label}
-                                </Text>
-                            </TouchableOpacity>
-                        );
-                    })}
-                </View>
+                <Text style={styles.navHeaderTitle}>{pkg.title}</Text>
 
-                {/* Pricing Card */}
-                <View style={[styles.pricingCard, { borderColor: accent + '44' }]}>
-                    {activeOrderForPkg && selectedPlan === activeOrderForPkg.planKey && (
-                        <View style={styles.activePlanNotice}>
-                            <Icon name="check-circle" size={14} color="#27AE60" style={{ marginRight: 8 }} />
-                            <View style={{ flex: 1 }}>
-                                <Text style={styles.activePlanNoticeTitle}>You have an active subscription for this plan.</Text>
-                                <Text style={styles.activePlanNoticeExpiry}>
-                                    Expires on: {activeOrderForPkg.expiresAt ? new Date(activeOrderForPkg.expiresAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }) : 'N/A'}
-                                </Text>
-                            </View>
-                        </View>
-                    )}
+                <View style={{ width: 36 }} />
+            </View>
 
-                    {/* Savings ribbon */}
-                    <View style={[styles.savingsTag, { backgroundColor: accent + '1A' }]}>
-                        <Text style={[styles.savingsText, { color: accent }]}>
-                            <Icon name="gift" size={12} color={accent} /> {plan.savings}
-                        </Text>
-                    </View>
+            <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
 
-                    <View style={styles.priceRow}>
-                        <Text style={[styles.priceCurrency, { color: accent }]}>₹</Text>
-                        <Text style={[styles.priceAmount, { color: accent }]}>
-                            {plan.price.toLocaleString('en-IN')}
-                        </Text>
-                        <Text style={styles.priceDuration}>/{plan.label.toLowerCase()}</Text>
-                    </View>
+                {/* ── Hero Image & Gallery ── */}
+                <View style={styles.heroWrapper}>
+                    <Image
+                        source={pkg.gallery[selectedImageIndex] || pkg.mainImage}
+                        style={styles.heroBannerImage}
+                        resizeMode="cover"
+                    />
 
-                    <Text style={styles.originalPrice}>
-                        MRP <Text style={styles.strikethrough}>₹{plan.originalPrice.toLocaleString('en-IN')}</Text>
-                    </Text>
-
-                    <View style={styles.divider} />
-
-                    {/* Features */}
-                    <Text style={styles.featuresTitle}>What's included</Text>
-                    {plan.features.map((f, i) => {
-                        const cleanFeature = f.replace(/^✅\s*/, '');
-                        return (
-                            <View key={i} style={styles.featureRow}>
-                                <Icon name="check-circle" size={14} color={accent} style={styles.featureIcon} />
-                                <Text style={styles.featureText}>{cleanFeature}</Text>
-                            </View>
-                        );
-                    })}
-                </View>
-
-                {/* Guarantee strip */}
-                <View style={styles.guarantee}>
-                    <Text style={styles.guaranteeText}>
-                        <Icon name="shield-alt" size={12} color="#276749" /> 30-day money-back guarantee · No hidden charges
-                    </Text>
-                </View>
-
-                {activeOrderForPkg && selectedPlan === activeOrderForPkg.planKey ? (
-                    <View style={[styles.ctaBtn, { backgroundColor: Colors.DISABLED, shadowOpacity: 0, elevation: 0 }]}>
-                        <Text style={styles.ctaText}>Active Subscription</Text>
-                    </View>
-                ) : (
+                    {/* Heart Floating Button */}
                     <TouchableOpacity
-                        style={styles.ctaBtnWrapper}
-                        activeOpacity={0.85}
-                        onPress={() => {
-                            navigation.navigate('Checkout', {
-                                packageType,
-                                packageTitle: pkg.title,
-                                planKey: selectedPlan,
-                                planLabel: plan.label,
-                                price: plan.price,
-                                icon: pkg.icon,
-                                accentColor: accent,
-                            });
-                        }}>
-                        <LinearGradient
-                            colors={GRADIENT_COLORS}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 0 }}
-                            style={styles.ctaBtn}>
-                            <Text style={styles.ctaText}>Get {plan.label} Plan</Text>
-                        </LinearGradient>
+                        style={styles.favoriteButton}
+                        activeOpacity={0.8}
+                        onPress={() => setIsFavorite(!isFavorite)}>
+                        <Icon name="heart" size={18} color="#E91E8A" solid={isFavorite} />
                     </TouchableOpacity>
-                )}
+                </View>
 
-                <Text style={styles.footerNote}>
-                    Secure payment · Cancel anytime · Instant activation
-                </Text>
+                {/* Thumbnails Strip */}
+                <View style={styles.thumbnailsRow}>
+                    {pkg.gallery.map((img, index) => (
+                        <TouchableOpacity
+                            key={index}
+                            style={[
+                                styles.thumbnailBox,
+                                selectedImageIndex === index && { borderColor: '#E91E8A', borderWidth: 2 },
+                            ]}
+                            activeOpacity={0.8}
+                            onPress={() => setSelectedImageIndex(index)}>
+                            <Image source={img} style={styles.thumbnailImg} resizeMode="cover" />
+                        </TouchableOpacity>
+                    ))}
+                </View>
+
+                {/* ── Package Title & Badge Header ── */}
+                <View style={styles.titleSection}>
+                    <View style={styles.titleRow}>
+                        <View style={styles.titleIconCircle}>
+                            <Icon name={pkg.icon} size={18} color="#E91E8A" solid />
+                        </View>
+                        <Text style={styles.pkgTitleText}>{pkg.title}</Text>
+                        {pkg.badge && (
+                            <View style={styles.popularBadge}>
+                                <Icon name="crown" size={9} color="#FFF" style={{ marginRight: 3 }} />
+                                <Text style={styles.popularBadgeText}>{pkg.badge}</Text>
+                            </View>
+                        )}
+                    </View>
+
+                    <Text style={styles.pkgSubtitleText}>{pkg.subtitle}</Text>
+                </View>
+
+                {/* ── Feature Icons Row (5 Circle Buttons) ── */}
+                <View style={styles.iconsRowContainer}>
+                    {pkg.iconsList.map((item, i) => (
+                        <View key={i} style={styles.iconCategoryItem}>
+                            <View style={styles.categoryIconCircle}>
+                                <Icon name={item.icon} size={20} color="#E91E8A" />
+                            </View>
+                            <Text style={styles.categoryIconLabel}>{item.label}</Text>
+                        </View>
+                    ))}
+                </View>
+
+                {/* ── What's Included Section ── */}
+                <View style={styles.sectionContainer}>
+                    <Text style={styles.sectionHeading}>What's Included</Text>
+
+                    <View style={styles.includedGrid}>
+                        {/* Column 1 */}
+                        <View style={styles.includedCol}>
+                            {pkg.includedCol1.map((feat, idx) => (
+                                <View key={idx} style={styles.includedRow}>
+                                    <View style={styles.checkBadgeCircle}>
+                                        <Icon name="check" size={10} color="#FFF" />
+                                    </View>
+                                    <Text style={styles.includedText}>{feat}</Text>
+                                </View>
+                            ))}
+                        </View>
+
+                        {/* Column 2 */}
+                        <View style={styles.includedCol}>
+                            {pkg.includedCol2.map((feat, idx) => (
+                                <View key={idx} style={styles.includedRow}>
+                                    <View style={styles.checkBadgeCircle}>
+                                        <Icon name="check" size={10} color="#FFF" />
+                                    </View>
+                                    <Text style={styles.includedText}>{feat}</Text>
+                                </View>
+                            ))}
+                        </View>
+                    </View>
+                </View>
+
+                {/* ── Plan & Pricing Section ── */}
+                <View style={styles.sectionContainer}>
+                    <Text style={styles.sectionHeading}>Plan & Pricing</Text>
+
+                    <View style={styles.plansList}>
+                        {(['1month', '3month', '6month'] as PlanKey[]).map((planKey) => {
+                            const plan = pkg.plans[planKey];
+                            if (!plan) return null;
+                            const isSelected = selectedPlanKey === planKey;
+
+                            return (
+                                <TouchableOpacity
+                                    key={planKey}
+                                    style={[
+                                        styles.planCard,
+                                        isSelected && styles.planCardSelected,
+                                    ]}
+                                    activeOpacity={0.88}
+                                    onPress={() => setSelectedPlanKey(planKey)}>
+
+                                    <View style={styles.planCardLeft}>
+                                        {/* Radio Circle */}
+                                        <View style={[styles.radioOuterCircle, isSelected && styles.radioOuterSelected]}>
+                                            {isSelected && <View style={styles.radioInnerCircle} />}
+                                        </View>
+
+                                        <View style={{ flex: 1, marginLeft: 12 }}>
+                                            <View style={styles.planTitleBadgeRow}>
+                                                <Text style={[styles.planTitleText, isSelected && { color: '#E91E8A' }]}>
+                                                    {plan.label}
+                                                </Text>
+                                                {plan.badge && (
+                                                    <Text style={styles.planHighlightBadge}> ({plan.badge})</Text>
+                                                )}
+                                            </View>
+
+                                            <View style={styles.planSubRow}>
+                                                <Text style={styles.planSubtitleText}>{plan.subtitle}</Text>
+                                                {!!plan.savings && (
+                                                    <View style={styles.discountBadgePill}>
+                                                        <Text style={styles.discountBadgeText}>{plan.savings}</Text>
+                                                    </View>
+                                                )}
+                                            </View>
+                                        </View>
+                                    </View>
+
+                                    <View style={styles.planCardRight}>
+                                        <Text style={styles.planPriceText}>₹ {plan.price.toLocaleString('en-IN')}</Text>
+                                        {!!plan.originalPrice && (
+                                            <Text style={styles.planMrpText}>₹ {plan.originalPrice.toLocaleString('en-IN')}</Text>
+                                        )}
+                                    </View>
+                                </TouchableOpacity>
+                            );
+                        })}
+                    </View>
+                </View>
+
+                {/* ── Why Choose Second Muma? ── */}
+                <View style={styles.sectionContainer}>
+                    <Text style={styles.sectionHeading}>Why Choose Second Muma?</Text>
+
+                    <View style={styles.whyChooseRow}>
+                        <View style={styles.whyItem}>
+                            <View style={styles.whyIconCircle}>
+                                <Icon name="user-shield" size={18} color="#E91E8A" />
+                            </View>
+                            <Text style={styles.whyText}>Verified & Trained Nurses</Text>
+                        </View>
+
+                        <View style={styles.whyItem}>
+                            <View style={styles.whyIconCircle}>
+                                <Icon name="home" size={18} color="#E91E8A" />
+                            </View>
+                            <Text style={styles.whyText}>Safe & Hygienic Care at Home</Text>
+                        </View>
+
+                        <View style={styles.whyItem}>
+                            <View style={styles.whyIconCircle}>
+                                <Icon name="heart" size={18} color="#E91E8A" />
+                            </View>
+                            <Text style={styles.whyText}>Trusted by Families</Text>
+                        </View>
+
+                        <View style={styles.whyItem}>
+                            <View style={styles.whyIconCircle}>
+                                <Icon name="users" size={18} color="#E91E8A" />
+                            </View>
+                            <Text style={styles.whyText}>Personalized Care Plan</Text>
+                        </View>
+                    </View>
+                </View>
+
+                <View style={{ height: 24 }} />
             </ScrollView>
+
+            {/* ── Sticky Bottom Action Footer ── */}
+            <View style={[styles.bottomFooterBar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+                <TouchableOpacity
+                    style={styles.bookNowBtn}
+                    activeOpacity={0.88}
+                    onPress={handleBookNow}>
+                    <Text style={styles.bookNowBtnText}>Book Now</Text>
+                    <Icon name="arrow-right" size={15} color="#FFF" style={{ marginLeft: 8 }} />
+                </TouchableOpacity>
+            </View>
         </View>
     );
 };
 
+export default PackageDetailScreen;
+
 // ── Styles ──────────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-    safe: { flex: 1, backgroundColor: Colors.BACKGROUND },
-
-    // Header
-    header: {
-        paddingBottom: 24,
-        paddingHorizontal: 20,
-    },
-    backBtn: { paddingTop: 12, paddingBottom: 4, alignSelf: 'flex-start' },
-    backText: { color: 'rgba(255,255,255,0.85)', fontSize: 15, fontWeight: '500' },
-    headerContent: { alignItems: 'center', paddingTop: 8 },
-    headerEmoji: { fontSize: 48, marginBottom: 8 },
-    headerTitle: {
-        fontSize: 26,
-        fontWeight: '900',
-        color: Colors.WHITE,
-        marginBottom: 6,
-        textAlign: 'center',
-    },
-    headerSubtitle: {
-        fontSize: 13,
-        color: 'rgba(255,255,255,0.8)',
-        textAlign: 'center',
-        lineHeight: 20,
-        paddingHorizontal: 12,
-    },
-
-    // Scroll
-    scroll: {
-        paddingHorizontal: 20,
-        paddingTop: 24,
-        paddingBottom: 48,
-    },
-
-    sectionLabel: {
-        fontSize: 11,
-        fontWeight: '700',
-        color: Colors.TEXT_SECONDARY,
-        textTransform: 'uppercase',
-        letterSpacing: 1.2,
-        marginBottom: 12,
-    },
-
-    // Tabs
-    tabRow: {
-        flexDirection: 'row',
-        gap: 10,
-        marginBottom: 24,
-    },
-    tab: {
+    container: {
         flex: 1,
-        paddingVertical: 12,
-        borderRadius: 14,
-        alignItems: 'center',
-        borderWidth: 1.5,
-        borderColor: Colors.BORDER,
-        backgroundColor: Colors.SURFACE,
-        overflow: 'hidden',
+        backgroundColor: '#FFFFFF',
     },
-    tabBadge: {
-        borderRadius: 6,
-        paddingHorizontal: 6,
-        paddingVertical: 2,
-        marginBottom: 4,
-    },
-    tabBadgeText: {
-        color: Colors.WHITE,
-        fontSize: 8,
-        fontWeight: '700',
-        letterSpacing: 0.5,
-        textAlign: 'center',
-    },
-    tabLabel: {
-        fontSize: 13,
-        fontWeight: '700',
-        color: Colors.TEXT_SECONDARY,
-    },
-    tabLabelActive: {
-        color: Colors.WHITE,
-    },
-
-    // Pricing card
-    pricingCard: {
-        backgroundColor: Colors.SURFACE,
-        borderRadius: 20,
-        padding: 22,
-        borderWidth: 1.5,
-        marginBottom: 16,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.06,
-        shadowRadius: 12,
-        elevation: 4,
-    },
-    savingsTag: {
-        alignSelf: 'flex-start',
-        borderRadius: 20,
-        paddingHorizontal: 12,
-        paddingVertical: 5,
-        marginBottom: 16,
-    },
-    savingsText: {
-        fontSize: 12,
-        fontWeight: '700',
-    },
-    priceRow: {
-        flexDirection: 'row',
-        alignItems: 'flex-end',
-        marginBottom: 4,
-    },
-    priceCurrency: {
-        fontSize: 22,
-        fontWeight: '800',
-        marginBottom: 4,
-        marginRight: 2,
-    },
-    priceAmount: {
-        fontSize: 52,
-        fontWeight: '900',
-        lineHeight: 58,
-    },
-    priceDuration: {
-        fontSize: 14,
-        color: Colors.TEXT_HINT,
-        marginBottom: 8,
-        marginLeft: 4,
-    },
-    originalPrice: {
-        fontSize: 13,
-        color: Colors.TEXT_HINT,
-        marginBottom: 18,
-    },
-    strikethrough: {
-        textDecorationLine: 'line-through',
-    },
-    divider: {
-        height: 1,
-        backgroundColor: Colors.DIVIDER,
-        marginBottom: 18,
-    },
-    featuresTitle: {
-        fontSize: 12,
-        fontWeight: '700',
-        color: Colors.TEXT_SECONDARY,
-        textTransform: 'uppercase',
-        letterSpacing: 0.9,
-        marginBottom: 12,
-    },
-    featureRow: {
+    topNavHeader: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 10,
+        justifyContent: 'space-between',
+        paddingHorizontal: 16,
+        paddingBottom: 12,
+        backgroundColor: '#FFFFFF',
+        borderBottomWidth: 1,
+        borderBottomColor: '#F0F4F8',
     },
-    featureIcon: {
-        marginRight: 10,
-    },
-    featureText: {
-        fontSize: 14,
-        color: Colors.TEXT_PRIMARY,
-        flex: 1,
-        lineHeight: 20,
-    },
-
-    // Guarantee
-    guarantee: {
-        backgroundColor: '#F0FFF4',
-        borderRadius: 12,
-        paddingVertical: 10,
-        paddingHorizontal: 14,
-        marginBottom: 20,
-        borderWidth: 1,
-        borderColor: '#C6F6D5',
-    },
-    guaranteeText: {
-        color: '#276749',
-        fontSize: 12,
-        fontWeight: '500',
-        textAlign: 'center',
-    },
-
-    // CTA
-    ctaBtnWrapper: {
-        borderRadius: 16,
-        marginBottom: 14,
-        shadowColor: '#e91e8a',
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.35,
-        shadowRadius: 14,
-        elevation: 8,
-        overflow: 'hidden',
-    },
-    ctaBtn: {
-        height: 56,
-        borderRadius: 16,
+    navBackButton: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: '#F7FAFC',
         justifyContent: 'center',
         alignItems: 'center',
     },
-    ctaText: {
-        color: Colors.WHITE,
-        fontSize: 16,
+    navHeaderTitle: {
+        fontSize: 17,
         fontWeight: '800',
-        letterSpacing: 0.3,
+        color: '#1A202C',
+    },
+    scrollContent: {
+        paddingBottom: 24,
     },
 
-    footerNote: {
-        textAlign: 'center',
-        color: Colors.TEXT_HINT,
-        fontSize: 11,
-        lineHeight: 18,
+    // Hero Banner & Gallery
+    heroWrapper: {
+        position: 'relative',
+        width: SW,
+        height: 220,
     },
-    activePlanNotice: {
+    heroBannerImage: {
+        width: '100%',
+        height: '100%',
+    },
+    favoriteButton: {
+        position: 'absolute',
+        top: 14,
+        right: 16,
+        width: 38,
+        height: 38,
+        borderRadius: 19,
+        backgroundColor: '#FFFFFF',
+        justifyContent: 'center',
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.15,
+        shadowRadius: 6,
+        elevation: 4,
+    },
+    thumbnailsRow: {
+        flexDirection: 'row',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        gap: 8,
+        backgroundColor: '#FFFFFF',
+    },
+    thumbnailBox: {
+        flex: 1,
+        height: 52,
+        borderRadius: 10,
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+    },
+    thumbnailImg: {
+        width: '100%',
+        height: '100%',
+    },
+
+    // Title & Badge Section
+    titleSection: {
+        paddingHorizontal: 16,
+        paddingTop: 8,
+        paddingBottom: 12,
+    },
+    titleRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#27AE6010',
-        borderColor: '#27AE6044',
+        flexWrap: 'wrap',
+        marginBottom: 6,
+    },
+    titleIconCircle: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: '#FFF0F6',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 8,
+    },
+    pkgTitleText: {
+        fontSize: 20,
+        fontWeight: '900',
+        color: '#1A202C',
+        marginRight: 8,
+    },
+    popularBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#E91E8A',
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+        borderRadius: 10,
+    },
+    popularBadgeText: {
+        color: '#FFFFFF',
+        fontSize: 10,
+        fontWeight: '800',
+    },
+    pkgSubtitleText: {
+        fontSize: 12,
+        color: '#718096',
+        lineHeight: 18,
+    },
+
+    // Feature Icons Row
+    iconsRowContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-around',
+        paddingHorizontal: 12,
+        paddingVertical: 14,
+        backgroundColor: '#FFF8FA',
+        marginVertical: 10,
+    },
+    iconCategoryItem: {
+        alignItems: 'center',
+        flex: 1,
+    },
+    categoryIconCircle: {
+        width: 46,
+        height: 46,
+        borderRadius: 23,
+        backgroundColor: '#FFFFFF',
+        justifyContent: 'center',
+        alignItems: 'center',
         borderWidth: 1,
-        borderRadius: 12,
-        padding: 12,
-        marginBottom: 16,
+        borderColor: '#FFD6E8',
+        marginBottom: 6,
     },
-    activePlanNoticeTitle: {
-        fontSize: 13,
+    categoryIconLabel: {
+        fontSize: 10,
         fontWeight: '700',
-        color: Colors.TEXT_PRIMARY,
+        color: '#2D3748',
+        textAlign: 'center',
+        lineHeight: 13,
     },
-    activePlanNoticeExpiry: {
+
+    // Sections
+    sectionContainer: {
+        paddingHorizontal: 16,
+        paddingTop: 16,
+    },
+    sectionHeading: {
+        fontSize: 17,
+        fontWeight: '900',
+        color: '#E91E8A',
+        marginBottom: 12,
+    },
+    includedGrid: {
+        flexDirection: 'row',
+        gap: 12,
+    },
+    includedCol: {
+        flex: 1,
+        gap: 10,
+    },
+    includedRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    checkBadgeCircle: {
+        width: 16,
+        height: 16,
+        borderRadius: 8,
+        backgroundColor: '#E91E8A',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 6,
+    },
+    includedText: {
         fontSize: 11,
-        color: Colors.TEXT_SECONDARY,
-        marginTop: 2,
+        fontWeight: '600',
+        color: '#2D3748',
+        flex: 1,
+        lineHeight: 15,
+    },
+
+    // Plan & Pricing
+    plansList: {
+        gap: 10,
+    },
+    planCard: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: 14,
+        borderRadius: 16,
+        borderWidth: 1.5,
+        borderColor: '#E2E8F0',
+        backgroundColor: '#FFFFFF',
+    },
+    planCardSelected: {
+        borderColor: '#E91E8A',
+        backgroundColor: '#FFF0F6',
+    },
+    planCardLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flex: 1,
+    },
+    radioOuterCircle: {
+        width: 20,
+        height: 20,
+        borderRadius: 10,
+        borderWidth: 2,
+        borderColor: '#CBD5E0',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    radioOuterSelected: {
+        borderColor: '#E91E8A',
+    },
+    radioInnerCircle: {
+        width: 10,
+        height: 10,
+        borderRadius: 5,
+        backgroundColor: '#E91E8A',
+    },
+    planTitleBadgeRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    planTitleText: {
+        fontSize: 14,
+        fontWeight: '900',
+        color: '#1A202C',
+    },
+    planHighlightBadge: {
+        fontSize: 11,
+        fontWeight: '700',
+        color: '#E91E8A',
+    },
+    planSubRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        marginTop: 3,
+        flexWrap: 'wrap',
+    },
+    planSubtitleText: {
+        fontSize: 10,
+        color: '#718096',
+    },
+    discountBadgePill: {
+        backgroundColor: '#E91E8A',
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        borderRadius: 6,
+    },
+    discountBadgeText: {
+        color: '#FFFFFF',
+        fontSize: 9,
+        fontWeight: '800',
+    },
+    planCardRight: {
+        alignItems: 'flex-end',
+    },
+    planPriceText: {
+        fontSize: 17,
+        fontWeight: '900',
+        color: '#1A202C',
+    },
+    planMrpText: {
+        fontSize: 11,
+        color: '#A0AEC0',
+        textDecorationLine: 'line-through',
+        marginTop: 1,
+    },
+
+    // Why Choose
+    whyChooseRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-around',
+        paddingVertical: 10,
+    },
+    whyItem: {
+        alignItems: 'center',
+        flex: 1,
+        paddingHorizontal: 4,
+    },
+    whyIconCircle: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: '#FFF0F6',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 8,
+        borderWidth: 1,
+        borderColor: '#FFD6E8',
+    },
+    whyText: {
+        fontSize: 9,
+        fontWeight: '700',
+        color: '#2D3748',
+        textAlign: 'center',
+        lineHeight: 13,
+    },
+
+    // Bottom Action Footer
+    bottomFooterBar: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        backgroundColor: '#FFFFFF',
+        paddingHorizontal: 16,
+        paddingTop: 12,
+        borderTopWidth: 1,
+        borderTopColor: '#EDF2F7',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -4 },
+        shadowOpacity: 0.08,
+        shadowRadius: 10,
+        elevation: 8,
+    },
+    bookNowBtn: {
+        height: 50,
+        borderRadius: 25,
+        backgroundColor: '#E91E8A',
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    bookNowBtnText: {
+        color: '#FFFFFF',
+        fontSize: 16,
+        fontWeight: '900',
+        letterSpacing: 0.3,
     },
 });
-
-export default PackageDetailScreen;

@@ -5,6 +5,7 @@ const mongoose = require('mongoose');
 const PlanSchema = new mongoose.Schema({
     key: { type: String, required: true },
     label: { type: String, required: true },
+    visitInfo: { type: String },
     price: { type: Number, required: true },
     originalPrice: { type: Number, required: true },
     savings: { type: String },
@@ -20,6 +21,7 @@ const PackageSchema = new mongoose.Schema({
     icon: { type: String, required: true },
     accentColor: { type: String, required: true },
     startingPrice: { type: Number, required: true },
+    badge: { type: String, default: null },
     features: [{ type: String }],
     plans: {
         '1month': { type: PlanSchema, required: true },

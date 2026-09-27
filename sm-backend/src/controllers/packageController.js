@@ -6,21 +6,12 @@ const PincodeRequest = require('../models/PincodeRequest');
 
 /**
  * GET /api/packages
- * Returns all packages (summary list — for the Home screen cards).
+ * Returns all packages with full details and plans.
  */
 const getAllPackages = async (req, res, next) => {
     try {
         const packages = await Package.find();
-        const list = packages.map(p => ({
-            type: p.type,
-            title: p.title,
-            tagline: p.tagline,
-            icon: p.icon,
-            accentColor: p.accentColor,
-            startingPrice: p.startingPrice,
-            features: p.features,
-        }));
-        res.status(200).json({ success: true, data: list });
+        res.status(200).json({ success: true, count: packages.length, data: packages });
     } catch (err) {
         next(err);
     }
@@ -73,6 +64,7 @@ const getPlanByKey = async (req, res, next) => {
             data: {
                 key: plan.key,
                 label: plan.label,
+                visitInfo: plan.visitInfo,
                 price: plan.price,
                 originalPrice: plan.originalPrice,
                 savings: plan.savings,
