@@ -11,15 +11,15 @@ const connectDB = async () => {
         const Package = require('../models/Package');
         const { PACKAGES } = require('../data/packages');
         
-        // Upsert each package from catalogue
+        // Seed default packages catalogue if not already present in database
         for (const pkgData of Object.values(PACKAGES)) {
             await Package.findOneAndUpdate(
                 { type: pkgData.type },
-                { $set: pkgData },
+                { $setOnInsert: pkgData },
                 { upsert: true, new: true }
             );
         }
-        console.log('✅  Packages catalogue synced successfully with database!');
+        console.log('✅  Packages catalogue verified successfully!');
 
     } catch (err) {
         console.error('❌  MongoDB connection error:', err.message);

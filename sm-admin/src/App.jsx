@@ -33,7 +33,9 @@ import {
   Briefcase,
   MapPin,
   Clock,
-  Download
+  Download,
+  Upload,
+  Image as ImageIcon
 } from 'lucide-react';
 import './App.css';
 
@@ -987,9 +989,18 @@ function App() {
   const handleCreatePackage = async (e) => {
     e.preventDefault();
     try {
+      const effectiveStartingPrice = editPackage.plans?.['1month']?.price !== undefined
+        ? Number(editPackage.plans['1month'].price)
+        : Number(editPackage.startingPrice || 0);
+
+      const payload = {
+        ...editPackage,
+        startingPrice: effectiveStartingPrice
+      };
+
       const res = await apiFetch('/admin/packages', {
         method: 'POST',
-        body: JSON.stringify(editPackage)
+        body: JSON.stringify(payload)
       });
       if (res.success) {
         showToast('Package created successfully');
@@ -1006,9 +1017,18 @@ function App() {
   const handleUpdatePackage = async (e) => {
     e.preventDefault();
     try {
+      const effectiveStartingPrice = editPackage.plans?.['1month']?.price !== undefined
+        ? Number(editPackage.plans['1month'].price)
+        : Number(editPackage.startingPrice || 0);
+
+      const payload = {
+        ...editPackage,
+        startingPrice: effectiveStartingPrice
+      };
+
       const res = await apiFetch(`/admin/packages/${editPackage._id}`, {
         method: 'PUT',
-        body: JSON.stringify(editPackage)
+        body: JSON.stringify(payload)
       });
       if (res.success) {
         showToast('Package updated successfully');
@@ -2351,6 +2371,8 @@ function App() {
                           icon: 'fa-box',
                           accentColor: '#E91E8A',
                           startingPrice: 0,
+                          image: '',
+                          backgroundImage: '',
                           features: [''],
                           plans: {
                             '1month': { key: '1month', label: '1 Month', price: 0, originalPrice: 0, savings: '', badge: '', features: [''] },
@@ -2367,7 +2389,30 @@ function App() {
 
                   <div className="packages-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '24px' }}>
                     {packages.map(pkg => (
-                      <div key={pkg._id} className="glass-panel" style={{ borderTop: `4px solid ${pkg.accentColor}`, padding: '24px', display: 'flex', flexDirection: 'column', height: '100%' }}>
+                      <div key={pkg._id} className="glass-panel" style={{ borderTop: `4px solid ${pkg.accentColor}`, padding: '24px', display: 'flex', flexDirection: 'column', height: '100%', position: 'relative', overflow: 'hidden' }}>
+                        {/* Package Background / Banner Preview */}
+                        {(pkg.backgroundImage || pkg.image) ? (
+                          <div style={{
+                            width: 'calc(100% + 48px)',
+                            margin: '-24px -24px 16px -24px',
+                            height: '140px',
+                            position: 'relative',
+                            overflow: 'hidden',
+                            backgroundColor: '#1a1f36'
+                          }}>
+                            <img
+                              src={getImageUrl(pkg.backgroundImage || pkg.image)}
+                              alt={pkg.title}
+                              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            />
+                            <div style={{
+                              position: 'absolute',
+                              inset: 0,
+                              background: 'linear-gradient(to bottom, transparent 40%, rgba(15, 23, 42, 0.85) 100%)'
+                            }} />
+                          </div>
+                        ) : null}
+
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                           <div style={{ fontSize: '2.5rem', color: pkg.accentColor }}><i className={`fa-solid ${pkg.icon || 'fa-box'}`}></i></div>
                           <span className="badge" style={{ backgroundColor: `${pkg.accentColor}20`, color: pkg.accentColor, fontWeight: 'bold' }}>{pkg.type.toUpperCase()}</span>
@@ -2387,8 +2432,10 @@ function App() {
 
                         <div style={{ marginTop: 'auto', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '16px' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                            <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Starting from</span>
-                            <span style={{ fontSize: '1.25rem', fontWeight: 'bold', color: 'var(--success)' }}>{formatCurrency(pkg.startingPrice)}</span>
+                            <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Starting from (1 Mo)</span>
+                            <span style={{ fontSize: '1.25rem', fontWeight: 'bold', color: 'var(--success)' }}>
+                              {formatCurrency(pkg.plans?.['1month']?.price !== undefined ? pkg.plans['1month'].price : pkg.startingPrice)}
+                            </span>
                           </div>
 
                           <div style={{ display: 'flex', gap: '10px' }}>
@@ -2398,6 +2445,8 @@ function App() {
                               onClick={() => {
                                 const safePkg = {
                                   ...pkg,
+                                  backgroundImage: pkg.backgroundImage || pkg.image || '',
+                                  image: pkg.image || pkg.backgroundImage || '',
                                   features: pkg.features || [],
                                   plans: {
                                     '1month': { ...pkg.plans?.['1month'], features: pkg.plans?.['1month']?.features || [] },
@@ -3855,6 +3904,95 @@ function App() {
                 {/* Basic Details Section */}
                 <div>
                   <h4 style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '6px', marginBottom: '14px', fontSize: '0.95rem', color: 'var(--accent-pink)', fontWeight: 'bold' }}>Basic Package Info</h4>
+
+                  {/* Package Background / Hero Image Upload */}
+                  <div className="form-group" style={{ marginBottom: '16px' }}>
+                    <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span>Package Background Image</span>
+                      {(editPackage.backgroundImage || editPackage.image) ? (
+                        <button
+                          type="button"
+                          style={{ background: 'none', border: 'none', color: '#ff4d4f', cursor: 'pointer', fontSize: '0.8rem', padding: 0 }}
+                          onClick={() => setEditPackage(prev => ({ ...prev, backgroundImage: '', image: '' }))}
+                        >
+                          Remove Image
+                        </button>
+                      ) : null}
+                    </label>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      {(editPackage.backgroundImage || editPackage.image) ? (
+                        <div style={{ position: 'relative', width: '100%', height: '160px', borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', backgroundColor: '#1a1f36' }}>
+                          <img
+                            src={getImageUrl(editPackage.backgroundImage || editPackage.image)}
+                            alt="Package Background Preview"
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          />
+                          <div style={{ position: 'absolute', bottom: '8px', right: '8px', background: 'rgba(0,0,0,0.7)', padding: '4px 10px', borderRadius: '4px', fontSize: '0.75rem', color: '#fff' }}>
+                            Current Banner
+                          </div>
+                        </div>
+                      ) : null}
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                        <label
+                          htmlFor="package-bg-upload"
+                          className="btn btn-secondary"
+                          style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 16px', fontSize: '0.85rem' }}
+                        >
+                          <Upload size={16} />
+                          {editPackage.backgroundImage || editPackage.image ? 'Change Background Image' : 'Upload Background Image'}
+                        </label>
+                        <input
+                          id="package-bg-upload"
+                          type="file"
+                          accept="image/*"
+                          style={{ display: 'none' }}
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            const reader = new FileReader();
+                            reader.onload = (uploadEvent) => {
+                              const img = new window.Image();
+                              img.onload = () => {
+                                const MAX_WIDTH = 1200;
+                                const MAX_HEIGHT = 800;
+                                let width = img.width;
+                                let height = img.height;
+                                if (width > MAX_WIDTH || height > MAX_HEIGHT) {
+                                  if (width / height > MAX_WIDTH / MAX_HEIGHT) {
+                                    height = Math.round((height * MAX_WIDTH) / width);
+                                    width = MAX_WIDTH;
+                                  } else {
+                                    width = Math.round((width * MAX_HEIGHT) / height);
+                                    height = MAX_HEIGHT;
+                                  }
+                                }
+                                const canvas = document.createElement('canvas');
+                                canvas.width = width;
+                                canvas.height = height;
+                                const ctx = canvas.getContext('2d');
+                                ctx.drawImage(img, 0, 0, width, height);
+                                const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+                                setEditPackage(prev => ({
+                                  ...prev,
+                                  backgroundImage: compressedDataUrl,
+                                  image: compressedDataUrl
+                                }));
+                              };
+                              img.src = uploadEvent.target.result;
+                            };
+                            reader.readAsDataURL(file);
+                            e.target.value = '';
+                          }}
+                        />
+                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                          Recommended 2:1 banner image (e.g. 1200×600)
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="grid-2-col">
                     <div className="form-group">
                       <label className="form-label">Package ID / Type Key (e.g., mother)</label>
@@ -3928,14 +4066,26 @@ function App() {
                       />
                     </div>
                     <div className="form-group">
-                      <label className="form-label">Starting Price (₹)</label>
+                      <label className="form-label">
+                        Starting Price (₹) <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 'normal' }}>(1-Month Price)</span>
+                      </label>
                       <input
                         type="number"
                         className="form-control"
                         placeholder="999"
                         required
-                        value={editPackage.startingPrice || 0}
-                        onChange={(e) => setEditPackage(prev => ({ ...prev, startingPrice: parseInt(e.target.value, 10) || 0 }))}
+                        value={editPackage.plans?.['1month']?.price !== undefined ? editPackage.plans['1month'].price : (editPackage.startingPrice || 0)}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value, 10) || 0;
+                          setEditPackage(prev => ({
+                            ...prev,
+                            startingPrice: val,
+                            plans: {
+                              ...prev.plans,
+                              '1month': { ...(prev.plans?.['1month'] || {}), price: val }
+                            }
+                          }));
+                        }}
                       />
                     </div>
                   </div>
@@ -3998,7 +4148,9 @@ function App() {
                         </div>
                         <div className="grid-3-col" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '15px' }}>
                           <div className="form-group">
-                            <label className="form-label">Actual Price (₹)</label>
+                            <label className="form-label">
+                              Actual Price (₹) {key === '1month' && <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 'normal' }}>(Starting Price)</span>}
+                            </label>
                             <input
                               type="number"
                               className="form-control"
@@ -4008,6 +4160,7 @@ function App() {
                                 const val = parseInt(e.target.value, 10) || 0;
                                 setEditPackage(prev => ({
                                   ...prev,
+                                  ...(key === '1month' ? { startingPrice: val } : {}),
                                   plans: {
                                     ...prev.plans,
                                     [key]: { ...prev.plans[key], price: val }

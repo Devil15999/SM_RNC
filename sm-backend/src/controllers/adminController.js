@@ -10,6 +10,7 @@ const Appointment = require('../models/Appointment');
 const TimeslotConfig = require('../models/TimeslotConfig');
 const ServiceablePincode = require('../models/ServiceablePincode');
 const PincodeRequest = require('../models/PincodeRequest');
+const { saveBase64Image } = require('../utils/uploadHelper');
 
 /**
  * GET /api/admin/stats
@@ -515,9 +516,11 @@ const getAdminPackages = async (req, res, next) => {
  */
 const createPackage = async (req, res, next) => {
     try {
-        const { type, title, subtitle, tagline, icon, accentColor, startingPrice, features, plans } = req.body;
+        const { type, title, subtitle, tagline, icon, accentColor, startingPrice, features, plans, image, backgroundImage } = req.body;
 
-        if (!type || !title || !icon || !accentColor || startingPrice === undefined) {
+        const effectivePrice = plans?.['1month']?.price !== undefined ? plans['1month'].price : startingPrice;
+
+        if (!type || !title || !icon || !accentColor || effectivePrice === undefined) {
             return res.status(400).json({ success: false, message: 'Missing required fields' });
         }
 
@@ -526,6 +529,9 @@ const createPackage = async (req, res, next) => {
             return res.status(400).json({ success: false, message: `Package type '${type}' already exists` });
         }
 
+        const rawImg = image || backgroundImage || '';
+        const savedImg = rawImg ? saveBase64Image(rawImg) : '';
+
         const pkg = await Package.create({
             type,
             title,
@@ -533,7 +539,9 @@ const createPackage = async (req, res, next) => {
             tagline: tagline || '',
             icon,
             accentColor,
-            startingPrice,
+            startingPrice: effectivePrice,
+            image: savedImg,
+            backgroundImage: savedImg,
             features: features || [],
             plans: plans || {}
         });
@@ -550,7 +558,7 @@ const createPackage = async (req, res, next) => {
  */
 const updatePackage = async (req, res, next) => {
     try {
-        const { type, title, subtitle, tagline, icon, accentColor, startingPrice, features, plans } = req.body;
+        const { type, title, subtitle, tagline, icon, accentColor, startingPrice, features, plans, image, backgroundImage } = req.body;
         const pkg = await Package.findById(req.params.id);
 
         if (!pkg) {
@@ -563,9 +571,22 @@ const updatePackage = async (req, res, next) => {
         if (tagline !== undefined) pkg.tagline = tagline;
         if (icon !== undefined) pkg.icon = icon;
         if (accentColor !== undefined) pkg.accentColor = accentColor;
-        if (startingPrice !== undefined) pkg.startingPrice = startingPrice;
         if (features !== undefined) pkg.features = features;
-        if (plans !== undefined) pkg.plans = plans;
+        if (plans !== undefined) {
+            pkg.plans = plans;
+            if (plans['1month']?.price !== undefined) {
+                pkg.startingPrice = plans['1month'].price;
+            }
+        }
+        if (startingPrice !== undefined && (!plans || plans['1month']?.price === undefined)) {
+            pkg.startingPrice = startingPrice;
+        }
+        if (image !== undefined || backgroundImage !== undefined) {
+            const rawImg = image !== undefined ? image : backgroundImage;
+            const savedImg = rawImg ? saveBase64Image(rawImg) : '';
+            pkg.image = savedImg;
+            pkg.backgroundImage = savedImg;
+        }
 
         await pkg.save();
 

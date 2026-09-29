@@ -8,6 +8,7 @@ import {
     View,
     Image,
     Dimensions,
+    RefreshControl,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -174,7 +175,6 @@ const DEFAULT_PACKAGES: Record<string, PackageDetailInfo> = {
         type: 'muma',
         title: 'Mother + Baby Care',
         subtitle: 'The ultimate 360° care bundle providing dual dedicated support for both mother\'s recovery and baby\'s healthy start.',
-        badge: 'Most Popular',
         icon: 'heart',
         accentColor: '#E91E8A',
         mainImage: require('../../assets/post2.png'),
@@ -279,10 +279,12 @@ const PackageDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                     col2 = fetched.features.slice(half);
                 }
 
-                let cleanTitle = fetched.title || baseDefault.title;
-                if (packageType === 'mother') cleanTitle = 'Mother Care';
-                else if (packageType === 'baby') cleanTitle = 'Baby Care';
-                else if (packageType === 'muma') cleanTitle = 'Mother + Baby Care';
+                const cleanTitle = fetched.title || baseDefault.title;
+
+                const remoteImg = fetched.backgroundImage || fetched.image;
+                const heroImg = remoteImg
+                    ? { uri: remoteImg.startsWith('data:') || remoteImg.startsWith('http') ? remoteImg : `${API_BASE_URL.replace('/api', '')}${remoteImg}` }
+                    : baseDefault.mainImage;
 
                 setPkgData({
                     ...baseDefault,
@@ -291,6 +293,8 @@ const PackageDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                     badge: fetched.badge !== undefined ? fetched.badge : baseDefault.badge,
                     icon: (fetched.icon ?? baseDefault.icon).replace(/^fa-/, ''),
                     accentColor: fetched.accentColor || baseDefault.accentColor,
+                    mainImage: heroImg,
+                    gallery: remoteImg ? [heroImg, ...(baseDefault.gallery || []).slice(1)] : baseDefault.gallery,
                     includedCol1: col1,
                     includedCol2: col2,
                     plans: apiPlans,
@@ -300,6 +304,17 @@ const PackageDetailScreen: React.FC<Props> = ({ navigation, route }) => {
             console.log('Error fetching package detail:', err);
         }
     }, [packageType]);
+
+    const [refreshing, setRefreshing] = useState(false);
+
+    const onRefresh = useCallback(async () => {
+        setRefreshing(true);
+        try {
+            await fetchPackageDetail();
+        } finally {
+            setRefreshing(false);
+        }
+    }, [fetchPackageDetail]);
 
     useEffect(() => {
         fetchPackageDetail();
@@ -335,7 +350,17 @@ const PackageDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                 <View style={{ width: 36 }} />
             </View>
 
-            <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+            <ScrollView
+                contentContainerStyle={styles.scrollContent}
+                showsVerticalScrollIndicator={false}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={onRefresh}
+                        colors={['#E91E8A']}
+                        tintColor="#E91E8A"
+                    />
+                }>
 
                 {/* ── Hero Image & Gallery ── */}
                 <View style={styles.heroWrapper}>
@@ -377,12 +402,6 @@ const PackageDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                             <Icon name={pkg.icon} size={18} color="#E91E8A" solid />
                         </View>
                         <Text style={styles.pkgTitleText}>{pkg.title}</Text>
-                        {pkg.badge && (
-                            <View style={styles.popularBadge}>
-                                <Icon name="crown" size={9} color="#FFF" style={{ marginRight: 3 }} />
-                                <Text style={styles.popularBadgeText}>{pkg.badge}</Text>
-                            </View>
-                        )}
                     </View>
 
                     <Text style={styles.pkgSubtitleText}>{pkg.subtitle}</Text>

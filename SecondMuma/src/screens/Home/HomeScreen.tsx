@@ -8,6 +8,8 @@ import {
     View,
     Image,
     Dimensions,
+    RefreshControl,
+    ImageBackground,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -85,7 +87,7 @@ const DEFAULT_PACKAGES: PackageCardItem[] = [
         borderColor: '#DDD6FE',
         footerBg: '#EBE5FF',
         iconCircleBg: '#EBE5FF',
-        image: require('../../assets/post2.png'),
+        image: require('../../assets/post3.png'),
         planName: '1 Month Plan',
         planDetails: '26 visits × 3 hours (78 hours)',
         price: '₹ 34,999',
@@ -109,7 +111,6 @@ const DEFAULT_PACKAGES: PackageCardItem[] = [
         footerBg: '#FFEBF3',
         iconCircleBg: '#FFE4F0',
         image: require('../../assets/post2.png'),
-        badge: 'Most Popular',
         planName: '1 Month Plan',
         planDetails: '26 visits × 3 hours (78 hours)',
         price: '₹ 49,999',
@@ -134,6 +135,26 @@ const mapIconName = (rawIcon: string, type: string): string => {
     return clean || 'heart';
 };
 
+const cleanFeature = (feat: string): string => {
+    return feat
+        .replace('Postpartum recovery & healing assistance', 'Postpartum recovery & healing')
+        .replace('Breastfeeding & lactation support', 'Breastfeeding & lactation support')
+        .replace('Nutritional guidance & meal assistance', 'Nutritional & meal assistance')
+        .replace('Emotional wellness & vital monitoring', 'Emotional wellness & monitoring')
+        .replace('Post-caesarean & perineal wound care', 'Post-caesarean & wound care')
+        .replace('Gentle massage & sleep relaxation', 'Massage & sleep relaxation')
+        .replace('Hygiene care, bathing & cord care', 'Baby bathing & hygiene care')
+        .replace('Feeding, burping & colic relief', 'Feeding & burping support')
+        .replace('Sleep routine & bedtime support', 'Sleep & routine guidance')
+        .replace('Growth & milestone tracking', 'Growth & wellness monitoring')
+        .replace('Sanitation of baby gear & bottles', 'Sanitation of bottles & gear')
+        .replace('All specialized Mother Care services', 'Specialized Mother Care')
+        .replace('All essential Baby Care services', 'Essential Baby Care services')
+        .replace('Dual nurse coordination for mother & baby', 'Dual nurse coordination')
+        .replace('Lactation, feeding & bonding guidance', 'Lactation & feeding guidance')
+        .replace('Comprehensive daily health reports', 'Daily health reports & updates');
+};
+
 const HomeScreen: React.FC<Props> = ({ navigation }) => {
     const insets = useSafeAreaInsets();
     const user = useAppSelector(state => state.auth.user);
@@ -151,23 +172,22 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                     const isMother = p.type === 'mother';
                     const isMuma = p.type === 'muma';
 
-                    const cardImage = isMuma
+                    const defaultImg = isMuma
                         ? require('../../assets/post2.png')
                         : isMother
                             ? require('../../assets/post3.png')
                             : require('../../assets/post1.png');
 
+                    const remoteImg = p.backgroundImage || p.image;
+                    const cardImage = remoteImg
+                        ? { uri: remoteImg.startsWith('data:') || remoteImg.startsWith('http') ? remoteImg : `${API_BASE_URL.replace('/api', '')}${remoteImg}` }
+                        : defaultImg;
+
                     const cleanIcon = mapIconName(p.icon, p.type);
 
                     // Dynamic Title Mapping
-                    let cleanTitle = p.title;
-                    if (p.type === 'mother') {
-                        cleanTitle = 'Mother Care';
-                    } else if (p.type === 'baby') {
-                        cleanTitle = 'Baby Care';
-                    } else if (isMuma) {
-                        cleanTitle = 'Mother + Baby Care';
-                    }
+                    const defaultTitle = isMother ? 'Mother Care' : isMuma ? 'Mother + Baby Care' : 'Baby Care';
+                    const cleanTitle = p.title || defaultTitle;
 
                     return {
                         type: p.type as PackageType,
@@ -180,7 +200,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                         footerBg: isMother ? '#EBE5FF' : '#FFEBF3',
                         iconCircleBg: isMother ? '#EBE5FF' : '#FFE4F0',
                         image: cardImage,
-                        badge: p.badge || month1.badge || (isMuma ? 'Most Popular' : undefined),
+                        badge: p.badge || month1.badge || undefined,
                         planName: month1.label || '1 Month Plan',
                         planDetails: month1.visitInfo || '26 visits × 3 hours (78 hours)',
                         price: month1.price ? `₹ ${month1.price.toLocaleString('en-IN')}` : `₹ ${p.startingPrice?.toLocaleString('en-IN')}`,
@@ -215,6 +235,20 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
             console.log('Error fetching orders in Home:', err);
         }
     }, [user?.token]);
+
+    const [refreshing, setRefreshing] = useState(false);
+
+    const onRefresh = useCallback(async () => {
+        setRefreshing(true);
+        try {
+            await fetchPackages();
+            if (user?.token) {
+                await fetchOrders();
+            }
+        } finally {
+            setRefreshing(false);
+        }
+    }, [fetchPackages, fetchOrders, user?.token]);
 
     useEffect(() => {
         fetchPackages();
@@ -265,7 +299,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                 <TouchableOpacity style={styles.locationSelector} activeOpacity={0.8}>
                     <Icon name="map-marker-alt" size={14} color="#2D3748" style={{ marginRight: 6 }} />
                     <Text style={styles.locationText}>Bangalore</Text>
-                    <Icon name="chevron-down" size={11} color="#4A5568" style={{ marginLeft: 4 }} />
+                    {/* <Icon name="chevron-down" size={11} color="#4A5568" style={{ marginLeft: 4 }} /> */}
                 </TouchableOpacity>
 
                 <View style={styles.verifiedBadge}>
@@ -274,7 +308,17 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                 </View>
             </View>
 
-            <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+            <ScrollView
+                contentContainerStyle={styles.scrollContent}
+                showsVerticalScrollIndicator={false}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={onRefresh}
+                        colors={[Colors.PRIMARY]}
+                        tintColor={Colors.PRIMARY}
+                    />
+                }>
 
                 {/* ── Top Banner Image ── */}
                 <Image
@@ -347,21 +391,16 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                         );
 
                         return (
-                            <View
+                            <TouchableOpacity
                                 key={pkg.type}
+                                activeOpacity={0.92}
+                                onPress={() => navigation.navigate(Routes.PACKAGE_DETAIL, { packageType: pkg.type })}
                                 style={[
                                     styles.cardContainer,
                                     { backgroundColor: pkg.bgColor, borderColor: pkg.borderColor },
                                     isActive && { borderWidth: 2, borderColor: pkg.accentColor },
                                 ]}>
 
-                                {/* Popular Badge */}
-                                {pkg.badge && (
-                                    <View style={[styles.popularBadge, { backgroundColor: pkg.accentColor }]}>
-                                        <Icon name="crown" size={9} color="#FFF" style={{ marginRight: 4 }} />
-                                        <Text style={styles.popularBadgeText}>{pkg.badge}</Text>
-                                    </View>
-                                )}
 
                                 {isActive && (
                                     <View style={[styles.activeSubRibbon, { backgroundColor: pkg.accentColor }]}>
@@ -370,38 +409,39 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                                     </View>
                                 )}
 
-                                {/* Top Main Section (Header + Checklist + Right Nurse Image) */}
+                                {/* Top Main Section matching Screenshot 1 */}
                                 <View style={styles.cardTopArea}>
+                                    {/* Right Hero Image (2:1 aspect ratio banner matching post1, post2, post3) */}
+                                    <Image
+                                        source={pkg.image}
+                                        style={styles.cardHeroImage}
+                                        resizeMode="cover"
+                                    />
 
                                     {/* Left Content Column */}
                                     <View style={styles.cardLeftCol}>
                                         {/* Icon + Title Header Row */}
                                         <View style={styles.cardTitleRow}>
                                             <View style={[styles.iconCircleBadge, { backgroundColor: pkg.iconCircleBg }]}>
-                                                <Icon name={pkg.icon} size={24} color={pkg.accentColor} />
+                                                <Icon name={pkg.icon} size={18} color={pkg.accentColor} />
                                             </View>
                                             <View style={styles.titleTextWrapper}>
-                                                <Text style={styles.cardTitleText}>{pkg.title}</Text>
-                                                <Text style={styles.cardTaglineText}>{pkg.tagline}</Text>
+                                                <Text style={styles.cardTitleText} numberOfLines={1} maxFontSizeMultiplier={1.25}>{pkg.title}</Text>
+                                                <Text style={styles.cardTaglineText} numberOfLines={2} maxFontSizeMultiplier={1.2}>{pkg.tagline}</Text>
                                             </View>
                                         </View>
 
-                                        {/* Features Vertical Checklist */}
+                                        {/* Features Vertical Checklist (Top 4 Core Features) */}
                                         <View style={styles.checklistGrid}>
-                                            {pkg.features.map((feature, idx) => (
+                                            {pkg.features.slice(0, 4).map((feature, idx) => (
                                                 <View key={idx} style={styles.checklistRow}>
                                                     <View style={[styles.checkCircleBadge, { backgroundColor: pkg.accentColor }]}>
-                                                        <Icon name="check" size={9} color="#FFF" />
+                                                        <Icon name="check" size={8} color="#FFF" />
                                                     </View>
-                                                    <Text style={styles.checkText}>{feature}</Text>
+                                                    <Text style={styles.checkText} numberOfLines={1} maxFontSizeMultiplier={1.2}>{cleanFeature(feature)}</Text>
                                                 </View>
                                             ))}
                                         </View>
-                                    </View>
-
-                                    {/* Right Nurse Image (Positioned in Top Right) */}
-                                    <View style={styles.rightImageWrapper}>
-                                        <Image source={pkg.image} style={styles.nurseRightImage} resizeMode="center" />
                                     </View>
                                 </View>
 
@@ -433,7 +473,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                                     <Text style={styles.viewPlanButtonText}>View Plan</Text>
                                     <Icon name="arrow-right" size={14} color="#FFF" style={{ marginLeft: 6 }} />
                                 </TouchableOpacity>
-                            </View>
+                            </TouchableOpacity>
                         );
                     })}
                 </View>
@@ -624,15 +664,15 @@ const styles = StyleSheet.create({
     // ── Package Card Styling (Matching Screenshot Exactly) ──────────────────────
     cardContainer: {
         borderRadius: 24,
-        borderWidth: 1,
+        borderWidth: 1.5,
         padding: 16,
         position: 'relative',
         overflow: 'hidden',
         shadowColor: '#FF176B',
         shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.06,
-        shadowRadius: 12,
-        elevation: 3,
+        shadowOpacity: 0.05,
+        shadowRadius: 10,
+        elevation: 2,
     },
     popularBadge: {
         position: 'absolute',
@@ -671,74 +711,73 @@ const styles = StyleSheet.create({
     },
     cardTopArea: {
         position: 'relative',
-        minHeight: 160,
-        marginBottom: 12,
-        marginTop: 4,
+        minHeight: 155,
+        marginBottom: 8,
+        marginTop: 2,
+    },
+    cardHeroImage: {
+        position: 'absolute',
+        top: -16,
+        right: -16,
+        width: SW - 32,
+        height: Math.round((SW - 32) * 0.5),
+        borderTopRightRadius: 24,
     },
     cardLeftCol: {
-        width: '62%',
-        paddingRight: 6,
+        width: '64%',
+        paddingRight: 4,
+        zIndex: 2,
     },
     cardTitleRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 6,
+        marginBottom: 3,
     },
     iconCircleBadge: {
-        width: 48,
-        height: 48,
-        borderRadius: 24,
+        width: 38,
+        height: 38,
+        borderRadius: 19,
         justifyContent: 'center',
         alignItems: 'center',
-        marginRight: 10,
+        marginRight: 8,
     },
     titleTextWrapper: {
         flex: 1,
     },
     cardTitleText: {
-        fontSize: 18,
-        fontWeight: '900',
+        fontSize: 17,
+        fontWeight: '800',
         color: '#1A1D36',
     },
     cardTaglineText: {
-        fontSize: 11,
-        color: '#5C6079',
-        lineHeight: 15,
+        fontSize: 10.5,
+        color: '#4A5568',
+        lineHeight: 14,
         marginTop: 1,
     },
     checklistGrid: {
-        gap: 6,
+        gap: 3,
         marginTop: 4,
     },
     checklistRow: {
         flexDirection: 'row',
         alignItems: 'center',
+        marginBottom: 1,
     },
     checkCircleBadge: {
-        width: 16,
-        height: 16,
-        borderRadius: 8,
+        width: 14,
+        height: 14,
+        borderRadius: 7,
         justifyContent: 'center',
         alignItems: 'center',
-        marginRight: 8,
+        marginRight: 7,
     },
     checkText: {
-        fontSize: 12,
-        fontWeight: '700',
-        color: '#2C2E4A',
-    },
-    rightImageWrapper: {
-        position: 'absolute',
-        right: -16,
-        top: -16,
-        width: 150,
-        height: 185,
-        borderTopRightRadius: 24,
-        overflow: 'hidden',
-    },
-    nurseRightImage: {
-        width: '100%',
-        height: '100%',
+        flex: 1,
+        fontSize: 11,
+        fontWeight: '600',
+        color: '#1E293B',
+        lineHeight: 14,
     },
 
     // Footer Price Box
@@ -748,8 +787,8 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         borderRadius: 16,
         paddingHorizontal: 14,
-        paddingVertical: 12,
-        marginBottom: 12,
+        paddingVertical: 10,
+        marginBottom: 10,
     },
     priceFooterLeft: {
         flex: 1,

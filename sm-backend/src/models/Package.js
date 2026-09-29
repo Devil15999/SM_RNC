@@ -21,6 +21,8 @@ const PackageSchema = new mongoose.Schema({
     icon: { type: String, required: true },
     accentColor: { type: String, required: true },
     startingPrice: { type: Number, required: true },
+    image: { type: String, default: '' },
+    backgroundImage: { type: String, default: '' },
     badge: { type: String, default: null },
     features: [{ type: String }],
     plans: {
