@@ -55,14 +55,8 @@ const DEFAULT_PACKAGES: Record<string, PackageDetailInfo> = {
         subtitle: 'Comprehensive newborn care, bathing, feeding routines, milestone tracking, and gentle attention.',
         icon: 'baby',
         accentColor: '#E91E8A',
-        mainImage: require('../../assets/post1.png'),
-        gallery: [
-            require('../../assets/post1.png'),
-            require('../../assets/post2.png'),
-            require('../../assets/post3.png'),
-            require('../../assets/post1.png'),
-            require('../../assets/post2.png'),
-        ],
+        mainImage: null,
+        gallery: [],
         iconsList: [
             { icon: 'baby', label: 'Baby\nCare' },
             { icon: 'hands-wash', label: 'Bathing\n& Hygiene' },
@@ -116,14 +110,8 @@ const DEFAULT_PACKAGES: Record<string, PackageDetailInfo> = {
         subtitle: 'Dedicated postpartum recovery support, lactation assistance, and physical wellness for new mothers.',
         icon: 'female',
         accentColor: '#5C54E5',
-        mainImage: require('../../assets/post3.png'),
-        gallery: [
-            require('../../assets/post3.png'),
-            require('../../assets/post1.png'),
-            require('../../assets/post2.png'),
-            require('../../assets/post3.png'),
-            require('../../assets/post1.png'),
-        ],
+        mainImage: null,
+        gallery: [],
         iconsList: [
             { icon: 'female', label: 'Mother\nCare' },
             { icon: 'spa', label: 'Recovery\nSupport' },
@@ -177,14 +165,8 @@ const DEFAULT_PACKAGES: Record<string, PackageDetailInfo> = {
         subtitle: 'The ultimate 360° care bundle providing dual dedicated support for both mother\'s recovery and baby\'s healthy start.',
         icon: 'heart',
         accentColor: '#E91E8A',
-        mainImage: require('../../assets/post2.png'),
-        gallery: [
-            require('../../assets/post2.png'),
-            require('../../assets/post1.png'),
-            require('../../assets/post3.png'),
-            require('../../assets/post2.png'),
-            require('../../assets/post1.png'),
-        ],
+        mainImage: null,
+        gallery: [],
         iconsList: [
             { icon: 'baby', label: 'Baby\nCare' },
             { icon: 'female', label: 'Mother\nCare' },
@@ -285,12 +267,14 @@ const PackageDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                     ? fetched.images
                     : (fetched.backgroundImage || fetched.image ? [fetched.backgroundImage || fetched.image] : []);
 
-                const remoteGallery = rawImagesList.map(imgStr => ({
-                    uri: imgStr.startsWith('data:') || imgStr.startsWith('http') ? imgStr : `${API_BASE_URL.replace('/api', '')}${imgStr}`
-                }));
+                const remoteGallery = rawImagesList
+                    .filter((imgStr): imgStr is string => typeof imgStr === 'string' && imgStr.trim().length > 0)
+                    .map(imgStr => ({
+                        uri: imgStr.startsWith('data:') || imgStr.startsWith('http') ? imgStr : `${API_BASE_URL.replace('/api', '')}${imgStr}`
+                    }));
 
-                const heroImg = remoteGallery.length > 0 ? remoteGallery[0] : baseDefault.mainImage;
-                const galleryList = remoteGallery.length > 0 ? remoteGallery : baseDefault.gallery;
+                const heroImg = remoteGallery.length > 0 ? remoteGallery[0] : null;
+                const galleryList = remoteGallery;
 
                 setPkgData({
                     ...baseDefault,
@@ -369,37 +353,41 @@ const PackageDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                 }>
 
                 {/* ── Hero Image & Gallery ── */}
-                <View style={styles.heroWrapper}>
-                    <Image
-                        source={pkg.gallery[selectedImageIndex] || pkg.mainImage}
-                        style={styles.heroBannerImage}
-                        resizeMode="cover"
-                    />
+                {(pkg.gallery[selectedImageIndex] || pkg.mainImage) ? (
+                    <View style={styles.heroWrapper}>
+                        <Image
+                            source={pkg.gallery[selectedImageIndex] || pkg.mainImage}
+                            style={styles.heroBannerImage}
+                            resizeMode="cover"
+                        />
 
-                    {/* Heart Floating Button */}
-                    <TouchableOpacity
-                        style={styles.favoriteButton}
-                        activeOpacity={0.8}
-                        onPress={() => setIsFavorite(!isFavorite)}>
-                        <Icon name="heart" size={18} color="#E91E8A" solid={isFavorite} />
-                    </TouchableOpacity>
-                </View>
+                        {/* Heart Floating Button */}
+                        <TouchableOpacity
+                            style={styles.favoriteButton}
+                            activeOpacity={0.8}
+                            onPress={() => setIsFavorite(!isFavorite)}>
+                            <Icon name="heart" size={18} color="#E91E8A" solid={isFavorite} />
+                        </TouchableOpacity>
+                    </View>
+                ) : null}
 
                 {/* Thumbnails Strip */}
-                <View style={styles.thumbnailsRow}>
-                    {pkg.gallery.map((img, index) => (
-                        <TouchableOpacity
-                            key={index}
-                            style={[
-                                styles.thumbnailBox,
-                                selectedImageIndex === index && { borderColor: '#E91E8A', borderWidth: 2 },
-                            ]}
-                            activeOpacity={0.8}
-                            onPress={() => setSelectedImageIndex(index)}>
-                            <Image source={img} style={styles.thumbnailImg} resizeMode="cover" />
-                        </TouchableOpacity>
-                    ))}
-                </View>
+                {pkg.gallery && pkg.gallery.length > 1 ? (
+                    <View style={styles.thumbnailsRow}>
+                        {pkg.gallery.map((img, index) => (
+                            <TouchableOpacity
+                                key={index}
+                                style={[
+                                    styles.thumbnailBox,
+                                    selectedImageIndex === index && { borderColor: '#E91E8A', borderWidth: 2 },
+                                ]}
+                                activeOpacity={0.8}
+                                onPress={() => setSelectedImageIndex(index)}>
+                                <Image source={img} style={styles.thumbnailImg} resizeMode="cover" />
+                            </TouchableOpacity>
+                        ))}
+                    </View>
+                ) : null}
 
                 {/* ── Package Title & Badge Header ── */}
                 <View style={styles.titleSection}>

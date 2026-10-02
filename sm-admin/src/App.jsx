@@ -4143,7 +4143,6 @@ function App() {
                       />
                     </div>
                   </div>
-                  </div>
 
                   <div className="grid-2-col">
                     <div className="form-group">
