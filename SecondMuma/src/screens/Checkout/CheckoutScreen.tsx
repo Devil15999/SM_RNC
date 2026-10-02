@@ -263,7 +263,7 @@ const CheckoutScreen: React.FC<Props> = ({ navigation, route }) => {
             motherAge: packageType !== 'baby' ? motherAge : '',
             babyName: packageType !== 'mother' ? babyName : '',
             babyAge: packageType !== 'mother' ? babyAge : '',
-            startDate: startDate ? startDate.toISOString() : '',
+            startDate: startDate ? (typeof startDate === 'string' ? startDate : `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}-${String(startDate.getDate()).padStart(2, '0')}`) : '',
             timeSlot,
             selectedTime,
         });

@@ -281,10 +281,16 @@ const PackageDetailScreen: React.FC<Props> = ({ navigation, route }) => {
 
                 const cleanTitle = fetched.title || baseDefault.title;
 
-                const remoteImg = fetched.backgroundImage || fetched.image;
-                const heroImg = remoteImg
-                    ? { uri: remoteImg.startsWith('data:') || remoteImg.startsWith('http') ? remoteImg : `${API_BASE_URL.replace('/api', '')}${remoteImg}` }
-                    : baseDefault.mainImage;
+                const rawImagesList: string[] = Array.isArray(fetched.images) && fetched.images.length > 0
+                    ? fetched.images
+                    : (fetched.backgroundImage || fetched.image ? [fetched.backgroundImage || fetched.image] : []);
+
+                const remoteGallery = rawImagesList.map(imgStr => ({
+                    uri: imgStr.startsWith('data:') || imgStr.startsWith('http') ? imgStr : `${API_BASE_URL.replace('/api', '')}${imgStr}`
+                }));
+
+                const heroImg = remoteGallery.length > 0 ? remoteGallery[0] : baseDefault.mainImage;
+                const galleryList = remoteGallery.length > 0 ? remoteGallery : baseDefault.gallery;
 
                 setPkgData({
                     ...baseDefault,
@@ -294,7 +300,7 @@ const PackageDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                     icon: (fetched.icon ?? baseDefault.icon).replace(/^fa-/, ''),
                     accentColor: fetched.accentColor || baseDefault.accentColor,
                     mainImage: heroImg,
-                    gallery: remoteImg ? [heroImg, ...(baseDefault.gallery || []).slice(1)] : baseDefault.gallery,
+                    gallery: galleryList,
                     includedCol1: col1,
                     includedCol2: col2,
                     plans: apiPlans,

@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useMemo, useState } from 'react';
+import React, { memo, useCallback, useMemo, useRef, useState } from 'react';
 import {
     Dimensions,
     Image,
@@ -87,7 +87,7 @@ const SCREEN_PADDING = 16;
 const CARD_WIDTH = SCREEN_WIDTH - SCREEN_PADDING * 2;
 
 // banner2.png is 1672 × 941. Keep this in sync if the asset is ever replaced.
-const BANNER_SOURCE = require('../../assets/banner2.png');
+const BANNER_SOURCE = require('../../assets/banner3.png');
 const BANNER_ASPECT_RATIO = 1672 / 941;
 
 const PACKAGE_IMAGES: Record<PackageType, ImageSourcePropType> = {
@@ -150,74 +150,7 @@ const FEATURE_LABELS: Record<string, string> = {
     'Comprehensive daily health reports': 'Daily health reports & updates',
 };
 
-const DEFAULT_PACKAGES: PackageCardItem[] = [
-    {
-        type: 'baby',
-        title: 'Baby Care',
-        tagline: "Gentle, expert newborn nursing care for your baby's healthy growth.",
-        icon: 'baby',
-        accentColor: PINK,
-        bgColor: '#FFF0F5',
-        borderColor: PINK_BORDER,
-        iconCircleBg: PINK_SOFT,
-        image: PACKAGE_IMAGES.baby,
-        planName: DEFAULT_PLAN_NAME,
-        planDetails: DEFAULT_PLAN_DETAILS,
-        price: '₹ 24,999',
-        originalPrice: '₹ 32,000',
-        savings: 'Save 22%',
-        features: [
-            'Hygiene care, bathing & cord care',
-            'Feeding, burping & colic relief',
-            'Sleep routine & bedtime support',
-            'Growth & milestone tracking',
-        ],
-    },
-    {
-        type: 'mother',
-        title: 'Mother Care',
-        tagline: 'Specialized postpartum recovery & nursing care for new mothers.',
-        icon: 'female',
-        accentColor: INDIGO,
-        bgColor: '#F4F0FF',
-        borderColor: '#DDD6FE',
-        iconCircleBg: '#EBE5FF',
-        image: PACKAGE_IMAGES.mother,
-        planName: DEFAULT_PLAN_NAME,
-        planDetails: DEFAULT_PLAN_DETAILS,
-        price: '₹ 34,999',
-        originalPrice: '₹ 45,000',
-        savings: 'Save 22%',
-        features: [
-            'Postpartum recovery & healing assistance',
-            'Breastfeeding & lactation support',
-            'Nutritional guidance & meal assistance',
-            'Emotional wellness & vital monitoring',
-        ],
-    },
-    {
-        type: 'muma',
-        title: 'Mother + Baby Care',
-        tagline: 'Complete dual nursing care bundle for both mother & newborn baby.',
-        icon: 'heart',
-        accentColor: PINK,
-        bgColor: '#FFF0F5',
-        borderColor: PINK_BORDER,
-        iconCircleBg: PINK_SOFT,
-        image: PACKAGE_IMAGES.muma,
-        planName: DEFAULT_PLAN_NAME,
-        planDetails: DEFAULT_PLAN_DETAILS,
-        price: '₹ 49,999',
-        originalPrice: '₹ 65,000',
-        savings: 'Save 23%',
-        features: [
-            'All essential Baby Care services',
-            'All specialized Mother Care services',
-            'Lactation & breastfeeding assistance',
-            'Postpartum recovery & routine planning',
-        ],
-    },
-];
+
 
 // ── Helpers ─────────────────────────────────────────────────────────────────────
 
@@ -371,9 +304,10 @@ const PackageCard = memo(({ pkg, isActive, onPress }: PackageCardProps) => (
 interface ActiveSubscriptionCardProps {
     order: Order;
     onPress: (order: Order) => void;
+    cardWidth?: number;
 }
 
-const ActiveSubscriptionCard = memo(({ order, onPress }: ActiveSubscriptionCardProps) => {
+const ActiveSubscriptionCard = memo(({ order, onPress, cardWidth }: ActiveSubscriptionCardProps) => {
     const expiryDate = order.expiresAt
         ? new Date(order.expiresAt).toLocaleDateString('en-IN', {
             day: 'numeric',
@@ -385,7 +319,11 @@ const ActiveSubscriptionCard = memo(({ order, onPress }: ActiveSubscriptionCardP
 
     return (
         <TouchableOpacity
-            style={[styles.activeSubCard, { borderColor: `${color}44` }]}
+            style={[
+                styles.activeSubCard,
+                { borderColor: `${color}44` },
+                cardWidth != null ? { width: cardWidth } : null
+            ]}
             activeOpacity={0.88}
             onPress={() => onPress(order)}>
             <View style={styles.activeSubHeader}>
@@ -393,8 +331,10 @@ const ActiveSubscriptionCard = memo(({ order, onPress }: ActiveSubscriptionCardP
                     <Icon name={order.icon ? order.icon.replace(/^fa-/, '') : 'box'} size={18} color={color} />
                 </View>
                 <View style={styles.activeSubTextWrapper}>
-                    <Text style={styles.activeSubTitle}>{order.packageTitle}</Text>
-                    <Text style={styles.activeSubPlan}>{order.planLabel} Plan</Text>
+                    <Text style={styles.activeSubTitle} numberOfLines={2}>{order.packageTitle}</Text>
+                    <Text style={styles.activeSubPlan}>
+                        {order.planLabel?.toLowerCase().includes('plan') ? order.planLabel : `${order.planLabel} Plan`}
+                    </Text>
                 </View>
                 <View style={[styles.activeStatusBadge, { backgroundColor: `${Colors.SUCCESS}1A` }]}>
                     <Text style={[styles.activeStatusText, { color: Colors.SUCCESS }]}>ACTIVE</Text>
@@ -421,10 +361,24 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     const user = useAppSelector(state => state.auth.user);
     const token = user?.token;
 
-    const [packageList, setPackageList] = useState<PackageCardItem[]>(DEFAULT_PACKAGES);
+    const [packageList, setPackageList] = useState<PackageCardItem[]>([]);
     const [orders, setOrders] = useState<Order[]>([]);
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
     const [refreshing, setRefreshing] = useState(false);
+    const [packagesY, setPackagesY] = useState<number>(0);
+    const mainScrollViewRef = useRef<ScrollView>(null);
+
+    const scrollToPackages = useCallback(() => {
+        if (mainScrollViewRef.current) {
+            mainScrollViewRef.current.scrollTo({ y: packagesY, animated: true });
+        }
+    }, [packagesY]);
+
+    const scrollToTop = useCallback(() => {
+        if (mainScrollViewRef.current) {
+            mainScrollViewRef.current.scrollTo({ y: 0, animated: true });
+        }
+    }, []);
 
     const fetchPackages = useCallback(async () => {
         try {
@@ -522,6 +476,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
             </View>
 
             <ScrollView
+                ref={mainScrollViewRef}
                 style={styles.flex}
                 contentContainerStyle={styles.scrollContent}
                 showsVerticalScrollIndicator={false}
@@ -534,12 +489,15 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                     />
                 }>
                 {/* ── Banner (height derived from the image's real aspect ratio) ── */}
-                <View style={{ width: '100%', height: 230, backgroundColor: 'red' }}>
+                <View style={{ width: '100%', height: 230, backgroundColor: '#FFFFFF' }}>
                     <Image source={BANNER_SOURCE} style={styles.heroBanner} resizeMode="stretch" />
                 </View>
 
                 {/* ── Care Packages Title ── */}
-                <View style={styles.sectionHeader}>
+                <View
+                    style={styles.sectionHeader}
+                    onLayout={(e) => setPackagesY(e.nativeEvent.layout.y)}
+                >
                     <Text style={styles.sectionTitle}>Our Care Packages</Text>
                     <Text style={styles.sectionSubtitle}>
                         Choose the care you need for you and your little one.
@@ -549,10 +507,28 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                 {/* ── Active Subscriptions ── */}
                 {activeSubscriptions.length > 0 && (
                     <View style={styles.activeSubsContainer}>
-                        <Text style={styles.activeSubsTitle}>Your Active Subscriptions</Text>
-                        {activeSubscriptions.map(order => (
-                            <ActiveSubscriptionCard key={order._id} order={order} onPress={setSelectedOrder} />
-                        ))}
+                        <Text style={styles.activeSubsTitle}>Your Active Subscriptions ({activeSubscriptions.length})</Text>
+                        <ScrollView
+                            horizontal
+                            showsHorizontalScrollIndicator={false}
+                            contentContainerStyle={styles.activeSubsScrollContent}
+                        >
+                            {activeSubscriptions.map((order, idx) => (
+                                <View
+                                    key={order._id}
+                                    style={[
+                                        idx < activeSubscriptions.length - 1 ? { marginRight: 12 } : null,
+                                        { height: 140 }
+                                    ]}
+                                >
+                                    <ActiveSubscriptionCard
+                                        order={order}
+                                        onPress={setSelectedOrder}
+                                        cardWidth={activeSubscriptions.length === 1 ? CARD_WIDTH : Math.min(SCREEN_WIDTH * 0.82, 320)}
+                                    />
+                                </View>
+                            ))}
+                        </ScrollView>
                     </View>
                 )}
 
@@ -571,7 +547,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
 
             {/* ── Bottom Navigation Bar ── */}
             <View style={[styles.bottomNav, { paddingBottom: Math.max(insets.bottom, 8) }]}>
-                <TouchableOpacity style={styles.navItem} activeOpacity={0.8}>
+                <TouchableOpacity style={styles.navItem} activeOpacity={0.8} onPress={scrollToTop}>
                     <Icon name="home" size={20} color={PINK} />
                     <Text style={[styles.navLabel, styles.navLabelActive]}>Home</Text>
                 </TouchableOpacity>
@@ -584,7 +560,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                     <Text style={styles.navLabel}>My Bookings</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity style={styles.navItem} activeOpacity={0.8} onPress={() => openPackage('muma')}>
+                <TouchableOpacity style={styles.navItem} activeOpacity={0.8} onPress={scrollToPackages}>
                     <Icon name="heart" size={19} color={TEXT_MUTED} />
                     <Text style={styles.navLabel}>Packages</Text>
                 </TouchableOpacity>
@@ -909,13 +885,20 @@ const styles = StyleSheet.create({
         fontWeight: '800',
         color: TEXT_DARK,
         marginBottom: 8,
+        // paddingHorizontal: SCREEN_PADDING,
+    },
+    activeSubsScrollContent: {
+        // paddingHorizontal: SCREEN_PADDING,
+        paddingBottom: 4,
     },
     activeSubCard: {
         backgroundColor: '#FFFFFF',
         borderRadius: 14,
-        padding: 12,
+        paddingVertical: 10,
+        paddingHorizontal: 12,
         borderWidth: 1.5,
-        marginBottom: 8,
+        height: '100%',
+        justifyContent: 'space-between',
     },
     activeSubHeader: { flexDirection: 'row', alignItems: 'center' },
     activeSubIconBox: {
@@ -925,12 +908,12 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
     },
-    activeSubTextWrapper: { flex: 1, marginLeft: 12 },
+    activeSubTextWrapper: { flex: 1, marginLeft: 10, marginRight: 6 },
     activeSubTitle: { fontSize: 14, fontWeight: '800', color: TEXT_DARK },
     activeSubPlan: { fontSize: 11, color: TEXT_MUTED, marginTop: 1 },
     activeStatusBadge: { paddingHorizontal: 6, paddingVertical: 3, borderRadius: 10 },
     activeStatusText: { fontSize: 9, fontWeight: '800' },
-    activeSubDivider: { height: 1, backgroundColor: BORDER_LIGHT, marginVertical: 8 },
+    activeSubDivider: { height: 1, backgroundColor: BORDER_LIGHT, marginVertical: 6 },
     activeSubFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     activeSubFooterLabel: { fontSize: 11, color: '#A0AEC0', fontWeight: '500' },
     activeSubFooterValue: { fontSize: 11, color: '#2D3748', fontWeight: '700' },

@@ -115,19 +115,7 @@ const cleanDetails = (details) => {
 const getAppointmentDateTime = (startDateStr, selectedTimeStr) => {
   if (!startDateStr) return '';
   
-  let datePart = '';
-  if (typeof startDateStr === 'string' && startDateStr.match(/^\d{4}-\d{2}-\d{2}/)) {
-    datePart = startDateStr.substring(0, 10);
-  } else {
-    const d = new Date(startDateStr);
-    if (!isNaN(d.getTime())) {
-      const year = d.getUTCFullYear();
-      const month = String(d.getUTCMonth() + 1).padStart(2, '0');
-      const day = String(d.getUTCDate()).padStart(2, '0');
-      datePart = `${year}-${month}-${day}`;
-    }
-  }
-  
+  let datePart = toLocalDateString(startDateStr);
   if (!datePart) return '';
   
   let timePart = '09:00'; // default morning time
@@ -2413,6 +2401,7 @@ function App() {
                           startingPrice: 0,
                           image: '',
                           backgroundImage: '',
+                          images: [],
                           features: [''],
                           plans: {
                             '1month': { key: '1month', label: '1 Month', price: 0, originalPrice: 0, savings: '', badge: '', features: [''] },
@@ -2487,6 +2476,7 @@ function App() {
                                   ...pkg,
                                   backgroundImage: pkg.backgroundImage || pkg.image || '',
                                   image: pkg.image || pkg.backgroundImage || '',
+                                  images: pkg.images || [],
                                   features: pkg.features || [],
                                   plans: {
                                     '1month': { ...pkg.plans?.['1month'], features: pkg.plans?.['1month']?.features || [] },
@@ -4033,6 +4023,128 @@ function App() {
                     </div>
                   </div>
 
+                  {/* Package Detail Gallery Images Upload */}
+                  <div className="form-group" style={{ marginBottom: '20px' }}>
+                    <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span>Package Detail Images (Shown in Mobile App Gallery)</span>
+                      <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                        {(editPackage.images || []).length} Image(s) Uploaded
+                      </span>
+                    </label>
+
+                    {/* Previews Grid */}
+                    {(editPackage.images || []).length > 0 && (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', marginBottom: '12px' }}>
+                        {(editPackage.images || []).map((imgUrl, index) => (
+                          <div
+                            key={index}
+                            style={{
+                              position: 'relative',
+                              width: '100px',
+                              height: '100px',
+                              borderRadius: '8px',
+                              overflow: 'hidden',
+                              border: '1px solid rgba(255,255,255,0.15)',
+                              backgroundColor: '#1a1f36'
+                            }}
+                          >
+                            <img
+                              src={getImageUrl(imgUrl)}
+                              alt={`Detail Image ${index + 1}`}
+                              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            />
+                            <button
+                              type="button"
+                              title="Remove image"
+                              style={{
+                                position: 'absolute',
+                                top: '4px',
+                                right: '4px',
+                                background: 'rgba(239, 68, 68, 0.9)',
+                                color: '#fff',
+                                border: 'none',
+                                borderRadius: '50%',
+                                width: '22px',
+                                height: '22px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                cursor: 'pointer',
+                                fontSize: '12px'
+                              }}
+                              onClick={() => {
+                                setEditPackage(prev => ({
+                                  ...prev,
+                                  images: (prev.images || []).filter((_, i) => i !== index)
+                                }));
+                              }}
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <label
+                        htmlFor="package-gallery-upload"
+                        className="btn btn-secondary"
+                        style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 16px', fontSize: '0.85rem' }}
+                      >
+                        <Upload size={16} />
+                        + Upload Package Detail Images
+                      </label>
+                      <input
+                        id="package-gallery-upload"
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        style={{ display: 'none' }}
+                        onChange={(e) => {
+                          const files = Array.from(e.target.files || []);
+                          if (files.length === 0) return;
+                          
+                          files.forEach(file => {
+                            const reader = new FileReader();
+                            reader.onload = (uploadEvent) => {
+                              const img = new window.Image();
+                              img.onload = () => {
+                                const MAX_WIDTH = 1200;
+                                const MAX_HEIGHT = 800;
+                                let width = img.width;
+                                let height = img.height;
+                                if (width > MAX_WIDTH || height > MAX_HEIGHT) {
+                                  if (width / height > MAX_WIDTH / MAX_HEIGHT) {
+                                    height = Math.round((height * MAX_WIDTH) / width);
+                                    width = MAX_WIDTH;
+                                  } else {
+                                    width = Math.round((width * MAX_HEIGHT) / height);
+                                    height = MAX_HEIGHT;
+                                  }
+                                }
+                                const canvas = document.createElement('canvas');
+                                canvas.width = width;
+                                canvas.height = height;
+                                const ctx = canvas.getContext('2d');
+                                ctx.drawImage(img, 0, 0, width, height);
+                                const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+                                setEditPackage(prev => ({
+                                  ...prev,
+                                  images: [...(prev.images || []), compressedDataUrl]
+                                }));
+                              };
+                              img.src = uploadEvent.target.result;
+                            };
+                            reader.readAsDataURL(file);
+                          });
+                          e.target.value = '';
+                        }}
+                      />
+                    </div>
+                  </div>
+                  </div>
+
                   <div className="grid-2-col">
                     <div className="form-group">
                       <label className="form-label">Package ID / Type Key (e.g., mother)</label>
@@ -4528,7 +4640,7 @@ function App() {
                             (() => {
                               const order = unscheduledOrders.find(o => o._id === selectedOrderId);
                               if (!order) return 'Not found';
-                              const prefDate = order.startDate ? new Date(order.startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }) : 'None';
+                              const prefDate = order.startDate ? formatOnlyDate(order.startDate) : 'None';
                               const prefTime = order.selectedTime ? `${order.selectedTime}` : (order.timeSlot || 'None');
                               return `${prefDate} (${prefTime})`;
                             })()

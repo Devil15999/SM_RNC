@@ -531,6 +531,8 @@ const createPackage = async (req, res, next) => {
 
         const rawImg = image || backgroundImage || '';
         const savedImg = rawImg ? saveBase64Image(rawImg) : '';
+        const rawImages = Array.isArray(req.body.images) ? req.body.images : [];
+        const savedImages = rawImages.map(img => saveBase64Image(img)).filter(Boolean);
 
         const pkg = await Package.create({
             type,
@@ -542,6 +544,7 @@ const createPackage = async (req, res, next) => {
             startingPrice: effectivePrice,
             image: savedImg,
             backgroundImage: savedImg,
+            images: savedImages.length > 0 ? savedImages : (savedImg ? [savedImg] : []),
             features: features || [],
             plans: plans || {}
         });
@@ -558,7 +561,7 @@ const createPackage = async (req, res, next) => {
  */
 const updatePackage = async (req, res, next) => {
     try {
-        const { type, title, subtitle, tagline, icon, accentColor, startingPrice, features, plans, image, backgroundImage } = req.body;
+        const { type, title, subtitle, tagline, icon, accentColor, startingPrice, features, plans, image, backgroundImage, images } = req.body;
         const pkg = await Package.findById(req.params.id);
 
         if (!pkg) {
@@ -586,6 +589,10 @@ const updatePackage = async (req, res, next) => {
             const savedImg = rawImg ? saveBase64Image(rawImg) : '';
             pkg.image = savedImg;
             pkg.backgroundImage = savedImg;
+        }
+        if (images !== undefined) {
+            const rawImages = Array.isArray(images) ? images : [];
+            pkg.images = rawImages.map(img => saveBase64Image(img)).filter(Boolean);
         }
 
         await pkg.save();

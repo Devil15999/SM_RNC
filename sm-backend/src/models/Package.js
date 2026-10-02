@@ -23,6 +23,7 @@ const PackageSchema = new mongoose.Schema({
     startingPrice: { type: Number, required: true },
     image: { type: String, default: '' },
     backgroundImage: { type: String, default: '' },
+    images: [{ type: String }],
     badge: { type: String, default: null },
     features: [{ type: String }],
     plans: {

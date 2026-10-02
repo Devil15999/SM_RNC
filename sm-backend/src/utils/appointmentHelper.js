@@ -26,6 +26,7 @@ const getLocalDateKey = (d) => {
 const fillVirtualAppointments = async (appointments) => {
     const filteredAppointments = [];
     const orderTemplates = {}; // orderId -> { order, apptTemplate }
+    const datesWithRealAppts = new Set(); // set of `${orderId}-${dateKey}` that already have real appointments
 
     // First filter out invalid pending ones (e.g. inactive subscriptions)
     for (const appt of appointments) {
@@ -53,25 +54,19 @@ const fillVirtualAppointments = async (appointments) => {
         }
 
         if (isValid) {
-            filteredAppointments.push(appt);
+            const apptObj = appt.toObject ? appt.toObject() : appt;
+            filteredAppointments.push(apptObj);
+
+            const orderIdMatch = appt.details && appt.details.match(/Order ID:\s*([a-f\d]{24})/i);
+            const orderId = orderIdMatch ? orderIdMatch[1] : 'no-order';
+            const dateKey = getLocalDateKey(appt.dateTime);
+            datesWithRealAppts.add(`${orderId}-${dateKey}`);
         }
     }
 
-    const finalAppointmentsMap = new Map();
+    const finalAppointments = [...filteredAppointments];
 
-    // Map existing real appointments by orderId and date string
-    for (const appt of filteredAppointments) {
-        const orderIdMatch = appt.details && appt.details.match(/Order ID:\s*([a-f\d]{24})/i);
-        const orderId = orderIdMatch ? orderIdMatch[1] : 'no-order';
-        const dateKey = getLocalDateKey(appt.dateTime);
-        const key = `${orderId}-${dateKey}`;
-        
-        if (!finalAppointmentsMap.has(key)) {
-            finalAppointmentsMap.set(key, appt.toObject ? appt.toObject() : appt);
-        }
-    }
-
-    // Generate virtual appointments
+    // Generate virtual appointments for missing dates
     for (const orderId of Object.keys(orderTemplates)) {
         const { order, apptTemplate } = orderTemplates[orderId];
         
@@ -91,7 +86,7 @@ const fillVirtualAppointments = async (appointments) => {
             const dateKey = getLocalDateKey(current);
             const key = `${orderId}-${dateKey}`;
 
-            if (!finalAppointmentsMap.has(key)) {
+            if (!datesWithRealAppts.has(key)) {
                 const apptTime = new Date(apptTemplate.dateTime);
                 const virtualDateTime = new Date(current);
                 virtualDateTime.setHours(
@@ -116,14 +111,15 @@ const fillVirtualAppointments = async (appointments) => {
                     isVirtual: true
                 };
 
-                finalAppointmentsMap.set(key, virtualAppt);
+                finalAppointments.push(virtualAppt);
+                datesWithRealAppts.add(key);
             }
 
             current.setDate(current.getDate() + 1);
         }
     }
 
-    return Array.from(finalAppointmentsMap.values());
+    return finalAppointments;
 };
 
 module.exports = {
