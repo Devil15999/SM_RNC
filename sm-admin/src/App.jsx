@@ -1370,10 +1370,38 @@ function App() {
     }
   };
 
+  const handleOpenEditOrder = (order) => {
+    const startVal = order.activatedAt || order.startDate;
+    const activatedAt = order.activatedAt
+      ? toLocalDateString(order.activatedAt)
+      : (order.startDate ? toLocalDateString(order.startDate) : '');
+    let expiresAt = order.expiresAt ? toLocalDateString(order.expiresAt) : '';
+
+    if (!expiresAt && startVal) {
+      const formattedStart = toLocalDateString(startVal);
+      if (formattedStart) {
+        const [y, m, d] = formattedStart.split('-').map(Number);
+        const date = new Date(y, m - 1, d);
+        const months = order.planKey === '1month' ? 1 : order.planKey === '3month' ? 3 : 6;
+        date.setMonth(date.getMonth() + months);
+        const expYear = date.getFullYear();
+        const expMonth = String(date.getMonth() + 1).padStart(2, '0');
+        const expDay = String(date.getDate()).padStart(2, '0');
+        expiresAt = `${expYear}-${expMonth}-${expDay}`;
+      }
+    }
+
+    setEditOrder({
+      ...order,
+      activatedAt: activatedAt,
+      expiresAt: expiresAt
+    });
+  };
+
   const handleOrderStartDateChange = (val) => {
     setEditOrder(prev => {
       if (!prev) return null;
-      const updated = { ...prev, activatedAt: val };
+      const updated = { ...prev, activatedAt: val, startDate: val };
       if (val) {
         const [year, month, day] = val.split('-').map(Number);
         const date = new Date(year, month - 1, day);
@@ -1396,14 +1424,26 @@ function App() {
       if (!prev) return null;
       const updated = { ...prev, status: newStatus };
       if (newStatus === 'active' && !updated.activatedAt) {
-        const today = new Date();
-        const year = today.getFullYear();
-        const month = String(today.getMonth() + 1).padStart(2, '0');
-        const day = String(today.getDate()).padStart(2, '0');
-        const todayStr = `${year}-${month}-${day}`;
-        updated.activatedAt = todayStr;
+        const initialDateStr = updated.startDate ? toLocalDateString(updated.startDate) : null;
+        let year, month, day;
+        if (initialDateStr) {
+          const parts = initialDateStr.split('-').map(Number);
+          year = parts[0];
+          month = String(parts[1]).padStart(2, '0');
+          day = String(parts[2]).padStart(2, '0');
+        } else {
+          const today = new Date();
+          year = today.getFullYear();
+          month = String(today.getMonth() + 1).padStart(2, '0');
+          day = String(today.getDate()).padStart(2, '0');
+        }
+        const activeStr = `${year}-${month}-${day}`;
+        updated.activatedAt = activeStr;
+        if (!updated.startDate) {
+          updated.startDate = activeStr;
+        }
         
-        const date = new Date(year, today.getMonth(), today.getDate());
+        const date = new Date(Number(year), Number(month) - 1, Number(day));
         const months = prev.planKey === '1month' ? 1 : prev.planKey === '3month' ? 3 : 6;
         date.setMonth(date.getMonth() + months);
         
@@ -2196,7 +2236,7 @@ function App() {
                                 }`}>{order.paymentStatus}</span>
                             </td>
                             <td style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                              <div><strong>Start:</strong> {formatOnlyDate(order.activatedAt)}</div>
+                              <div><strong>Start:</strong> {formatOnlyDate(order.activatedAt || order.startDate)}</div>
                               <div><strong>End:</strong> {formatOnlyDate(order.expiresAt)}</div>
                             </td>
                             <td className="actions-cell">
@@ -2209,7 +2249,7 @@ function App() {
                                   <Calendar size={16} />
                                 </button>
                               )}
-                              <button className="btn btn-secondary btn-icon" onClick={() => setEditOrder(order)}>
+                              <button className="btn btn-secondary btn-icon" onClick={() => handleOpenEditOrder(order)}>
                                 <Edit size={16} />
                               </button>
                               <button className="btn btn-danger btn-icon" onClick={() => handleDeleteOrder(order._id)}>
@@ -3766,7 +3806,7 @@ function App() {
                       <input
                         type="date"
                         className="form-control"
-                        value={editOrder.activatedAt ? toLocalDateString(editOrder.activatedAt) : ''}
+                        value={editOrder.activatedAt ? toLocalDateString(editOrder.activatedAt) : (editOrder.startDate ? toLocalDateString(editOrder.startDate) : '')}
                         onChange={(e) => handleOrderStartDateChange(e.target.value)}
                       />
                     </div>

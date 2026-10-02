@@ -23,6 +23,7 @@ import { Routes } from '../../constants/routes';
 import { useAppDispatch, useAppSelector, updateProfileSuccess, updateMobileSuccess, logout } from '../../store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_BASE_URL } from '../../config';
+import { OrderDetailModal } from '../../components/OrderDetailModal';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Profile'>;
 type TabKey = 'profile' | 'addresses' | 'orders';
@@ -207,6 +208,7 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
     // Orders State
     const [orders, setOrders] = useState<OrderItem[]>([]);
     const [isLoadingOrders, setIsLoadingOrders] = useState(false);
+    const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
 
     // Baby Details State
     const [babies, setBabies] = useState<BabyItem[]>((user as any)?.babies || []);
@@ -976,7 +978,12 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                                 orders.map(order => {
                                     const details = getPackageDetails(order.packageType);
                                     return (
-                                        <View key={order._id} style={styles.orderCard}>
+                                        <TouchableOpacity
+                                            key={order._id}
+                                            style={styles.orderCard}
+                                            activeOpacity={0.88}
+                                            onPress={() => setSelectedOrder(order)}
+                                        >
                                             <View style={styles.orderHeader}>
                                                 <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 12 }}>
                                                     <View style={[styles.orderIconBox, { backgroundColor: details.color + '14' }]}>
@@ -1022,7 +1029,12 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                                                         : '—'}
                                                 </Text>
                                             </View>
-                                        </View>
+
+                                            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', marginTop: 10, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#F1F5F9' }}>
+                                                <Text style={{ fontSize: 12, fontWeight: '700', color: details.color, marginRight: 4 }}>View Full Order Details</Text>
+                                                <Icon name="chevron-right" size={10} color={details.color} />
+                                            </View>
+                                        </TouchableOpacity>
                                     );
                                 })
                             )}
@@ -1133,6 +1145,14 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                         </TouchableOpacity>
                     </TouchableOpacity>
                 </Modal>
+
+                {/* Order Detail Modal */}
+                <OrderDetailModal
+                    visible={!!selectedOrder}
+                    order={selectedOrder}
+                    onClose={() => setSelectedOrder(null)}
+                    onGoToBookings={() => navigation.navigate(Routes.APPOINTMENTS)}
+                />
             </SafeAreaView>
         </KeyboardAvoidingView>
     );

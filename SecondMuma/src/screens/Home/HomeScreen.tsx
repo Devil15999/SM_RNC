@@ -1,26 +1,28 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { memo, useCallback, useMemo, useState } from 'react';
 import {
+    Dimensions,
+    Image,
+    ImageSourcePropType,
+    RefreshControl,
     ScrollView,
     StatusBar,
     StyleSheet,
     Text,
     TouchableOpacity,
     View,
-    Image,
-    Dimensions,
-    RefreshControl,
-    ImageBackground,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import { RootStackParamList } from '../../types/navigation';
 import { Colors } from '../../constants/theme';
 import { useAppSelector } from '../../store';
 import { Routes } from '../../constants/routes';
 import { API_BASE_URL } from '../../config';
+import { OrderDetailModal } from '../../components/OrderDetailModal';
 
-const { width: SW } = Dimensions.get('window');
+// ── Types ───────────────────────────────────────────────────────────────────────
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
@@ -34,10 +36,8 @@ interface PackageCardItem {
     accentColor: string;
     bgColor: string;
     borderColor: string;
-    footerBg: string;
     iconCircleBg: string;
-    image: any;
-    badge?: string;
+    image: ImageSourcePropType;
     planName: string;
     planDetails: string;
     price: string;
@@ -46,27 +46,123 @@ interface PackageCardItem {
     features: string[];
 }
 
-const FEATURES_STRIP = [
-    { icon: 'user-shield', label: 'Background\nVerified Staff' },
-    { icon: 'hands-wash', label: 'Safe & Hygienic\nPractices' },
-    { icon: 'headset', label: '24/7 Expert\nSupport' },
-    { icon: 'ambulance', label: 'Emergency\nAssistance' },
-];
+interface ApiPlan {
+    label?: string;
+    visitInfo?: string;
+    price?: number;
+    originalPrice?: number;
+    savings?: string;
+    features?: string[];
+}
+
+interface ApiPackage {
+    type: PackageType;
+    title?: string;
+    tagline?: string;
+    subtitle?: string;
+    icon?: string;
+    accentColor?: string;
+    backgroundImage?: string;
+    image?: string;
+    startingPrice?: number;
+    features?: string[];
+    plans?: { '1month'?: ApiPlan };
+}
+
+interface Order {
+    _id: string;
+    status: string;
+    expiresAt?: string;
+    packageType: PackageType;
+    packageTitle: string;
+    planLabel: string;
+    accentColor?: string;
+    icon?: string;
+}
+
+// ── Constants ───────────────────────────────────────────────────────────────────
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const SCREEN_PADDING = 16;
+const CARD_WIDTH = SCREEN_WIDTH - SCREEN_PADDING * 2;
+
+// banner2.png is 1672 × 941. Keep this in sync if the asset is ever replaced.
+const BANNER_SOURCE = require('../../assets/banner2.png');
+const BANNER_ASPECT_RATIO = 1672 / 941;
+
+const PACKAGE_IMAGES: Record<PackageType, ImageSourcePropType> = {
+    baby: require('../../assets/post1.png'),
+    mother: require('../../assets/post3.png'),
+    muma: require('../../assets/post2.png'),
+};
+
+const DEFAULT_AVATAR = require('../../assets/user.png');
+
+// Local palette. Move these into constants/theme.ts when convenient.
+const PINK = '#FF176B';
+const INDIGO = '#5C54E5';
+const TEXT_DARK = '#1A1D36';
+const TEXT_MUTED = '#718096';
+const BORDER_LIGHT = '#EDF2F7';
+const PINK_SOFT = '#FFE4F0';
+const PINK_BORDER = '#FFDAEA';
+
+const DEFAULT_ACCENT: Record<PackageType, string> = {
+    baby: PINK,
+    mother: INDIGO,
+    muma: PINK,
+};
+
+const DEFAULT_TITLES: Record<PackageType, string> = {
+    baby: 'Baby Care',
+    mother: 'Mother Care',
+    muma: 'Mother + Baby Care',
+};
+
+const DEFAULT_ICONS: Record<PackageType, string> = {
+    baby: 'baby',
+    mother: 'female',
+    muma: 'heart',
+};
+
+const PACKAGE_SORT_ORDER: Record<PackageType, number> = { baby: 0, mother: 1, muma: 2 };
+
+const PLACEHOLDER_ICONS = new Set(['', 'question', 'box', 'user-pregnant', 'hand-holding-heart', 'moon']);
+
+const DEFAULT_PLAN_NAME = '1 Month Plan';
+const DEFAULT_PLAN_DETAILS = '26 visits × 3 hours (78 hours)';
+
+const FEATURE_LABELS: Record<string, string> = {
+    'Postpartum recovery & healing assistance': 'Postpartum recovery & healing',
+    'Nutritional guidance & meal assistance': 'Nutritional & meal assistance',
+    'Emotional wellness & vital monitoring': 'Emotional wellness & monitoring',
+    'Post-caesarean & perineal wound care': 'Post-caesarean & wound care',
+    'Gentle massage & sleep relaxation': 'Massage & sleep relaxation',
+    'Hygiene care, bathing & cord care': 'Baby bathing & hygiene care',
+    'Feeding, burping & colic relief': 'Feeding & burping support',
+    'Sleep routine & bedtime support': 'Sleep & routine guidance',
+    'Growth & milestone tracking': 'Growth & wellness monitoring',
+    'Sanitation of baby gear & bottles': 'Sanitation of bottles & gear',
+    'All specialized Mother Care services': 'Specialized Mother Care',
+    'All essential Baby Care services': 'Essential Baby Care services',
+    'Dual nurse coordination for mother & baby': 'Dual nurse coordination',
+    'Lactation, feeding & bonding guidance': 'Lactation & feeding guidance',
+    'Comprehensive daily health reports': 'Daily health reports & updates',
+};
 
 const DEFAULT_PACKAGES: PackageCardItem[] = [
     {
         type: 'baby',
         title: 'Baby Care',
-        tagline: 'Gentle, expert newborn nursing care for your baby\'s healthy growth.',
+        tagline: "Gentle, expert newborn nursing care for your baby's healthy growth.",
         icon: 'baby',
-        accentColor: '#FF176B',
+        accentColor: PINK,
         bgColor: '#FFF0F5',
-        borderColor: '#FFDAEA',
-        footerBg: '#FFEBF3',
-        iconCircleBg: '#FFE4F0',
-        image: require('../../assets/post1.png'),
-        planName: '1 Month Plan',
-        planDetails: '26 visits × 3 hours (78 hours)',
+        borderColor: PINK_BORDER,
+        iconCircleBg: PINK_SOFT,
+        image: PACKAGE_IMAGES.baby,
+        planName: DEFAULT_PLAN_NAME,
+        planDetails: DEFAULT_PLAN_DETAILS,
         price: '₹ 24,999',
         originalPrice: '₹ 32,000',
         savings: 'Save 22%',
@@ -82,14 +178,13 @@ const DEFAULT_PACKAGES: PackageCardItem[] = [
         title: 'Mother Care',
         tagline: 'Specialized postpartum recovery & nursing care for new mothers.',
         icon: 'female',
-        accentColor: '#5C54E5',
+        accentColor: INDIGO,
         bgColor: '#F4F0FF',
         borderColor: '#DDD6FE',
-        footerBg: '#EBE5FF',
         iconCircleBg: '#EBE5FF',
-        image: require('../../assets/post3.png'),
-        planName: '1 Month Plan',
-        planDetails: '26 visits × 3 hours (78 hours)',
+        image: PACKAGE_IMAGES.mother,
+        planName: DEFAULT_PLAN_NAME,
+        planDetails: DEFAULT_PLAN_DETAILS,
         price: '₹ 34,999',
         originalPrice: '₹ 45,000',
         savings: 'Save 22%',
@@ -105,14 +200,13 @@ const DEFAULT_PACKAGES: PackageCardItem[] = [
         title: 'Mother + Baby Care',
         tagline: 'Complete dual nursing care bundle for both mother & newborn baby.',
         icon: 'heart',
-        accentColor: '#FF176B',
+        accentColor: PINK,
         bgColor: '#FFF0F5',
-        borderColor: '#FFDAEA',
-        footerBg: '#FFEBF3',
-        iconCircleBg: '#FFE4F0',
-        image: require('../../assets/post2.png'),
-        planName: '1 Month Plan',
-        planDetails: '26 visits × 3 hours (78 hours)',
+        borderColor: PINK_BORDER,
+        iconCircleBg: PINK_SOFT,
+        image: PACKAGE_IMAGES.muma,
+        planName: DEFAULT_PLAN_NAME,
+        planDetails: DEFAULT_PLAN_DETAILS,
         price: '₹ 49,999',
         originalPrice: '₹ 65,000',
         savings: 'Save 23%',
@@ -125,148 +219,274 @@ const DEFAULT_PACKAGES: PackageCardItem[] = [
     },
 ];
 
-const mapIconName = (rawIcon: string, type: string): string => {
-    let clean = (rawIcon || '').replace(/^fa-/, '').trim();
-    if (!clean || clean === 'question' || clean === 'box' || clean === 'user-pregnant' || clean === 'hand-holding-heart' || clean === 'moon') {
-        if (type === 'mother') return 'female';
-        if (type === 'baby') return 'baby';
-        if (type === 'muma') return 'heart';
+// ── Helpers ─────────────────────────────────────────────────────────────────────
+
+const hexToRgba = (hex: string | undefined, alpha: number): string => {
+    const fallback = `rgba(233, 30, 138, ${alpha})`;
+    if (!hex) return fallback;
+
+    let cleanHex = hex.replace('#', '').trim();
+    if (cleanHex.length === 3) {
+        cleanHex = cleanHex
+            .split('')
+            .map(c => c + c)
+            .join('');
     }
-    return clean || 'heart';
+
+    const num = parseInt(cleanHex, 16);
+    if (Number.isNaN(num) || cleanHex.length !== 6) return fallback;
+
+    const r = (num >> 16) & 255;
+    const g = (num >> 8) & 255;
+    const b = num & 255;
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 };
 
-const cleanFeature = (feat: string): string => {
-    return feat
-        .replace('Postpartum recovery & healing assistance', 'Postpartum recovery & healing')
-        .replace('Breastfeeding & lactation support', 'Breastfeeding & lactation support')
-        .replace('Nutritional guidance & meal assistance', 'Nutritional & meal assistance')
-        .replace('Emotional wellness & vital monitoring', 'Emotional wellness & monitoring')
-        .replace('Post-caesarean & perineal wound care', 'Post-caesarean & wound care')
-        .replace('Gentle massage & sleep relaxation', 'Massage & sleep relaxation')
-        .replace('Hygiene care, bathing & cord care', 'Baby bathing & hygiene care')
-        .replace('Feeding, burping & colic relief', 'Feeding & burping support')
-        .replace('Sleep routine & bedtime support', 'Sleep & routine guidance')
-        .replace('Growth & milestone tracking', 'Growth & wellness monitoring')
-        .replace('Sanitation of baby gear & bottles', 'Sanitation of bottles & gear')
-        .replace('All specialized Mother Care services', 'Specialized Mother Care')
-        .replace('All essential Baby Care services', 'Essential Baby Care services')
-        .replace('Dual nurse coordination for mother & baby', 'Dual nurse coordination')
-        .replace('Lactation, feeding & bonding guidance', 'Lactation & feeding guidance')
-        .replace('Comprehensive daily health reports', 'Daily health reports & updates');
+const mapIconName = (rawIcon: string | undefined, type: PackageType): string => {
+    const clean = (rawIcon ?? '').replace(/^fa-/, '').trim();
+    return PLACEHOLDER_ICONS.has(clean) ? DEFAULT_ICONS[type] : clean;
 };
+
+const cleanFeature = (feature: string): string => FEATURE_LABELS[feature] ?? feature;
+
+const formatPrice = (amount?: number): string =>
+    amount != null ? `₹ ${amount.toLocaleString('en-IN')}` : '';
+
+const resolveImage = (remote: string | undefined, type: PackageType): ImageSourcePropType => {
+    if (!remote) return PACKAGE_IMAGES[type];
+    const isAbsolute = remote.startsWith('data:') || remote.startsWith('http');
+    return { uri: isAbsolute ? remote : `${API_BASE_URL.replace('/api', '')}${remote}` };
+};
+
+const isOrderActive = (order: Order): boolean =>
+    order.status === 'active' && (!order.expiresAt || new Date(order.expiresAt) > new Date());
+
+const mapApiPackage = (p: ApiPackage): PackageCardItem => {
+    const month1 = p.plans?.['1month'] ?? {};
+    const accentColor = p.accentColor || DEFAULT_ACCENT[p.type];
+
+    return {
+        type: p.type,
+        title: p.title || DEFAULT_TITLES[p.type],
+        tagline: p.tagline || p.subtitle || '',
+        icon: mapIconName(p.icon, p.type),
+        accentColor,
+        bgColor: hexToRgba(accentColor, 0.05),
+        borderColor: hexToRgba(accentColor, 0.2),
+        iconCircleBg: hexToRgba(accentColor, 0.12),
+        image: resolveImage(p.backgroundImage || p.image, p.type),
+        planName: month1.label || DEFAULT_PLAN_NAME,
+        planDetails: month1.visitInfo || DEFAULT_PLAN_DETAILS,
+        price: formatPrice(month1.price ?? p.startingPrice),
+        originalPrice: formatPrice(month1.originalPrice),
+        savings: month1.savings || 'Save 22%',
+        features: p.features?.length ? p.features : month1.features ?? [],
+    };
+};
+
+// ── Components ──────────────────────────────────────────────────────────────────
+
+interface PackageCardProps {
+    pkg: PackageCardItem;
+    isActive: boolean;
+    onPress: (type: PackageType) => void;
+}
+
+const PackageCard = memo(({ pkg, isActive, onPress }: PackageCardProps) => (
+    <TouchableOpacity
+        activeOpacity={0.92}
+        onPress={() => onPress(pkg.type)}
+        style={[
+            styles.cardContainer,
+            { backgroundColor: pkg.bgColor, borderColor: pkg.borderColor },
+            isActive && { borderWidth: 2, borderColor: pkg.accentColor },
+        ]}>
+        {isActive && (
+            <View style={[styles.activeSubRibbon, { backgroundColor: pkg.accentColor }]}>
+                <Icon name="check" size={10} color={Colors.WHITE} style={styles.ribbonIcon} />
+                <Text style={styles.activeSubRibbonText}>ACTIVE SUBSCRIPTION</Text>
+            </View>
+        )}
+
+        <View style={styles.cardTopArea}>
+            <Image source={pkg.image} style={styles.cardHeroImage} resizeMode="cover" />
+
+            <View style={styles.cardLeftCol}>
+                <View style={styles.cardTitleRow}>
+                    <View style={[styles.iconCircleBadge, { backgroundColor: pkg.iconCircleBg }]}>
+                        <Icon name={pkg.icon} size={18} color={pkg.accentColor} />
+                    </View>
+                    <View style={styles.titleTextWrapper}>
+                        <Text style={styles.cardTitleText} numberOfLines={1} maxFontSizeMultiplier={1.25}>
+                            {pkg.title}
+                        </Text>
+                        <Text style={styles.cardTaglineText} numberOfLines={2} maxFontSizeMultiplier={1.2}>
+                            {pkg.tagline}
+                        </Text>
+                    </View>
+                </View>
+
+                <View style={styles.checklistGrid}>
+                    {pkg.features.slice(0, 4).map(feature => (
+                        <View key={feature} style={styles.checklistRow}>
+                            <View style={[styles.checkCircleBadge, { backgroundColor: pkg.accentColor }]}>
+                                <Icon name="check" size={8} color={Colors.WHITE} />
+                            </View>
+                            <Text style={styles.checkText} numberOfLines={1} maxFontSizeMultiplier={1.2}>
+                                {cleanFeature(feature)}
+                            </Text>
+                        </View>
+                    ))}
+                </View>
+            </View>
+        </View>
+
+        <View style={styles.priceFooterBox}>
+            <View style={styles.priceFooterLeft}>
+                <Text style={[styles.footerPlanTitle, { color: pkg.accentColor }]}>{pkg.planName}</Text>
+                <Text style={styles.footerPlanSub}>{pkg.planDetails}</Text>
+            </View>
+
+            <View style={styles.priceFooterRight}>
+                <Text style={styles.footerMainPrice}>{pkg.price}</Text>
+                {!!pkg.originalPrice && (
+                    <View style={styles.footerMrpRow}>
+                        <Text style={styles.footerMrpText}>{pkg.originalPrice}</Text>
+                        <View style={[styles.savePillBadge, { backgroundColor: pkg.accentColor }]}>
+                            <Text style={styles.savePillText}>{pkg.savings}</Text>
+                        </View>
+                    </View>
+                )}
+            </View>
+        </View>
+
+        {/* Plain View: the whole card is already pressable, avoids nested touchables */}
+        <View style={[styles.viewPlanButtonPill, { backgroundColor: pkg.accentColor }]}>
+            <Text style={styles.viewPlanButtonText}>View Plan</Text>
+            <Icon name="arrow-right" size={14} color={Colors.WHITE} style={styles.buttonIcon} />
+        </View>
+    </TouchableOpacity>
+));
+
+interface ActiveSubscriptionCardProps {
+    order: Order;
+    onPress: (order: Order) => void;
+}
+
+const ActiveSubscriptionCard = memo(({ order, onPress }: ActiveSubscriptionCardProps) => {
+    const expiryDate = order.expiresAt
+        ? new Date(order.expiresAt).toLocaleDateString('en-IN', {
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric',
+        })
+        : 'N/A';
+    const color = order.accentColor || Colors.PRIMARY;
+
+    return (
+        <TouchableOpacity
+            style={[styles.activeSubCard, { borderColor: `${color}44` }]}
+            activeOpacity={0.88}
+            onPress={() => onPress(order)}>
+            <View style={styles.activeSubHeader}>
+                <View style={[styles.activeSubIconBox, { backgroundColor: `${color}1A` }]}>
+                    <Icon name={order.icon ? order.icon.replace(/^fa-/, '') : 'box'} size={18} color={color} />
+                </View>
+                <View style={styles.activeSubTextWrapper}>
+                    <Text style={styles.activeSubTitle}>{order.packageTitle}</Text>
+                    <Text style={styles.activeSubPlan}>{order.planLabel} Plan</Text>
+                </View>
+                <View style={[styles.activeStatusBadge, { backgroundColor: `${Colors.SUCCESS}1A` }]}>
+                    <Text style={[styles.activeStatusText, { color: Colors.SUCCESS }]}>ACTIVE</Text>
+                </View>
+            </View>
+            <View style={styles.activeSubDivider} />
+            <View style={styles.activeSubFooter}>
+                <Text style={styles.activeSubFooterLabel}>
+                    Expires on: <Text style={styles.activeSubFooterValue}>{expiryDate}</Text>
+                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: color, marginRight: 4 }}>Details</Text>
+                    <Icon name="chevron-right" size={10} color={color} />
+                </View>
+            </View>
+        </TouchableOpacity>
+    );
+});
+
+// ── Screen ──────────────────────────────────────────────────────────────────────
 
 const HomeScreen: React.FC<Props> = ({ navigation }) => {
     const insets = useSafeAreaInsets();
     const user = useAppSelector(state => state.auth.user);
+    const token = user?.token;
 
     const [packageList, setPackageList] = useState<PackageCardItem[]>(DEFAULT_PACKAGES);
-    const [orders, setOrders] = useState<any[]>([]);
+    const [orders, setOrders] = useState<Order[]>([]);
+    const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+    const [refreshing, setRefreshing] = useState(false);
 
     const fetchPackages = useCallback(async () => {
         try {
             const res = await fetch(`${API_BASE_URL}/packages`);
             const data = await res.json();
             if (res.ok && data.success && Array.isArray(data.data) && data.data.length > 0) {
-                const formatted: PackageCardItem[] = data.data.map((p: any) => {
-                    const month1 = p.plans?.['1month'] || {};
-                    const isMother = p.type === 'mother';
-                    const isMuma = p.type === 'muma';
-
-                    const defaultImg = isMuma
-                        ? require('../../assets/post2.png')
-                        : isMother
-                            ? require('../../assets/post3.png')
-                            : require('../../assets/post1.png');
-
-                    const remoteImg = p.backgroundImage || p.image;
-                    const cardImage = remoteImg
-                        ? { uri: remoteImg.startsWith('data:') || remoteImg.startsWith('http') ? remoteImg : `${API_BASE_URL.replace('/api', '')}${remoteImg}` }
-                        : defaultImg;
-
-                    const cleanIcon = mapIconName(p.icon, p.type);
-
-                    // Dynamic Title Mapping
-                    const defaultTitle = isMother ? 'Mother Care' : isMuma ? 'Mother + Baby Care' : 'Baby Care';
-                    const cleanTitle = p.title || defaultTitle;
-
-                    return {
-                        type: p.type as PackageType,
-                        title: cleanTitle,
-                        tagline: p.tagline || p.subtitle || '',
-                        icon: cleanIcon,
-                        accentColor: isMother ? '#5C54E5' : '#FF176B',
-                        bgColor: isMother ? '#F4F0FF' : '#FFF0F5',
-                        borderColor: isMother ? '#DDD6FE' : '#FFDAEA',
-                        footerBg: isMother ? '#EBE5FF' : '#FFEBF3',
-                        iconCircleBg: isMother ? '#EBE5FF' : '#FFE4F0',
-                        image: cardImage,
-                        badge: p.badge || month1.badge || undefined,
-                        planName: month1.label || '1 Month Plan',
-                        planDetails: month1.visitInfo || '26 visits × 3 hours (78 hours)',
-                        price: month1.price ? `₹ ${month1.price.toLocaleString('en-IN')}` : `₹ ${p.startingPrice?.toLocaleString('en-IN')}`,
-                        originalPrice: month1.originalPrice ? `₹ ${month1.originalPrice.toLocaleString('en-IN')}` : '',
-                        savings: month1.savings || 'Save 22%',
-                        features: p.features && p.features.length > 0 ? p.features : (month1.features || []),
-                    };
-                });
-
-                // Sort order: baby, mother, muma
-                const orderMap: Record<string, number> = { baby: 0, mother: 1, muma: 2 };
-                formatted.sort((a, b) => (orderMap[a.type] ?? 99) - (orderMap[b.type] ?? 99));
-
+                const formatted = (data.data as ApiPackage[])
+                    .map(mapApiPackage)
+                    .sort((a, b) => (PACKAGE_SORT_ORDER[a.type] ?? 99) - (PACKAGE_SORT_ORDER[b.type] ?? 99));
                 setPackageList(formatted);
             }
         } catch (err) {
-            console.log('Error fetching packages in Home:', err);
+            console.warn('Error fetching packages in Home:', err);
         }
     }, []);
 
     const fetchOrders = useCallback(async () => {
-        if (!user?.token) return;
+        if (!token) return;
         try {
             const res = await fetch(`${API_BASE_URL}/orders`, {
-                headers: { 'Authorization': `Bearer ${user.token}` }
+                headers: { Authorization: `Bearer ${token}` },
             });
             const data = await res.json();
             if (res.ok && data.success) {
-                setOrders(data.data || []);
+                setOrders(data.data ?? []);
             }
         } catch (err) {
-            console.log('Error fetching orders in Home:', err);
+            console.warn('Error fetching orders in Home:', err);
         }
-    }, [user?.token]);
+    }, [token]);
 
-    const [refreshing, setRefreshing] = useState(false);
+    // Runs on first focus and every time the screen regains focus.
+    useFocusEffect(
+        useCallback(() => {
+            fetchPackages();
+            fetchOrders();
+        }, [fetchPackages, fetchOrders]),
+    );
 
     const onRefresh = useCallback(async () => {
         setRefreshing(true);
         try {
-            await fetchPackages();
-            if (user?.token) {
-                await fetchOrders();
-            }
+            await Promise.all([fetchPackages(), fetchOrders()]);
         } finally {
             setRefreshing(false);
         }
-    }, [fetchPackages, fetchOrders, user?.token]);
+    }, [fetchPackages, fetchOrders]);
 
-    useEffect(() => {
-        fetchPackages();
-        const unsubscribe = navigation.addListener('focus', () => {
-            fetchPackages();
-            if (user?.token) fetchOrders();
-        });
-        return unsubscribe;
-    }, [navigation, user?.token, fetchPackages, fetchOrders]);
+    const activeSubscriptions = useMemo(() => orders.filter(isOrderActive), [orders]);
+    const activePackageTypes = useMemo(
+        () => new Set(activeSubscriptions.map(o => o.packageType)),
+        [activeSubscriptions],
+    );
 
-    const activeSubscriptions = orders.filter(o =>
-        o.status === 'active' &&
-        (!o.expiresAt || new Date(o.expiresAt) > new Date())
+    const openPackage = useCallback(
+        (packageType: PackageType) => navigation.navigate(Routes.PACKAGE_DETAIL, { packageType }),
+        [navigation],
     );
 
     return (
         <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
-            <StatusBar barStyle="dark-content" backgroundColor="#FFF" />
+            <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
             {/* ── Top Bar ── */}
             <View style={styles.topBar}>
@@ -281,15 +501,9 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                     activeOpacity={0.8}
                     onPress={() => navigation.navigate(Routes.PROFILE)}>
                     {user?.avatar ? (
-                        <Image
-                            source={{ uri: user.avatar }}
-                            style={{ width: '100%', height: '100%', borderRadius: 19 }}
-                        />
+                        <Image source={{ uri: user.avatar }} style={styles.avatarImage} />
                     ) : (
-                        <Image
-                            source={require('../../assets/user.png')}
-                            style={{ width: '100%', height: '100%', tintColor: Colors.WHITE }}
-                        />
+                        <Image source={DEFAULT_AVATAR} style={styles.avatarPlaceholder} />
                     )}
                 </TouchableOpacity>
             </View>
@@ -297,18 +511,18 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
             {/* ── Location & Verified Nurse Subbar ── */}
             <View style={styles.subBar}>
                 <TouchableOpacity style={styles.locationSelector} activeOpacity={0.8}>
-                    <Icon name="map-marker-alt" size={14} color="#2D3748" style={{ marginRight: 6 }} />
+                    <Icon name="map-marker-alt" size={14} color="#2D3748" style={styles.locationIcon} />
                     <Text style={styles.locationText}>Bangalore</Text>
-                    {/* <Icon name="chevron-down" size={11} color="#4A5568" style={{ marginLeft: 4 }} /> */}
                 </TouchableOpacity>
 
                 <View style={styles.verifiedBadge}>
-                    <Icon name="check-circle" size={13} color="#FF176B" solid style={{ marginRight: 5 }} />
+                    <Icon name="check-circle" size={13} color={PINK} solid style={styles.verifiedIcon} />
                     <Text style={styles.verifiedText}>Verified Nurses</Text>
                 </View>
             </View>
 
             <ScrollView
+                style={styles.flex}
                 contentContainerStyle={styles.scrollContent}
                 showsVerticalScrollIndicator={false}
                 refreshControl={
@@ -319,172 +533,46 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                         tintColor={Colors.PRIMARY}
                     />
                 }>
-
-                {/* ── Top Banner Image ── */}
-                <Image
-                    source={require('../../assets/banner.png')}
-                    style={styles.heroBanner}
-                    resizeMode="cover"
-                />
-
-                {/* ── Features Strip ── */}
-                <View style={styles.featuresStrip}>
-                    {FEATURES_STRIP.map((f, i) => (
-                        <View key={f.label} style={[styles.featureItem, i < FEATURES_STRIP.length - 1 && styles.featureItemBorder]}>
-                            <View style={styles.featureIconBox}>
-                                <Icon name={f.icon} size={15} color="#FF176B" />
-                            </View>
-                            <Text style={styles.featureLabel}>{f.label}</Text>
-                        </View>
-                    ))}
+                {/* ── Banner (height derived from the image's real aspect ratio) ── */}
+                <View style={{ width: '100%', height: 230, backgroundColor: 'red' }}>
+                    <Image source={BANNER_SOURCE} style={styles.heroBanner} resizeMode="stretch" />
                 </View>
 
-                {/* ── Care Packages Title Section ── */}
+                {/* ── Care Packages Title ── */}
                 <View style={styles.sectionHeader}>
                     <Text style={styles.sectionTitle}>Our Care Packages</Text>
-                    <Text style={styles.sectionSubtitle}>Choose the care you need for you and your little one.</Text>
+                    <Text style={styles.sectionSubtitle}>
+                        Choose the care you need for you and your little one.
+                    </Text>
                 </View>
 
                 {/* ── Active Subscriptions ── */}
                 {activeSubscriptions.length > 0 && (
                     <View style={styles.activeSubsContainer}>
                         <Text style={styles.activeSubsTitle}>Your Active Subscriptions</Text>
-                        {activeSubscriptions.map(sub => {
-                            const expiryDate = sub.expiresAt
-                                ? new Date(sub.expiresAt).toLocaleDateString('en-IN', {
-                                    day: 'numeric', month: 'short', year: 'numeric'
-                                })
-                                : 'N/A';
-                            const pkgColor = sub.accentColor || Colors.PRIMARY;
-                            return (
-                                <View key={sub._id} style={[styles.activeSubCard, { borderColor: pkgColor + '44' }]}>
-                                    <View style={styles.activeSubHeader}>
-                                        <View style={[styles.activeSubIconBox, { backgroundColor: pkgColor + '1A' }]}>
-                                            <Icon name={sub.icon ? sub.icon.replace(/^fa-/, '') : 'box'} size={18} color={pkgColor} />
-                                        </View>
-                                        <View style={{ flex: 1, marginLeft: 12 }}>
-                                            <Text style={styles.activeSubTitle}>{sub.packageTitle}</Text>
-                                            <Text style={styles.activeSubPlan}>{sub.planLabel} Plan</Text>
-                                        </View>
-                                        <View style={[styles.activeStatusBadge, { backgroundColor: Colors.SUCCESS + '1A' }]}>
-                                            <Text style={[styles.activeStatusText, { color: Colors.SUCCESS }]}>ACTIVE</Text>
-                                        </View>
-                                    </View>
-                                    <View style={styles.activeSubDivider} />
-                                    <View style={styles.activeSubFooter}>
-                                        <Text style={styles.activeSubFooterLabel}>Expires on:</Text>
-                                        <Text style={styles.activeSubFooterValue}>{expiryDate}</Text>
-                                    </View>
-                                </View>
-                            );
-                        })}
+                        {activeSubscriptions.map(order => (
+                            <ActiveSubscriptionCard key={order._id} order={order} onPress={setSelectedOrder} />
+                        ))}
                     </View>
                 )}
 
-                {/* ── Packages List (Vertical Stack) ── */}
+                {/* ── Packages List ── */}
                 <View style={styles.packageCardsList}>
-                    {packageList.map((pkg) => {
-                        const isActive = !!orders.find(o =>
-                            o.packageType === pkg.type &&
-                            o.status === 'active' &&
-                            (!o.expiresAt || new Date(o.expiresAt) > new Date())
-                        );
-
-                        return (
-                            <TouchableOpacity
-                                key={pkg.type}
-                                activeOpacity={0.92}
-                                onPress={() => navigation.navigate(Routes.PACKAGE_DETAIL, { packageType: pkg.type })}
-                                style={[
-                                    styles.cardContainer,
-                                    { backgroundColor: pkg.bgColor, borderColor: pkg.borderColor },
-                                    isActive && { borderWidth: 2, borderColor: pkg.accentColor },
-                                ]}>
-
-
-                                {isActive && (
-                                    <View style={[styles.activeSubRibbon, { backgroundColor: pkg.accentColor }]}>
-                                        <Icon name="check" size={10} color="#FFF" style={{ marginRight: 4 }} />
-                                        <Text style={styles.activeSubRibbonText}>ACTIVE SUBSCRIPTION</Text>
-                                    </View>
-                                )}
-
-                                {/* Top Main Section matching Screenshot 1 */}
-                                <View style={styles.cardTopArea}>
-                                    {/* Right Hero Image (2:1 aspect ratio banner matching post1, post2, post3) */}
-                                    <Image
-                                        source={pkg.image}
-                                        style={styles.cardHeroImage}
-                                        resizeMode="cover"
-                                    />
-
-                                    {/* Left Content Column */}
-                                    <View style={styles.cardLeftCol}>
-                                        {/* Icon + Title Header Row */}
-                                        <View style={styles.cardTitleRow}>
-                                            <View style={[styles.iconCircleBadge, { backgroundColor: pkg.iconCircleBg }]}>
-                                                <Icon name={pkg.icon} size={18} color={pkg.accentColor} />
-                                            </View>
-                                            <View style={styles.titleTextWrapper}>
-                                                <Text style={styles.cardTitleText} numberOfLines={1} maxFontSizeMultiplier={1.25}>{pkg.title}</Text>
-                                                <Text style={styles.cardTaglineText} numberOfLines={2} maxFontSizeMultiplier={1.2}>{pkg.tagline}</Text>
-                                            </View>
-                                        </View>
-
-                                        {/* Features Vertical Checklist (Top 4 Core Features) */}
-                                        <View style={styles.checklistGrid}>
-                                            {pkg.features.slice(0, 4).map((feature, idx) => (
-                                                <View key={idx} style={styles.checklistRow}>
-                                                    <View style={[styles.checkCircleBadge, { backgroundColor: pkg.accentColor }]}>
-                                                        <Icon name="check" size={8} color="#FFF" />
-                                                    </View>
-                                                    <Text style={styles.checkText} numberOfLines={1} maxFontSizeMultiplier={1.2}>{cleanFeature(feature)}</Text>
-                                                </View>
-                                            ))}
-                                        </View>
-                                    </View>
-                                </View>
-
-                                {/* Price Footer Box */}
-                                <View style={[styles.priceFooterBox, { backgroundColor: pkg.footerBg }]}>
-                                    <View style={styles.priceFooterLeft}>
-                                        <Text style={[styles.footerPlanTitle, { color: pkg.accentColor }]}>{pkg.planName}</Text>
-                                        <Text style={styles.footerPlanSub}>{pkg.planDetails}</Text>
-                                    </View>
-
-                                    <View style={styles.priceFooterRight}>
-                                        <Text style={styles.footerMainPrice}>{pkg.price}</Text>
-                                        {!!pkg.originalPrice && (
-                                            <View style={styles.footerMrpRow}>
-                                                <Text style={styles.footerMrpText}>{pkg.originalPrice}</Text>
-                                                <View style={[styles.savePillBadge, { backgroundColor: pkg.accentColor }]}>
-                                                    <Text style={styles.savePillText}>{pkg.savings}</Text>
-                                                </View>
-                                            </View>
-                                        )}
-                                    </View>
-                                </View>
-
-                                {/* Full-Width Action Button Pill */}
-                                <TouchableOpacity
-                                    style={[styles.viewPlanButtonPill, { backgroundColor: pkg.accentColor }]}
-                                    activeOpacity={0.88}
-                                    onPress={() => navigation.navigate(Routes.PACKAGE_DETAIL, { packageType: pkg.type })}>
-                                    <Text style={styles.viewPlanButtonText}>View Plan</Text>
-                                    <Icon name="arrow-right" size={14} color="#FFF" style={{ marginLeft: 6 }} />
-                                </TouchableOpacity>
-                            </TouchableOpacity>
-                        );
-                    })}
+                    {packageList.map(pkg => (
+                        <PackageCard
+                            key={pkg.type}
+                            pkg={pkg}
+                            isActive={activePackageTypes.has(pkg.type)}
+                            onPress={openPackage}
+                        />
+                    ))}
                 </View>
-
-                <View style={{ height: 16 }} />
             </ScrollView>
 
             {/* ── Bottom Navigation Bar ── */}
             <View style={[styles.bottomNav, { paddingBottom: Math.max(insets.bottom, 8) }]}>
                 <TouchableOpacity style={styles.navItem} activeOpacity={0.8}>
-                    <Icon name="home" size={20} color="#FF176B" />
+                    <Icon name="home" size={20} color={PINK} />
                     <Text style={[styles.navLabel, styles.navLabelActive]}>Home</Text>
                 </TouchableOpacity>
 
@@ -492,15 +580,12 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                     style={styles.navItem}
                     activeOpacity={0.8}
                     onPress={() => navigation.navigate(Routes.APPOINTMENTS)}>
-                    <Icon name="calendar-alt" size={19} color="#718096" />
+                    <Icon name="calendar-alt" size={19} color={TEXT_MUTED} />
                     <Text style={styles.navLabel}>My Bookings</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity
-                    style={styles.navItem}
-                    activeOpacity={0.8}
-                    onPress={() => navigation.navigate(Routes.PACKAGE_DETAIL, { packageType: 'muma' })}>
-                    <Icon name="heart" size={19} color="#718096" />
+                <TouchableOpacity style={styles.navItem} activeOpacity={0.8} onPress={() => openPackage('muma')}>
+                    <Icon name="heart" size={19} color={TEXT_MUTED} />
                     <Text style={styles.navLabel}>Packages</Text>
                 </TouchableOpacity>
 
@@ -508,10 +593,18 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                     style={styles.navItem}
                     activeOpacity={0.8}
                     onPress={() => navigation.navigate(Routes.PROFILE)}>
-                    <Icon name="user" size={19} color="#718096" />
+                    <Icon name="user" size={19} color={TEXT_MUTED} />
                     <Text style={styles.navLabel}>Profile</Text>
                 </TouchableOpacity>
             </View>
+
+            {/* ── Order Detail Modal ── */}
+            <OrderDetailModal
+                visible={!!selectedOrder}
+                order={selectedOrder}
+                onClose={() => setSelectedOrder(null)}
+                onGoToBookings={() => navigation.navigate(Routes.APPOINTMENTS)}
+            />
         </SafeAreaView>
     );
 };
@@ -521,21 +614,24 @@ export default HomeScreen;
 // ── Styles ──────────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
+    flex: { flex: 1, marginRight: 4 },
     safe: {
         flex: 1,
         backgroundColor: '#FFFFFF',
     },
+
+    // Top bar
     topBar: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        paddingHorizontal: 16,
+        paddingHorizontal: SCREEN_PADDING,
         paddingVertical: 12,
         backgroundColor: '#FFFFFF',
     },
-    welcome: { color: '#718096', fontSize: 13 },
+    welcome: { color: TEXT_MUTED, fontSize: 13 },
     name: {
-        color: '#1A1D36',
+        color: TEXT_DARK,
         fontSize: 20,
         fontWeight: '800',
         marginTop: 2,
@@ -544,10 +640,10 @@ const styles = StyleSheet.create({
         width: 38,
         height: 38,
         borderRadius: 19,
-        backgroundColor: '#FF176B',
+        backgroundColor: PINK,
         justifyContent: 'center',
         alignItems: 'center',
-        shadowColor: '#FF176B',
+        shadowColor: PINK,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
         shadowRadius: 8,
@@ -555,11 +651,23 @@ const styles = StyleSheet.create({
         padding: 4,
         overflow: 'hidden',
     },
+    avatarImage: {
+        width: '100%',
+        height: '100%',
+        borderRadius: 19,
+    },
+    avatarPlaceholder: {
+        width: '100%',
+        height: '100%',
+        tintColor: Colors.WHITE,
+    },
+
+    // Sub bar
     subBar: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingHorizontal: 16,
+        paddingHorizontal: SCREEN_PADDING,
         paddingVertical: 8,
         backgroundColor: '#FFFFFF',
     },
@@ -573,6 +681,7 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: '#E2E8F0',
     },
+    locationIcon: { marginRight: 6 },
     locationText: {
         fontSize: 12,
         fontWeight: '700',
@@ -581,67 +690,32 @@ const styles = StyleSheet.create({
     verifiedBadge: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#FFE4F0',
+        backgroundColor: PINK_SOFT,
         paddingHorizontal: 10,
         paddingVertical: 6,
         borderRadius: 20,
         borderWidth: 1,
-        borderColor: '#FFDAEA',
+        borderColor: PINK_BORDER,
     },
+    verifiedIcon: { marginRight: 5 },
     verifiedText: {
         fontSize: 11,
         fontWeight: '700',
-        color: '#FF176B',
+        color: PINK,
     },
+
+    // Scroll area
     scrollContent: {
-        paddingHorizontal: 16,
+        paddingHorizontal: SCREEN_PADDING,
         paddingTop: 8,
-        paddingBottom: 24,
+        paddingBottom: 16,
     },
     heroBanner: {
         width: '100%',
-        height: 180,
-        borderRadius: 16,
-        marginBottom: 12,
-    },
-    featuresStrip: {
-        flexDirection: 'row',
-        backgroundColor: '#FFFFFF',
-        borderRadius: 14,
-        borderWidth: 1,
-        borderColor: '#EDF2F7',
-        marginBottom: 16,
-        paddingVertical: 10,
-        paddingHorizontal: 6,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.03,
-        shadowRadius: 6,
-        elevation: 1,
-    },
-    featureItem: {
-        flex: 1,
-        alignItems: 'center',
-        gap: 4,
-    },
-    featureItemBorder: {
-        borderRightWidth: 1,
-        borderRightColor: '#EDF2F7',
-    },
-    featureIconBox: {
-        width: 32,
-        height: 32,
-        borderRadius: 10,
-        backgroundColor: '#FFE4F0',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    featureLabel: {
-        fontSize: 9,
-        fontWeight: '600',
-        color: '#718096',
-        textAlign: 'center',
-        lineHeight: 12,
+        height: '100%',
+        // aspectRatio: BANNER_ASPECT_RATIO,
+        // borderRadius: 16,
+        // marginBottom: 14,
     },
     sectionHeader: {
         marginBottom: 16,
@@ -649,48 +723,26 @@ const styles = StyleSheet.create({
     sectionTitle: {
         fontSize: 22,
         fontWeight: '900',
-        color: '#1A1D36',
+        color: TEXT_DARK,
         letterSpacing: -0.3,
     },
     sectionSubtitle: {
         fontSize: 13,
-        color: '#718096',
+        color: TEXT_MUTED,
         marginTop: 3,
     },
     packageCardsList: {
         gap: 18,
     },
 
-    // ── Package Card Styling (Matching Screenshot Exactly) ──────────────────────
+    // Package card
     cardContainer: {
         borderRadius: 24,
         borderWidth: 1.5,
-        padding: 16,
-        position: 'relative',
         overflow: 'hidden',
-        shadowColor: '#FF176B',
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.05,
         shadowRadius: 10,
-        elevation: 2,
-    },
-    popularBadge: {
-        position: 'absolute',
-        top: 0,
-        left: 18,
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 10,
-        paddingVertical: 4,
-        borderBottomLeftRadius: 10,
-        borderBottomRightRadius: 10,
-        zIndex: 10,
-    },
-    popularBadgeText: {
-        color: '#FFFFFF',
-        fontSize: 9,
-        fontWeight: '800',
-        textTransform: 'uppercase',
     },
     activeSubRibbon: {
         position: 'absolute',
@@ -704,6 +756,7 @@ const styles = StyleSheet.create({
         borderBottomRightRadius: 10,
         zIndex: 10,
     },
+    ribbonIcon: { marginRight: 4 },
     activeSubRibbonText: {
         color: '#FFFFFF',
         fontSize: 9,
@@ -714,13 +767,14 @@ const styles = StyleSheet.create({
         minHeight: 155,
         marginBottom: 8,
         marginTop: 2,
+        marginLeft: 8,
     },
     cardHeroImage: {
         position: 'absolute',
         top: -16,
-        right: -16,
-        width: SW - 32,
-        height: Math.round((SW - 32) * 0.5),
+        right: 0,
+        width: CARD_WIDTH,
+        height: Math.round(CARD_WIDTH * 0.5),
         borderTopRightRadius: 24,
     },
     cardLeftCol: {
@@ -747,7 +801,7 @@ const styles = StyleSheet.create({
     cardTitleText: {
         fontSize: 17,
         fontWeight: '800',
-        color: '#1A1D36',
+        color: TEXT_DARK,
     },
     cardTaglineText: {
         fontSize: 10.5,
@@ -780,12 +834,11 @@ const styles = StyleSheet.create({
         lineHeight: 14,
     },
 
-    // Footer Price Box
+    // Price footer
     priceFooterBox: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        borderRadius: 16,
         paddingHorizontal: 14,
         paddingVertical: 10,
         marginBottom: 10,
@@ -808,7 +861,7 @@ const styles = StyleSheet.create({
     footerMainPrice: {
         fontSize: 22,
         fontWeight: '900',
-        color: '#1A1D36',
+        color: TEXT_DARK,
     },
     footerMrpRow: {
         flexDirection: 'row',
@@ -832,7 +885,7 @@ const styles = StyleSheet.create({
         fontWeight: '800',
     },
 
-    // Button Pill
+    // Button pill
     viewPlanButtonPill: {
         height: 48,
         borderRadius: 24,
@@ -845,15 +898,16 @@ const styles = StyleSheet.create({
         fontSize: 15,
         fontWeight: '800',
     },
+    buttonIcon: { marginLeft: 6 },
 
-    // Active Subscriptions
+    // Active subscriptions
     activeSubsContainer: {
         marginBottom: 16,
     },
     activeSubsTitle: {
         fontSize: 15,
         fontWeight: '800',
-        color: '#1A1D36',
+        color: TEXT_DARK,
         marginBottom: 8,
     },
     activeSubCard: {
@@ -865,28 +919,30 @@ const styles = StyleSheet.create({
     },
     activeSubHeader: { flexDirection: 'row', alignItems: 'center' },
     activeSubIconBox: {
-        width: 34, height: 34, borderRadius: 10,
-        justifyContent: 'center', alignItems: 'center',
+        width: 34,
+        height: 34,
+        borderRadius: 10,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
-    activeSubTitle: {
-        fontSize: 14, fontWeight: '800', color: '#1A1D36',
-    },
-    activeSubPlan: { fontSize: 11, color: '#718096', marginTop: 1 },
+    activeSubTextWrapper: { flex: 1, marginLeft: 12 },
+    activeSubTitle: { fontSize: 14, fontWeight: '800', color: TEXT_DARK },
+    activeSubPlan: { fontSize: 11, color: TEXT_MUTED, marginTop: 1 },
     activeStatusBadge: { paddingHorizontal: 6, paddingVertical: 3, borderRadius: 10 },
     activeStatusText: { fontSize: 9, fontWeight: '800' },
-    activeSubDivider: { height: 1, backgroundColor: '#EDF2F7', marginVertical: 8 },
+    activeSubDivider: { height: 1, backgroundColor: BORDER_LIGHT, marginVertical: 8 },
     activeSubFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     activeSubFooterLabel: { fontSize: 11, color: '#A0AEC0', fontWeight: '500' },
     activeSubFooterValue: { fontSize: 11, color: '#2D3748', fontWeight: '700' },
 
-    // Bottom Navigation Bar
+    // Bottom navigation
     bottomNav: {
         flexDirection: 'row',
         justifyContent: 'space-around',
         alignItems: 'center',
         backgroundColor: '#FFFFFF',
         borderTopWidth: 1,
-        borderTopColor: '#EDF2F7',
+        borderTopColor: BORDER_LIGHT,
         paddingTop: 8,
     },
     navItem: {
@@ -896,11 +952,11 @@ const styles = StyleSheet.create({
     navLabel: {
         fontSize: 10,
         fontWeight: '600',
-        color: '#718096',
+        color: TEXT_MUTED,
         marginTop: 3,
     },
     navLabelActive: {
-        color: '#FF176B',
+        color: PINK,
         fontWeight: '800',
     },
 });

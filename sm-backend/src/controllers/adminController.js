@@ -301,12 +301,12 @@ const updateOrder = async (req, res, next) => {
         if (status !== undefined) {
             if (status === 'active' && order.status !== 'active') {
                 if (!activatedAt && !order.activatedAt) {
-                    const start = new Date();
+                    const start = (startDate || order.startDate) ? new Date(startDate || order.startDate) : new Date();
                     start.setHours(0, 0, 0, 0);
                     order.activatedAt = start;
                 }
                 if (!expiresAt && !order.expiresAt) {
-                    const baseDate = order.activatedAt || new Date();
+                    const baseDate = order.activatedAt || (startDate || order.startDate) ? new Date(order.activatedAt || startDate || order.startDate) : new Date();
                     baseDate.setHours(0, 0, 0, 0);
                     const months = order.planKey === '1month' ? 1 : order.planKey === '3month' ? 3 : 6;
                     const expiry = new Date(baseDate);
