@@ -114,10 +114,10 @@ const cleanDetails = (details) => {
 
 const getAppointmentDateTime = (startDateStr, selectedTimeStr) => {
   if (!startDateStr) return '';
-  
+
   let datePart = toLocalDateString(startDateStr);
   if (!datePart) return '';
-  
+
   let timePart = '09:00'; // default morning time
   if (selectedTimeStr) {
     const match12 = selectedTimeStr.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
@@ -137,7 +137,7 @@ const getAppointmentDateTime = (startDateStr, selectedTimeStr) => {
       }
     }
   }
-  
+
   return `${datePart}T${timePart}`;
 };
 
@@ -161,7 +161,7 @@ const filterByDateRange = (item, dateField, reportStartDate, reportEndDate) => {
 const getRevenueTrend = (filteredPayments, startDateStr, endDateStr) => {
   const start = startDateStr ? new Date(startDateStr) : null;
   const end = endDateStr ? new Date(endDateStr) : null;
-  
+
   let useDayGrouping = false;
   if (start && end) {
     const diffTime = Math.abs(end - start);
@@ -170,7 +170,7 @@ const getRevenueTrend = (filteredPayments, startDateStr, endDateStr) => {
       useDayGrouping = true;
     }
   }
-  
+
   if (useDayGrouping && start && end) {
     const dayMap = {};
     const labels = [];
@@ -178,7 +178,7 @@ const getRevenueTrend = (filteredPayments, startDateStr, endDateStr) => {
     curr.setHours(0, 0, 0, 0);
     const limit = new Date(end);
     limit.setHours(23, 59, 59, 999);
-    
+
     let safety = 0;
     while (curr <= limit && safety < 40) {
       const label = curr.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
@@ -187,7 +187,7 @@ const getRevenueTrend = (filteredPayments, startDateStr, endDateStr) => {
       curr.setDate(curr.getDate() + 1);
       safety++;
     }
-    
+
     filteredPayments.forEach(p => {
       const pDate = p.paidAt ? new Date(p.paidAt) : (p.createdAt ? new Date(p.createdAt) : null);
       if (!pDate) return;
@@ -196,12 +196,12 @@ const getRevenueTrend = (filteredPayments, startDateStr, endDateStr) => {
         dayMap[label] += p.amount || 0;
       }
     });
-    
+
     const data = labels.map(l => dayMap[l]);
     return { labels, data };
   } else {
     const monthMap = {};
-    
+
     filteredPayments.forEach(p => {
       const pDate = p.paidAt ? new Date(p.paidAt) : (p.createdAt ? new Date(p.createdAt) : null);
       if (!pDate) return;
@@ -210,7 +210,7 @@ const getRevenueTrend = (filteredPayments, startDateStr, endDateStr) => {
       const key = `${year}-${month}`;
       monthMap[key] = (monthMap[key] || 0) + (p.amount || 0);
     });
-    
+
     if (start && end) {
       let curr = new Date(start);
       curr.setDate(1);
@@ -218,7 +218,7 @@ const getRevenueTrend = (filteredPayments, startDateStr, endDateStr) => {
       const limit = new Date(end);
       limit.setDate(1);
       limit.setHours(23, 59, 59, 999);
-      
+
       let safety = 0;
       while (curr <= limit && safety < 36) {
         const key = `${curr.getFullYear()}-${String(curr.getMonth() + 1).padStart(2, '0')}`;
@@ -229,7 +229,7 @@ const getRevenueTrend = (filteredPayments, startDateStr, endDateStr) => {
         safety++;
       }
     }
-    
+
     const sortedKeys = Object.keys(monthMap).sort();
     const labels = sortedKeys.map(k => {
       const [yr, mn] = k.split('-');
@@ -244,7 +244,7 @@ const getRevenueTrend = (filteredPayments, startDateStr, endDateStr) => {
 const getEmployeeTrend = (filteredEmployees, startDateStr, endDateStr) => {
   const start = startDateStr ? new Date(startDateStr) : null;
   const end = endDateStr ? new Date(endDateStr) : null;
-  
+
   let useDayGrouping = false;
   if (start && end) {
     const diffTime = Math.abs(end - start);
@@ -253,7 +253,7 @@ const getEmployeeTrend = (filteredEmployees, startDateStr, endDateStr) => {
       useDayGrouping = true;
     }
   }
-  
+
   if (useDayGrouping && start && end) {
     const dayMap = {};
     const labels = [];
@@ -261,7 +261,7 @@ const getEmployeeTrend = (filteredEmployees, startDateStr, endDateStr) => {
     curr.setHours(0, 0, 0, 0);
     const limit = new Date(end);
     limit.setHours(23, 59, 59, 999);
-    
+
     let safety = 0;
     while (curr <= limit && safety < 40) {
       const label = curr.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
@@ -270,7 +270,7 @@ const getEmployeeTrend = (filteredEmployees, startDateStr, endDateStr) => {
       curr.setDate(curr.getDate() + 1);
       safety++;
     }
-    
+
     filteredEmployees.forEach(e => {
       const eDate = e.createdAt ? new Date(e.createdAt) : null;
       if (!eDate) return;
@@ -279,12 +279,12 @@ const getEmployeeTrend = (filteredEmployees, startDateStr, endDateStr) => {
         dayMap[label] += 1;
       }
     });
-    
+
     const data = labels.map(l => dayMap[l]);
     return { labels, data };
   } else {
     const monthMap = {};
-    
+
     filteredEmployees.forEach(e => {
       const eDate = e.createdAt ? new Date(e.createdAt) : null;
       if (!eDate) return;
@@ -293,7 +293,7 @@ const getEmployeeTrend = (filteredEmployees, startDateStr, endDateStr) => {
       const key = `${year}-${month}`;
       monthMap[key] = (monthMap[key] || 0) + 1;
     });
-    
+
     if (start && end) {
       let curr = new Date(start);
       curr.setDate(1);
@@ -301,7 +301,7 @@ const getEmployeeTrend = (filteredEmployees, startDateStr, endDateStr) => {
       const limit = new Date(end);
       limit.setDate(1);
       limit.setHours(23, 59, 59, 999);
-      
+
       let safety = 0;
       while (curr <= limit && safety < 36) {
         const key = `${curr.getFullYear()}-${String(curr.getMonth() + 1).padStart(2, '0')}`;
@@ -312,7 +312,7 @@ const getEmployeeTrend = (filteredEmployees, startDateStr, endDateStr) => {
         safety++;
       }
     }
-    
+
     const sortedKeys = Object.keys(monthMap).sort();
     const labels = sortedKeys.map(k => {
       const [yr, mn] = k.split('-');
@@ -901,7 +901,7 @@ function App() {
       */
     }
     try {
-      const detailsWithOrder = selectedOrderId 
+      const detailsWithOrder = selectedOrderId
         ? `${newAppointment.details}${newAppointment.details ? ' | ' : ''}Order ID: ${selectedOrderId}`
         : newAppointment.details;
       const payload = {
@@ -1053,10 +1053,10 @@ function App() {
           if (res.success && res.data && res.data.orders) {
             const apptRes = await apiFetch('/admin/appointments');
             const currentAppts = apptRes.success ? apptRes.data : appointments;
-            
+
             const unscheduled = res.data.orders.filter(order => {
               // 1. Precise check: does any appointment details contain this Order ID?
-              const isScheduledPrecise = currentAppts.some(appt => 
+              const isScheduledPrecise = currentAppts.some(appt =>
                 appt.details && appt.details.includes(`Order ID: ${order._id}`)
               );
               if (isScheduledPrecise) return false;
@@ -1074,11 +1074,11 @@ function App() {
 
               return true;
             });
-            
+
             if (selectedOrder && !unscheduled.some(o => o._id === selectedOrder._id)) {
               unscheduled.unshift(selectedOrder);
             }
-            
+
             setUnscheduledOrders(unscheduled);
           }
         } catch (err) {
@@ -1395,7 +1395,7 @@ function App() {
         const date = new Date(year, month - 1, day);
         const months = prev.planKey === '1month' ? 1 : prev.planKey === '3month' ? 3 : 6;
         date.setMonth(date.getMonth() + months);
-        
+
         const expYear = date.getFullYear();
         const expMonth = String(date.getMonth() + 1).padStart(2, '0');
         const expDay = String(date.getDate()).padStart(2, '0');
@@ -1430,11 +1430,11 @@ function App() {
         if (!updated.startDate) {
           updated.startDate = activeStr;
         }
-        
+
         const date = new Date(Number(year), Number(month) - 1, Number(day));
         const months = prev.planKey === '1month' ? 1 : prev.planKey === '3month' ? 3 : 6;
         date.setMonth(date.getMonth() + months);
-        
+
         const expYear = date.getFullYear();
         const expMonth = String(date.getMonth() + 1).padStart(2, '0');
         const expDay = String(date.getDate()).padStart(2, '0');
@@ -1747,19 +1747,19 @@ function App() {
             </button>
             <div className="header-title" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <h1>{activeTab === 'checkins' ? 'Attendance' : activeTab === 'reports' ? 'Export Reports' : activeTab === 'pincodes' ? 'Serviceable Pincodes' : activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}</h1>
-              <button 
-                onClick={handleRefresh} 
+              <button
+                onClick={handleRefresh}
                 className={`refresh-btn ${isLoading ? 'spin' : ''}`}
                 title="Refresh Current Tab Data"
-                style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center', 
-                  background: 'rgba(0, 0, 0, 0.03)', 
-                  border: '1px solid var(--border-color)', 
-                  borderRadius: '50%', 
-                  width: '32px', 
-                  height: '32px', 
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: 'rgba(0, 0, 0, 0.03)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '50%',
+                  width: '32px',
+                  height: '32px',
                   cursor: 'pointer',
                   color: 'var(--text-muted)',
                   transition: 'all 0.2s ease',
@@ -1953,8 +1953,8 @@ function App() {
                                 <td>{formatCurrency(order.price)}</td>
                                 <td>
                                   <span className={`badge badge-${order.status === 'active' ? 'success' :
-                                      order.status === 'completed' ? 'info' :
-                                        order.status === 'cancelled' ? 'danger' : 'warning'
+                                    order.status === 'completed' ? 'info' :
+                                      order.status === 'cancelled' ? 'danger' : 'warning'
                                     }`}>{order.status}</span>
                                 </td>
                               </tr>
@@ -1983,7 +1983,7 @@ function App() {
                                 <td>{formatCurrency(pay.amount)}</td>
                                 <td>
                                   <span className={`badge badge-${pay.status === 'success' ? 'success' :
-                                      pay.status === 'failed' ? 'danger' : 'warning'
+                                    pay.status === 'failed' ? 'danger' : 'warning'
                                     }`}>{pay.status}</span>
                                 </td>
                                 <td>{new Date(pay.createdAt).toLocaleDateString('en-IN')}</td>
@@ -2213,14 +2213,14 @@ function App() {
                             <td>{formatCurrency(order.price)}</td>
                             <td>
                               <span className={`badge badge-${order.status === 'active' ? 'success' :
-                                  order.status === 'completed' ? 'info' :
-                                    order.status === 'cancelled' ? 'danger' : 'warning'
+                                order.status === 'completed' ? 'info' :
+                                  order.status === 'cancelled' ? 'danger' : 'warning'
                                 }`}>{order.status}</span>
                             </td>
                             <td>
                               <span className={`badge badge-${order.paymentStatus === 'success' ? 'success' :
-                                  order.paymentStatus === 'failed' ? 'danger' :
-                                    order.paymentStatus === 'pending' ? 'warning' : 'info'
+                                order.paymentStatus === 'failed' ? 'danger' :
+                                  order.paymentStatus === 'pending' ? 'warning' : 'info'
                                 }`}>{order.paymentStatus}</span>
                             </td>
                             <td style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
@@ -2344,7 +2344,7 @@ function App() {
                             </td>
                             <td>
                               <span className={`badge badge-${pay.status === 'success' ? 'success' :
-                                  pay.status === 'failed' ? 'danger' : 'warning'
+                                pay.status === 'failed' ? 'danger' : 'warning'
                                 }`}>{pay.status}</span>
                             </td>
                             <td>{formatDate(pay.paidAt || pay.createdAt)}</td>
@@ -2643,7 +2643,7 @@ function App() {
                         Apply Filters
                       </button>
                     </div>
-                    
+
                     <button
                       className="btn btn-primary"
                       onClick={() => {
@@ -2763,7 +2763,7 @@ function App() {
                     const apptDateStr = toLocalDateString(targetDate);
                     if (apptDateStr !== checkinDateFilter) return false;
                   }
-                  
+
                   // Filter by search
                   if (checkinSearchFilter) {
                     const q = checkinSearchFilter.toLowerCase();
@@ -2772,7 +2772,7 @@ function App() {
                     const details = appt.details?.toLowerCase() || '';
                     if (!empName.includes(q) && !custName.includes(q) && !details.includes(q)) return false;
                   }
-                  
+
                   return true;
                 });
 
@@ -2786,7 +2786,7 @@ function App() {
                   const wA = statusWeight[a.status] || 99;
                   const wB = statusWeight[b.status] || 99;
                   if (wA !== wB) return wA - wB;
-                  
+
                   const tA = new Date(a.checkinTime || a.dateTime).getTime();
                   const tB = new Date(b.checkinTime || b.dateTime).getTime();
                   return tB - tA;
@@ -2802,7 +2802,7 @@ function App() {
 
                 return (
                   <div className="glass-panel animate-fade-in" style={{ padding: '24px' }}>
-                    
+
                     {/* Metrics Header */}
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', marginBottom: '24px' }}>
                       <div className="stat-card" style={{ padding: '16px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
@@ -2826,7 +2826,7 @@ function App() {
                     {/* Filters bar */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
                       <div className="filter-bar" style={{ margin: 0, flex: 1, display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-                        
+
                         {/* Search Input */}
                         <div className="search-input-wrapper" style={{ minWidth: '250px' }}>
                           <Search size={18} />
@@ -2853,17 +2853,17 @@ function App() {
 
                         {/* Clear Date button / Today Button */}
                         {checkinDateFilter && (
-                          <button 
-                            className="btn btn-secondary" 
+                          <button
+                            className="btn btn-secondary"
                             style={{ padding: '8px 16px' }}
                             onClick={() => setCheckinDateFilter('')}
                           >
                             All Dates
                           </button>
                         )}
-                        
-                        <button 
-                          className="btn btn-secondary" 
+
+                        <button
+                          className="btn btn-secondary"
                           style={{ padding: '8px 16px' }}
                           onClick={() => setCheckinDateFilter(toLocalDateString(new Date()))}
                         >
@@ -2982,16 +2982,16 @@ function App() {
                             {slotTimes.length > 0 ? slotTimes.map((time, idx) => {
                               const isEditing = editingTime.slotKey === slotKey && editingTime.index === idx;
                               return (
-                                <span 
-                                  key={idx} 
-                                  style={{ 
-                                    display: 'inline-flex', 
-                                    alignItems: 'center', 
-                                    gap: '6px', 
-                                    padding: isEditing ? '3px 8px' : '6px 12px', 
-                                    background: 'rgba(255,255,255,0.05)', 
-                                    border: '1px solid var(--border-color)', 
-                                    borderRadius: '20px', 
+                                <span
+                                  key={idx}
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    padding: isEditing ? '3px 8px' : '6px 12px',
+                                    background: 'rgba(255,255,255,0.05)',
+                                    border: '1px solid var(--border-color)',
+                                    borderRadius: '20px',
                                     fontSize: '0.85rem',
                                     color: 'var(--text-main)'
                                   }}
@@ -3044,7 +3044,7 @@ function App() {
                                     </form>
                                   ) : (
                                     <>
-                                      <span 
+                                      <span
                                         onClick={() => setEditingTime({ slotKey, index: idx, value: convert12To24(time) })}
                                         style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
                                         title="Click to edit"
@@ -3060,10 +3060,10 @@ function App() {
                                             handleUpdateTimeslot(slotKey, updated);
                                           }
                                         }}
-                                        style={{ 
-                                          border: 'none', 
-                                          background: 'transparent', 
-                                          color: '#ef4444', 
+                                        style={{
+                                          border: 'none',
+                                          background: 'transparent',
+                                          color: '#ef4444',
                                           cursor: 'pointer',
                                           fontSize: '0.8rem',
                                           padding: '0 2px',
@@ -3128,28 +3128,28 @@ function App() {
                   <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', padding: '16px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '12px', marginBottom: '32px' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                       <span style={{ fontSize: '0.75rem', fontWeight: '600', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Start Date</span>
-                      <input 
-                        type="date" 
-                        className="form-control" 
-                        value={reportStartDate} 
-                        onChange={(e) => setReportStartDate(e.target.value)} 
+                      <input
+                        type="date"
+                        className="form-control"
+                        value={reportStartDate}
+                        onChange={(e) => setReportStartDate(e.target.value)}
                         style={{ width: '180px' }}
                       />
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                       <span style={{ fontSize: '0.75rem', fontWeight: '600', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>End Date</span>
-                      <input 
-                        type="date" 
-                        className="form-control" 
-                        value={reportEndDate} 
-                        onChange={(e) => setReportEndDate(e.target.value)} 
+                      <input
+                        type="date"
+                        className="form-control"
+                        value={reportEndDate}
+                        onChange={(e) => setReportEndDate(e.target.value)}
                         style={{ width: '180px' }}
                       />
                     </div>
                     <div style={{ display: 'flex', alignItems: 'flex-end', gap: '8px' }}>
                       {(reportStartDate || reportEndDate) && (
-                        <button 
-                          className="btn btn-secondary" 
+                        <button
+                          className="btn btn-secondary"
                           onClick={() => {
                             setReportStartDate('');
                             setReportEndDate('');
@@ -3175,7 +3175,7 @@ function App() {
                           <span style={{ display: 'inline-block', width: '4px', height: '18px', backgroundColor: 'var(--accent-pink)', borderRadius: '2px' }}></span>
                           Graphical Analytics
                         </h3>
-                        
+
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px' }}>
                           {/* Chart 1: Signups Distribution */}
                           <div className="glass-panel chart-card" style={{ border: '1px solid var(--border-color)', borderRadius: '12px', minHeight: '340px' }}>
@@ -3305,9 +3305,9 @@ function App() {
                           <span style={{ display: 'inline-block', width: '4px', height: '18px', backgroundColor: 'var(--accent-pink)', borderRadius: '2px' }}></span>
                           CSV Reports Export
                         </h3>
-                        
+
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px' }}>
-                          
+
                           {/* Users Card */}
                           <div className="glass-panel" style={{ padding: '20px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', border: '1px solid var(--border-color)', borderRadius: '12px', minHeight: '180px' }}>
                             <div>
@@ -3321,8 +3321,8 @@ function App() {
                                 Download the list of all registered clients, including contact emails, mobile numbers, verification status, and creation dates.
                               </p>
                             </div>
-                            <button 
-                              className="btn btn-primary" 
+                            <button
+                              className="btn btn-primary"
                               style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
                               onClick={() => handleExport('users')}
                               disabled={exportingType !== null}
@@ -3345,8 +3345,8 @@ function App() {
                                 Export booking history details, selected packages/plans, pricing, activation timelines, checkin window logs, and status info.
                               </p>
                             </div>
-                            <button 
-                              className="btn btn-primary" 
+                            <button
+                              className="btn btn-primary"
                               style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
                               onClick={() => handleExport('orders')}
                               disabled={exportingType !== null}
@@ -3369,8 +3369,8 @@ function App() {
                                 Retrieve detailed accounts transaction logs, payment statuses, UPI handles, gateway reference codes, and timestamps.
                               </p>
                             </div>
-                            <button 
-                              className="btn btn-primary" 
+                            <button
+                              className="btn btn-primary"
                               style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
                               onClick={() => handleExport('payments')}
                               disabled={exportingType !== null}
@@ -3393,8 +3393,8 @@ function App() {
                                 Export service employee records, occupation roles, registered contact profiles, verification statuses, and sign-up dates.
                               </p>
                             </div>
-                            <button 
-                              className="btn btn-primary" 
+                            <button
+                              className="btn btn-primary"
                               style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
                               onClick={() => handleExport('employees')}
                               disabled={exportingType !== null}
@@ -3402,55 +3402,55 @@ function App() {
                               <Download size={16} />
                               {exportingType === 'employees' ? 'Exporting...' : 'Export Employees'}
                             </button>
-                           {/* Checkins Card */}
-                          <div className="glass-panel" style={{ padding: '20px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', border: '1px solid var(--border-color)', borderRadius: '12px', minHeight: '180px' }}>
-                            <div>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-                                <div style={{ padding: '10px', background: 'rgba(139, 92, 246, 0.1)', color: '#8b5cf6', borderRadius: '8px' }}>
-                                  <MapPin size={20} />
+                            {/* Checkins Card */}
+                            <div className="glass-panel" style={{ padding: '20px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', border: '1px solid var(--border-color)', borderRadius: '12px', minHeight: '180px' }}>
+                              <div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+                                  <div style={{ padding: '10px', background: 'rgba(139, 92, 246, 0.1)', color: '#8b5cf6', borderRadius: '8px' }}>
+                                    <MapPin size={20} />
+                                  </div>
+                                  <h3 style={{ fontSize: '1.1rem', fontWeight: 'bold', margin: 0 }}>Service Check-ins</h3>
                                 </div>
-                                <h3 style={{ fontSize: '1.1rem', fontWeight: 'bold', margin: 0 }}>Service Check-ins</h3>
+                                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: '1.4', margin: '0 0 16px 0' }}>
+                                  Download check-in metrics including recorded timestamps, employee assignees, GPS verification details, and addresses.
+                                </p>
                               </div>
-                              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: '1.4', margin: '0 0 16px 0' }}>
-                                Download check-in metrics including recorded timestamps, employee assignees, GPS verification details, and addresses.
-                              </p>
+                              <button
+                                className="btn btn-primary"
+                                style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                                onClick={() => handleExport('checkins')}
+                                disabled={exportingType !== null}
+                              >
+                                <Download size={16} />
+                                {exportingType === 'checkins' ? 'Exporting...' : 'Export Check-ins'}
+                              </button>
                             </div>
-                            <button 
-                              className="btn btn-primary" 
-                              style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
-                              onClick={() => handleExport('checkins')}
-                              disabled={exportingType !== null}
-                            >
-                              <Download size={16} />
-                              {exportingType === 'checkins' ? 'Exporting...' : 'Export Check-ins'}
-                            </button>
-                          </div>
 
-                          {/* Requested Pincodes Card */}
-                          <div className="glass-panel" style={{ padding: '20px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', border: '1px solid var(--border-color)', borderRadius: '12px', minHeight: '180px' }}>
-                            <div>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-                                <div style={{ padding: '10px', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', borderRadius: '8px' }}>
-                                  <MapPin size={20} />
+                            {/* Requested Pincodes Card */}
+                            <div className="glass-panel" style={{ padding: '20px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', border: '1px solid var(--border-color)', borderRadius: '12px', minHeight: '180px' }}>
+                              <div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+                                  <div style={{ padding: '10px', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', borderRadius: '8px' }}>
+                                    <MapPin size={20} />
+                                  </div>
+                                  <h3 style={{ fontSize: '1.1rem', fontWeight: 'bold', margin: 0 }}>Requested Pincodes</h3>
                                 </div>
-                                <h3 style={{ fontSize: '1.1rem', fontWeight: 'bold', margin: 0 }}>Requested Pincodes</h3>
+                                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: '1.4', margin: '0 0 16px 0' }}>
+                                  Download customer service requests (leads) for currently unserviced areas, including contact numbers, requested pincodes, and timestamps.
+                                </p>
                               </div>
-                              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: '1.4', margin: '0 0 16px 0' }}>
-                                Download customer service requests (leads) for currently unserviced areas, including contact numbers, requested pincodes, and timestamps.
-                              </p>
+                              <button
+                                className="btn btn-primary"
+                                style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                                onClick={() => handleExport('pincodes')}
+                                disabled={exportingType !== null}
+                              >
+                                <Download size={16} />
+                                {exportingType === 'pincodes' ? 'Exporting...' : 'Export Pincode Requests'}
+                              </button>
                             </div>
-                            <button 
-                              className="btn btn-primary" 
-                              style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
-                              onClick={() => handleExport('pincodes')}
-                              disabled={exportingType !== null}
-                            >
-                              <Download size={16} />
-                              {exportingType === 'pincodes' ? 'Exporting...' : 'Export Pincode Requests'}
-                            </button>
-                          </div>
 
-                        </div>
+                          </div>
 
                         </div>
                       </div>
@@ -3476,11 +3476,11 @@ function App() {
                     </div>
                   ) : (
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '32px', alignItems: 'start' }}>
-                      
+
                       {/* Left: Serviceable Pincodes List & Form */}
                       <div className="glass-panel" style={{ padding: '20px', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
                         <h3 style={{ fontSize: '1.1rem', fontWeight: 'bold', margin: '0 0 16px 0', color: 'var(--text-main)' }}>Serviceable Pincodes</h3>
-                        
+
                         <form onSubmit={handleAddPincode} style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
                           <input
                             type="text"
@@ -3515,8 +3515,8 @@ function App() {
                                   <tr key={item._id} style={{ borderBottom: '1px solid var(--border-color)' }}>
                                     <td style={{ padding: '10px 12px', fontWeight: 'bold' }}>{item.pincode}</td>
                                     <td style={{ padding: '10px 12px', textAlign: 'right' }}>
-                                      <button 
-                                        className="btn btn-secondary" 
+                                      <button
+                                        className="btn btn-secondary"
                                         style={{ padding: '4px 8px', color: 'var(--danger)', borderColor: 'rgba(239, 68, 68, 0.2)' }}
                                         onClick={() => handleDeletePincode(item._id)}
                                       >
@@ -3534,7 +3534,7 @@ function App() {
                       {/* Right: Area Service Requests Table */}
                       <div className="glass-panel" style={{ padding: '20px', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
                         <h3 style={{ fontSize: '1.1rem', fontWeight: 'bold', margin: '0 0 16px 0', color: 'var(--text-main)' }}>Customer Service Requests (Leads)</h3>
-                        
+
                         <div style={{ maxHeight: '470px', overflowY: 'auto', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
                           {pincodeRequests.length === 0 ? (
                             <div style={{ padding: '32px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.9rem', fontStyle: 'italic' }}>
@@ -3672,7 +3672,7 @@ function App() {
             </div>
             <form onSubmit={handleUpdateOrder}>
               <div className="modal-body">
-                 <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', padding: '12px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', padding: '12px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
                   <div style={{ fontSize: '1.8rem', color: editOrder.accentColor }}><i className={`fa-solid ${editOrder.icon || 'fa-box'}`}></i></div>
                   <div>
                     <div style={{ fontWeight: 'bold' }}>{editOrder.packageTitle}</div>
@@ -3912,7 +3912,7 @@ function App() {
       {/* Edit/Add Package Modal */}
       {editPackage && (
         <div className="modal-overlay" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div className="glass-panel modal-content animate-fade-in" style={{ maxWidth: '800px', width: '90%', maxHeight: '90vh', overflowY: 'auto' }}>
+          <div className="glass-panel modal-content animate-fade-in" style={{ maxWidth: '1100px', width: '95%', maxHeight: '92vh', overflowY: 'auto' }}>
             <div className="modal-header">
               <h3 className="modal-title">
                 {editPackage._id ? 'Edit Package & Plans' : 'Create New Package'}
@@ -4104,7 +4104,7 @@ function App() {
                         onChange={(e) => {
                           const files = Array.from(e.target.files || []);
                           if (files.length === 0) return;
-                          
+
                           files.forEach(file => {
                             const reader = new FileReader();
                             reader.onload = (uploadEvent) => {
@@ -4297,6 +4297,68 @@ function App() {
                         <div style={{ fontWeight: 'bold', marginBottom: '12px', color: 'var(--text)', textTransform: 'capitalize' }}>
                           {plan.label} Plan Details
                         </div>
+                        <div className="grid-3-col" style={{ display: 'grid', gridTemplateColumns: '130px 140px 1fr', gap: '15px', marginBottom: '12px' }}>
+                          <div className="form-group">
+                            <label className="form-label">Visit Count</label>
+                            <input
+                              type="number"
+                              className="form-control"
+                              value={plan.visitCount !== undefined ? plan.visitCount : (key === '1month' ? 26 : key === '3month' ? 52 : 78)}
+                              onChange={(e) => {
+                                const count = parseInt(e.target.value, 10) || 0;
+                                const hours = plan.hoursPerVisit !== undefined ? plan.hoursPerVisit : 3;
+                                const info = `${count} visits × ${hours} hours (${count * hours} hours)`;
+                                setEditPackage(prev => ({
+                                  ...prev,
+                                  plans: {
+                                    ...prev.plans,
+                                    [key]: { ...prev.plans[key], visitCount: count, hoursPerVisit: hours, visitInfo: info }
+                                  }
+                                }));
+                              }}
+                            />
+                          </div>
+                          <div className="form-group">
+                            <label className="form-label">Hours</label>
+                            <input
+                              type="number"
+                              className="form-control"
+                              value={plan.hoursPerVisit !== undefined ? plan.hoursPerVisit : 3}
+                              onChange={(e) => {
+                                const hours = parseInt(e.target.value, 10) || 0;
+                                const count = plan.visitCount !== undefined ? plan.visitCount : (key === '1month' ? 26 : key === '3month' ? 52 : 78);
+                                const info = `${count} visits × ${hours} hours (${count * hours} hours)`;
+                                setEditPackage(prev => ({
+                                  ...prev,
+                                  plans: {
+                                    ...prev.plans,
+                                    [key]: { ...prev.plans[key], hoursPerVisit: hours, visitCount: count, visitInfo: info }
+                                  }
+                                }));
+                              }}
+                            />
+                          </div>
+                          <div className="form-group">
+                            <label className="form-label">Visit Info Summary Text (Shown on App)</label>
+                            <input
+                              type="text"
+                              className="form-control"
+                              style={{ width: '100%' }}
+                              placeholder="e.g. 26 visits × 3 hours (78 hours)"
+                              value={plan.visitInfo || `${(plan.visitCount || (key === '1month' ? 26 : key === '3month' ? 52 : 78))} visits × ${(plan.hoursPerVisit || 3)} hours (${(plan.visitCount || (key === '1month' ? 26 : key === '3month' ? 52 : 78)) * (plan.hoursPerVisit || 3)} hours)`}
+                              onChange={(e) => {
+                                setEditPackage(prev => ({
+                                  ...prev,
+                                  plans: {
+                                    ...prev.plans,
+                                    [key]: { ...prev.plans[key], visitInfo: e.target.value }
+                                  }
+                                }));
+                              }}
+                            />
+                          </div>
+                        </div>
+
                         <div className="grid-3-col" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '15px' }}>
                           <div className="form-group">
                             <label className="form-label">
@@ -4517,12 +4579,12 @@ function App() {
                   <strong style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Aadhar Photo</strong>
                   <div style={{ marginTop: '6px', height: '140px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.05)', cursor: 'zoom-in' }}
                     onClick={() => setPreviewImage(getImageUrl(viewEmployeeDocs.aadharPhoto))}>
-                      <img
-                        src={getImageUrl(viewEmployeeDocs.aadharPhoto) || 'https://via.placeholder.com/150'}
-                        alt="Aadhar Card"
-                        style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                        onError={(e) => { e.target.src = 'https://via.placeholder.com/150'; }}
-                      />
+                    <img
+                      src={getImageUrl(viewEmployeeDocs.aadharPhoto) || 'https://via.placeholder.com/150'}
+                      alt="Aadhar Card"
+                      style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                      onError={(e) => { e.target.src = 'https://via.placeholder.com/150'; }}
+                    />
                   </div>
                 </div>
 

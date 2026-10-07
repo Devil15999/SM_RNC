@@ -5,6 +5,8 @@ const mongoose = require('mongoose');
 const PlanSchema = new mongoose.Schema({
     key: { type: String, required: true },
     label: { type: String, required: true },
+    visitCount: { type: Number, default: 26 },
+    hoursPerVisit: { type: Number, default: 3 },
     visitInfo: { type: String },
     price: { type: Number, required: true },
     originalPrice: { type: Number, required: true },

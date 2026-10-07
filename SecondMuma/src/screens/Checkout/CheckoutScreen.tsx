@@ -74,11 +74,11 @@ const CheckoutScreen: React.FC<Props> = ({ navigation, route }) => {
                 });
                 const status = res.status;
                 const data = await res.json();
-                
+
                 if (res.ok && data.success) {
                     const rawData = data.data;
                     const normalized: Record<string, string[]> = { morning: [], afternoon: [], evening: [] };
-                    
+
                     if (Array.isArray(rawData)) {
                         rawData.forEach((item: any) => {
                             if (item && item.slot && Array.isArray(item.times)) {
@@ -90,7 +90,7 @@ const CheckoutScreen: React.FC<Props> = ({ navigation, route }) => {
                         if (Array.isArray(rawData.afternoon)) normalized.afternoon = rawData.afternoon;
                         if (Array.isArray(rawData.evening)) normalized.evening = rawData.evening;
                     }
-                    
+
                     if (isMounted) {
                         setDbTimeslots(normalized);
                         setDebugMsg(`Success: Morning(${normalized.morning.length}), Afternoon(${normalized.afternoon.length}), Evening(${normalized.evening.length})`);
@@ -320,7 +320,7 @@ const CheckoutScreen: React.FC<Props> = ({ navigation, route }) => {
                                 <Icon name={icon} size={28} color={accentColor} style={{ marginRight: 12 }} />
                                 <View style={{ flex: 1 }}>
                                     <Text style={styles.summaryTitle}>{packageTitle}</Text>
-                                    <Text style={styles.summaryPlan}>{planLabel} Plan</Text>
+                                    <Text style={styles.summaryPlan}>{planLabel}</Text>
                                 </View>
                             </View>
                             <Text style={[styles.summaryPrice, { color: accentColor }]}>
@@ -383,7 +383,7 @@ const CheckoutScreen: React.FC<Props> = ({ navigation, route }) => {
                                 )}
 
                                 {renderInput("Baby's Name", babyName, setBabyName, 'babyName', { placeholder: "Enter baby's name (or Baby of Mother's Name)" })}
-                                
+
                                 <View style={styles.inputGroup}>
                                     <Text style={styles.label}>Baby's Age Range</Text>
                                     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
@@ -416,11 +416,11 @@ const CheckoutScreen: React.FC<Props> = ({ navigation, route }) => {
 
                         {/* Appointment Schedule */}
                         <Text style={styles.formSubSectionTitle}>Appointment Schedule</Text>
-                        
+
                         {/* Appointment Start Date */}
                         <View style={styles.inputGroup}>
                             <Text style={styles.label}>Preferred Start Date</Text>
-                            <TouchableOpacity 
+                            <TouchableOpacity
                                 style={[
                                     styles.dropdownButton,
                                     errors.startDate ? { borderColor: Colors.ERROR } : null
@@ -500,7 +500,7 @@ const CheckoutScreen: React.FC<Props> = ({ navigation, route }) => {
                         {timeSlot !== '' && (
                             <View style={styles.inputGroup}>
                                 <Text style={styles.label}>Preferred Time</Text>
-                                <TouchableOpacity 
+                                <TouchableOpacity
                                     style={[
                                         styles.dropdownButton,
                                         errors.selectedTime ? { borderColor: Colors.ERROR } : null
@@ -516,9 +516,9 @@ const CheckoutScreen: React.FC<Props> = ({ navigation, route }) => {
                                 {showTimeDropdown && (
                                     <View style={styles.dropdownList}>
                                         {(dbTimeslots[timeSlot] || []).length > 0 ? (dbTimeslots[timeSlot] || []).map((t) => (
-                                            <TouchableOpacity 
-                                                key={t} 
-                                                style={styles.dropdownItem} 
+                                            <TouchableOpacity
+                                                key={t}
+                                                style={styles.dropdownItem}
                                                 onPress={() => {
                                                     setSelectedTime(t);
                                                     setShowTimeDropdown(false);

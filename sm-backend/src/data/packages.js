@@ -25,6 +25,8 @@ const PACKAGES = {
             '1month': {
                 key: '1month',
                 label: '1 Month Plan',
+                visitCount: 26,
+                hoursPerVisit: 3,
                 visitInfo: '26 visits × 3 hours (78 hours)',
                 price: 34999,
                 originalPrice: 45000,
@@ -41,6 +43,8 @@ const PACKAGES = {
             '3month': {
                 key: '3month',
                 label: '2 Months Plan',
+                visitCount: 52,
+                hoursPerVisit: 3,
                 visitInfo: '52 visits × 3 hours (156 hours)',
                 price: 64999,
                 originalPrice: 90000,
@@ -56,6 +60,8 @@ const PACKAGES = {
             '6month': {
                 key: '6month',
                 label: '3 Months Plan',
+                visitCount: 78,
+                hoursPerVisit: 3,
                 visitInfo: '78 visits × 3 hours (234 hours)',
                 price: 89999,
                 originalPrice: 135000,
@@ -89,6 +95,8 @@ const PACKAGES = {
             '1month': {
                 key: '1month',
                 label: '1 Month Plan',
+                visitCount: 26,
+                hoursPerVisit: 3,
                 visitInfo: '26 visits × 3 hours (78 hours)',
                 price: 24999,
                 originalPrice: 32000,
@@ -104,6 +112,8 @@ const PACKAGES = {
             '3month': {
                 key: '3month',
                 label: '2 Months Plan',
+                visitCount: 52,
+                hoursPerVisit: 3,
                 visitInfo: '52 visits × 3 hours (156 hours)',
                 price: 46999,
                 originalPrice: 64000,
@@ -119,6 +129,8 @@ const PACKAGES = {
             '6month': {
                 key: '6month',
                 label: '3 Months Plan',
+                visitCount: 78,
+                hoursPerVisit: 3,
                 visitInfo: '78 visits × 3 hours (234 hours)',
                 price: 67999,
                 originalPrice: 96000,
@@ -153,6 +165,8 @@ const PACKAGES = {
             '1month': {
                 key: '1month',
                 label: '1 Month Plan',
+                visitCount: 26,
+                hoursPerVisit: 3,
                 visitInfo: '26 visits × 3 hours (78 hours)',
                 price: 49999,
                 originalPrice: 65000,
@@ -170,6 +184,8 @@ const PACKAGES = {
             '3month': {
                 key: '3month',
                 label: '2 Months Plan',
+                visitCount: 52,
+                hoursPerVisit: 3,
                 visitInfo: '52 visits × 3 hours (156 hours)',
                 price: 89999,
                 originalPrice: 120000,
@@ -185,6 +201,8 @@ const PACKAGES = {
             '6month': {
                 key: '6month',
                 label: '3 Months Plan',
+                visitCount: 78,
+                hoursPerVisit: 3,
                 visitInfo: '78 visits × 3 hours (234 hours)',
                 price: 129999,
                 originalPrice: 180000,

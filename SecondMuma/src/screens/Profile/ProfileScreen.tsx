@@ -41,13 +41,15 @@ interface SavedAddress {
 
 interface OrderItem {
     _id: string;
-    packageType: 'mother' | 'baby' | 'muma';
+    packageType: string;
     packageTitle: string;
-    planKey: '1month' | '3month' | '6month';
+    planKey: string;
     planLabel: string;
     price: number;
     paymentStatus: 'pending' | 'processing' | 'success' | 'failed' | 'refunded';
     status: 'created' | 'active' | 'completed' | 'cancelled';
+    icon?: string;
+    accentColor?: string;
     address: {
         fullName: string;
         mobile: string;
@@ -234,6 +236,29 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
             console.log('Error fetching user profile:', err);
         }
     };
+
+    // Packages from API
+    const [apiPackages, setApiPackages] = useState<any[]>([]);
+
+    useEffect(() => {
+        const loadApiPackages = async () => {
+            try {
+                const cached = await AsyncStorage.getItem('@cached_packages');
+                if (cached) {
+                    setApiPackages(JSON.parse(cached));
+                }
+                const res = await fetch(`${API_BASE_URL}/packages`);
+                const data = await res.json();
+                if (res.ok && data.success && Array.isArray(data.data)) {
+                    setApiPackages(data.data);
+                    AsyncStorage.setItem('@cached_packages', JSON.stringify(data.data)).catch(() => {});
+                }
+            } catch (e) {
+                console.log('Error loading API packages in Profile:', e);
+            }
+        };
+        loadApiPackages();
+    }, []);
 
     useEffect(() => {
         fetchProfileData();
@@ -574,26 +599,19 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
         );
     };
 
-    const getPackageDetails = (type: string) => {
-        switch (type) {
-            case 'mother':
-                return { label: 'Mother Care', icon: 'user-pregnant', color: '#E91E8A' };
-            case 'baby':
-                return { label: 'Baby Care', icon: 'baby', color: '#1FBDBD' };
-            case 'muma':
-                return { label: 'Muma Care', icon: 'hand-holding-heart', color: '#7B2D8B' };
-            default:
-                return { label: 'Care Package', icon: 'box', color: Colors.PRIMARY };
-        }
-    };
+    const getOrderPackageDetails = (order: OrderItem) => {
+        const pkgFromApi = apiPackages.find(p => p.type === order.packageType);
 
-    const getPlanLabel = (key: string) => {
-        switch (key) {
-            case '1month': return '1 Month';
-            case '3month': return '3 Months';
-            case '6month': return '6 Months';
-            default: return key;
-        }
+        // All titles, plan labels, icons & colors come directly from API data
+        const title = order.packageTitle || pkgFromApi?.title || 'Care Package';
+        const planLabel = order.planLabel ||
+            (order.planKey && pkgFromApi?.plans?.[order.planKey]?.label) ||
+            (order.planKey ? `${order.planKey} Plan` : 'Subscription');
+        const rawIcon = order.icon || pkgFromApi?.icon || 'box';
+        const icon = rawIcon.replace(/^fa-/, '');
+        const color = order.accentColor || pkgFromApi?.accentColor || Colors.PRIMARY;
+
+        return { title, planLabel, icon, color };
     };
 
     const renderInput = (
@@ -976,13 +994,19 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                                 </View>
                             ) : (
                                 orders.map(order => {
-                                    const details = getPackageDetails(order.packageType);
+                                    const details = getOrderPackageDetails(order);
                                     return (
                                         <TouchableOpacity
                                             key={order._id}
                                             style={styles.orderCard}
                                             activeOpacity={0.88}
-                                            onPress={() => setSelectedOrder(order)}
+                                            onPress={() => setSelectedOrder({
+                                                ...order,
+                                                packageTitle: details.title,
+                                                planLabel: details.planLabel,
+                                                icon: details.icon,
+                                                accentColor: details.color,
+                                            })}
                                         >
                                             <View style={styles.orderHeader}>
                                                 <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 12 }}>
@@ -990,8 +1014,8 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                                                         <Icon name={details.icon} size={15} color={details.color} />
                                                     </View>
                                                     <View style={{ marginLeft: 10, flex: 1 }}>
-                                                        <Text style={styles.orderTitle}>{details.label}</Text>
-                                                        <Text style={styles.orderPlan}>{getPlanLabel(order.planKey)} Plan</Text>
+                                                        <Text style={styles.orderTitle}>{details.title}</Text>
+                                                        <Text style={styles.orderPlan}>{details.planLabel}</Text>
                                                     </View>
                                                 </View>
                                                 <View style={[styles.statusBadge, order.status === 'active' && styles.statusPaid, order.status === 'completed' && styles.statusCompleted]}>

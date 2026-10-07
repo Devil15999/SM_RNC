@@ -1,5 +1,6 @@
-import React, { memo, useCallback, useMemo, useRef, useState } from 'react';
+import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+    ActivityIndicator,
     Dimensions,
     Image,
     ImageSourcePropType,
@@ -11,6 +12,7 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
@@ -195,8 +197,15 @@ const isOrderActive = (order: Order): boolean =>
     order.status === 'active' && (!order.expiresAt || new Date(order.expiresAt) > new Date());
 
 const mapApiPackage = (p: ApiPackage): PackageCardItem => {
-    const month1 = p.plans?.['1month'] ?? {};
+    const month1 = (p.plans?.['1month'] as any) ?? {};
     const accentColor = p.accentColor || DEFAULT_ACCENT[p.type];
+
+    let dynamicVisitDetails = month1.visitInfo || month1.subtitle || '';
+    if (!dynamicVisitDetails && (month1.visitCount || month1.hoursPerVisit)) {
+        const vCount = month1.visitCount || 26;
+        const vHours = month1.hoursPerVisit || 3;
+        dynamicVisitDetails = `${vCount} visits × ${vHours} hours (${vCount * vHours} hours)`;
+    }
 
     return {
         type: p.type,
@@ -209,10 +218,10 @@ const mapApiPackage = (p: ApiPackage): PackageCardItem => {
         iconCircleBg: hexToRgba(accentColor, 0.12),
         image: resolveImage(p.backgroundImage || p.image, p.type),
         planName: month1.label || DEFAULT_PLAN_NAME,
-        planDetails: month1.visitInfo || DEFAULT_PLAN_DETAILS,
+        planDetails: dynamicVisitDetails || 'Specialized nursing care visits',
         price: formatPrice(month1.price ?? p.startingPrice),
         originalPrice: formatPrice(month1.originalPrice),
-        savings: month1.savings || 'Save 22%',
+        savings: month1.savings || '',
         features: p.features?.length ? p.features : month1.features ?? [],
     };
 };
@@ -364,6 +373,8 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     const [packageList, setPackageList] = useState<PackageCardItem[]>([]);
     const [orders, setOrders] = useState<Order[]>([]);
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isLoadingOrders, setIsLoadingOrders] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [packagesY, setPackagesY] = useState<number>(0);
     const mainScrollViewRef = useRef<ScrollView>(null);
@@ -380,6 +391,27 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         }
     }, []);
 
+    // Load cached packages on mount for instant rendering
+    useEffect(() => {
+        let isMounted = true;
+        const loadCache = async () => {
+            try {
+                const cached = await AsyncStorage.getItem('@cached_packages');
+                if (cached && isMounted) {
+                    const parsed = JSON.parse(cached);
+                    if (Array.isArray(parsed) && parsed.length > 0) {
+                        setPackageList(parsed);
+                        setIsLoading(false);
+                    }
+                }
+            } catch (e) {
+                console.log('Error loading cached packages:', e);
+            }
+        };
+        loadCache();
+        return () => { isMounted = false; };
+    }, []);
+
     const fetchPackages = useCallback(async () => {
         try {
             const res = await fetch(`${API_BASE_URL}/packages`);
@@ -389,14 +421,20 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                     .map(mapApiPackage)
                     .sort((a, b) => (PACKAGE_SORT_ORDER[a.type] ?? 99) - (PACKAGE_SORT_ORDER[b.type] ?? 99));
                 setPackageList(formatted);
+                AsyncStorage.setItem('@cached_packages', JSON.stringify(formatted)).catch(() => { });
             }
         } catch (err) {
             console.warn('Error fetching packages in Home:', err);
+        } finally {
+            setIsLoading(false);
         }
     }, []);
 
     const fetchOrders = useCallback(async () => {
-        if (!token) return;
+        if (!token) {
+            setIsLoadingOrders(false);
+            return;
+        }
         try {
             const res = await fetch(`${API_BASE_URL}/orders`, {
                 headers: { Authorization: `Bearer ${token}` },
@@ -407,6 +445,8 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
             }
         } catch (err) {
             console.warn('Error fetching orders in Home:', err);
+        } finally {
+            setIsLoadingOrders(false);
         }
     }, [token]);
 
@@ -505,7 +545,15 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                 </View>
 
                 {/* ── Active Subscriptions ── */}
-                {activeSubscriptions.length > 0 && (
+                {token && isLoadingOrders ? (
+                    <View style={styles.activeSubsContainer}>
+                        <Text style={styles.activeSubsTitle}>Your Active Subscriptions</Text>
+                        <View style={{ height: 110, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F8FAFC', borderRadius: 16, borderWidth: 1, borderColor: '#F1F5F9' }}>
+                            <ActivityIndicator size="small" color={PINK} />
+                            <Text style={{ marginTop: 8, fontSize: 13, color: TEXT_MUTED }}>Loading active subscriptions...</Text>
+                        </View>
+                    </View>
+                ) : activeSubscriptions.length > 0 ? (
                     <View style={styles.activeSubsContainer}>
                         <Text style={styles.activeSubsTitle}>Your Active Subscriptions ({activeSubscriptions.length})</Text>
                         <ScrollView
@@ -530,19 +578,35 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                             ))}
                         </ScrollView>
                     </View>
-                )}
+                ) : null}
 
                 {/* ── Packages List ── */}
-                <View style={styles.packageCardsList}>
-                    {packageList.map(pkg => (
-                        <PackageCard
-                            key={pkg.type}
-                            pkg={pkg}
-                            isActive={activePackageTypes.has(pkg.type)}
-                            onPress={openPackage}
-                        />
-                    ))}
-                </View>
+                {isLoading && packageList.length === 0 ? (
+                    <View style={styles.loadingContainer}>
+                        <ActivityIndicator size="large" color={PINK} />
+                        <Text style={styles.loadingText}>Loading care packages...</Text>
+                    </View>
+                ) : packageList.length > 0 ? (
+                    <View style={styles.packageCardsList}>
+                        {packageList.map(pkg => (
+                            <PackageCard
+                                key={pkg.type}
+                                pkg={pkg}
+                                isActive={activePackageTypes.has(pkg.type)}
+                                onPress={openPackage}
+                            />
+                        ))}
+                    </View>
+                ) : (
+                    <View style={styles.emptyContainer}>
+                        <Icon name="exclamation-circle" size={32} color={TEXT_MUTED} style={{ marginBottom: 8 }} />
+                        <Text style={styles.emptyTitle}>Unable to load packages</Text>
+                        <Text style={styles.emptySubtitle}>Please check your connection</Text>
+                        <TouchableOpacity style={styles.retryBtn} onPress={onRefresh} activeOpacity={0.8}>
+                            <Text style={styles.retryBtnText}>Tap to Retry</Text>
+                        </TouchableOpacity>
+                    </View>
+                )}
             </ScrollView>
 
             {/* ── Bottom Navigation Bar ── */}
@@ -818,6 +882,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 14,
         paddingVertical: 10,
         marginBottom: 10,
+        marginTop: 10
     },
     priceFooterLeft: {
         flex: 1,
@@ -864,7 +929,7 @@ const styles = StyleSheet.create({
     // Button pill
     viewPlanButtonPill: {
         height: 48,
-        borderRadius: 24,
+        borderRadius: 20,
         flexDirection: 'row',
         justifyContent: 'center',
         alignItems: 'center',
@@ -884,7 +949,7 @@ const styles = StyleSheet.create({
         fontSize: 15,
         fontWeight: '800',
         color: TEXT_DARK,
-        marginBottom: 8,
+        marginBottom: 2,
         // paddingHorizontal: SCREEN_PADDING,
     },
     activeSubsScrollContent: {
@@ -894,10 +959,10 @@ const styles = StyleSheet.create({
     activeSubCard: {
         backgroundColor: '#FFFFFF',
         borderRadius: 14,
-        paddingVertical: 10,
-        paddingHorizontal: 12,
+        paddingVertical: 8,
+        paddingHorizontal: 8,
         borderWidth: 1.5,
-        height: '100%',
+        height: '85%',
         justifyContent: 'space-between',
     },
     activeSubHeader: { flexDirection: 'row', alignItems: 'center' },
@@ -911,9 +976,9 @@ const styles = StyleSheet.create({
     activeSubTextWrapper: { flex: 1, marginLeft: 10, marginRight: 6 },
     activeSubTitle: { fontSize: 14, fontWeight: '800', color: TEXT_DARK },
     activeSubPlan: { fontSize: 11, color: TEXT_MUTED, marginTop: 1 },
-    activeStatusBadge: { paddingHorizontal: 6, paddingVertical: 3, borderRadius: 10 },
+    activeStatusBadge: { paddingHorizontal: 6, borderRadius: 10 },
     activeStatusText: { fontSize: 9, fontWeight: '800' },
-    activeSubDivider: { height: 1, backgroundColor: BORDER_LIGHT, marginVertical: 6 },
+    activeSubDivider: { height: 1, backgroundColor: BORDER_LIGHT, marginVertical: 0, },
     activeSubFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     activeSubFooterLabel: { fontSize: 11, color: '#A0AEC0', fontWeight: '500' },
     activeSubFooterValue: { fontSize: 11, color: '#2D3748', fontWeight: '700' },
@@ -941,5 +1006,52 @@ const styles = StyleSheet.create({
     navLabelActive: {
         color: PINK,
         fontWeight: '800',
+    },
+
+    // Loading & Empty states
+    loadingContainer: {
+        paddingVertical: 50,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    loadingText: {
+        marginTop: 12,
+        fontSize: 14,
+        fontWeight: '600',
+        color: TEXT_MUTED,
+    },
+    emptyContainer: {
+        paddingVertical: 36,
+        paddingHorizontal: 20,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#F8FAFC',
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+        marginVertical: 10,
+    },
+    emptyTitle: {
+        fontSize: 15,
+        fontWeight: '700',
+        color: TEXT_DARK,
+    },
+    emptySubtitle: {
+        fontSize: 12,
+        color: TEXT_MUTED,
+        marginTop: 4,
+        textAlign: 'center',
+    },
+    retryBtn: {
+        marginTop: 14,
+        backgroundColor: PINK,
+        paddingHorizontal: 20,
+        paddingVertical: 9,
+        borderRadius: 20,
+    },
+    retryBtnText: {
+        color: Colors.WHITE,
+        fontSize: 13,
+        fontWeight: '700',
     },
 });

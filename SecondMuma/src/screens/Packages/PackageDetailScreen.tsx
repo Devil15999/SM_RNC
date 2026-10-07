@@ -48,179 +48,83 @@ interface PackageDetailInfo {
     plans: Record<PlanKey, PlanDetail>;
 }
 
-const DEFAULT_PACKAGES: Record<string, PackageDetailInfo> = {
-    baby: {
-        type: 'baby',
-        title: 'Baby Care',
-        subtitle: 'Comprehensive newborn care, bathing, feeding routines, milestone tracking, and gentle attention.',
-        icon: 'baby',
-        accentColor: '#E91E8A',
+const DEFAULT_ICONS_LIST: Record<string, Array<{ icon: string; label: string }>> = {
+    baby: [
+        { icon: 'baby', label: 'Baby\nCare' },
+        { icon: 'hands-wash', label: 'Bathing\n& Hygiene' },
+        { icon: 'cookie-bite', label: 'Feeding\nSupport' },
+        { icon: 'moon', label: 'Sleep\nGuidance' },
+        { icon: 'heartbeat', label: 'Growth\nTracking' },
+    ],
+    mother: [
+        { icon: 'female', label: 'Mother\nCare' },
+        { icon: 'spa', label: 'Recovery\nSupport' },
+        { icon: 'prescription-bottle', label: 'Lactation\nSupport' },
+        { icon: 'heartbeat', label: 'Health\nMonitor' },
+        { icon: 'book-open', label: 'Wellness\nGuidance' },
+    ],
+    muma: [
+        { icon: 'baby', label: 'Baby\nCare' },
+        { icon: 'female', label: 'Mother\nCare' },
+        { icon: 'spa', label: 'Recovery\nSupport' },
+        { icon: 'prescription-bottle', label: 'Feeding\nSupport' },
+        { icon: 'book-open', label: 'Guidance\n& Updates' },
+    ],
+};
+
+const createInitialPackageInfo = (type: string): PackageDetailInfo => {
+    const isBaby = type === 'baby';
+    const isMother = type === 'mother';
+    const title = isBaby ? 'Baby Care' : isMother ? 'Mother Care' : 'Mother + Baby Care';
+    const accentColor = isMother ? '#5C54E5' : '#E91E8A';
+    const icon = isBaby ? 'baby' : isMother ? 'female' : 'heart';
+
+    return {
+        type,
+        title,
+        subtitle: `Specialized ${title.toLowerCase()} service provided at home.`,
+        icon,
+        accentColor,
         mainImage: null,
         gallery: [],
-        iconsList: [
-            { icon: 'baby', label: 'Baby\nCare' },
-            { icon: 'hands-wash', label: 'Bathing\n& Hygiene' },
-            { icon: 'cookie-bite', label: 'Feeding\nSupport' },
-            { icon: 'moon', label: 'Sleep\nGuidance' },
-            { icon: 'heartbeat', label: 'Growth\nTracking' },
-        ],
-        includedCol1: [
-            'Hygiene care, bathing & cord care',
-            'Feeding, burping & colic relief',
-            'Sleep routine & bedtime support',
-            'Growth & milestone tracking',
-        ],
-        includedCol2: [
-            'Sanitation of baby gear & bottles',
-            'Pediatric checkup assistance',
-            'Vaccination schedule support',
-            'Dedicated certified baby nurse',
-        ],
+        iconsList: DEFAULT_ICONS_LIST[type] || DEFAULT_ICONS_LIST.muma,
+        includedCol1: [],
+        includedCol2: [],
         plans: {
             '1month': {
                 key: '1month',
                 label: '1 Month Plan',
-                subtitle: '26 visits × 3 hours (78 hours)',
-                price: 24999,
-                originalPrice: 32000,
-                savings: 'Save 22%',
+                subtitle: '',
+                price: 0,
+                originalPrice: 0,
+                savings: '',
             },
             '3month': {
                 key: '3month',
                 label: '2 Months Plan',
-                subtitle: '52 visits × 3 hours (156 hours)',
-                price: 46999,
-                originalPrice: 64000,
-                savings: 'Save 27%',
+                subtitle: '',
+                price: 0,
+                originalPrice: 0,
+                savings: '',
                 badge: 'Most Popular',
             },
             '6month': {
                 key: '6month',
                 label: '3 Months Plan',
-                subtitle: '78 visits × 3 hours (234 hours)',
-                price: 67999,
-                originalPrice: 96000,
-                savings: 'Save 29%',
+                subtitle: '',
+                price: 0,
+                originalPrice: 0,
+                savings: '',
             },
         },
-    },
-    mother: {
-        type: 'mother',
-        title: 'Mother Care',
-        subtitle: 'Dedicated postpartum recovery support, lactation assistance, and physical wellness for new mothers.',
-        icon: 'female',
-        accentColor: '#5C54E5',
-        mainImage: null,
-        gallery: [],
-        iconsList: [
-            { icon: 'female', label: 'Mother\nCare' },
-            { icon: 'spa', label: 'Recovery\nSupport' },
-            { icon: 'prescription-bottle', label: 'Lactation\nSupport' },
-            { icon: 'heartbeat', label: 'Health\nMonitor' },
-            { icon: 'book-open', label: 'Wellness\nGuidance' },
-        ],
-        includedCol1: [
-            'Postpartum recovery assistance',
-            'Breastfeeding & lactation support',
-            'Nutritional guidance & meal help',
-            'Emotional wellness & vitals log',
-        ],
-        includedCol2: [
-            'Post-caesarean & wound care',
-            'Gentle massage & relaxation',
-            'Consultation & progress updates',
-            'Dedicated care coordinator',
-        ],
-        plans: {
-            '1month': {
-                key: '1month',
-                label: '1 Month Plan',
-                subtitle: '26 visits × 3 hours (78 hours)',
-                price: 34999,
-                originalPrice: 45000,
-                savings: 'Save 22%',
-            },
-            '3month': {
-                key: '3month',
-                label: '2 Months Plan',
-                subtitle: '52 visits × 3 hours (156 hours)',
-                price: 64999,
-                originalPrice: 90000,
-                savings: 'Save 28%',
-                badge: 'Most Popular',
-            },
-            '6month': {
-                key: '6month',
-                label: '3 Months Plan',
-                subtitle: '78 visits × 3 hours (234 hours)',
-                price: 89999,
-                originalPrice: 135000,
-                savings: 'Save 33%',
-            },
-        },
-    },
-    muma: {
-        type: 'muma',
-        title: 'Mother + Baby Care',
-        subtitle: 'The ultimate 360° care bundle providing dual dedicated support for both mother\'s recovery and baby\'s healthy start.',
-        icon: 'heart',
-        accentColor: '#E91E8A',
-        mainImage: null,
-        gallery: [],
-        iconsList: [
-            { icon: 'baby', label: 'Baby\nCare' },
-            { icon: 'female', label: 'Mother\nCare' },
-            { icon: 'spa', label: 'Recovery\nSupport' },
-            { icon: 'prescription-bottle', label: 'Feeding\nSupport' },
-            { icon: 'book-open', label: 'Guidance\n& Updates' },
-        ],
-        includedCol1: [
-            'All essential Baby Care services',
-            'All specialized Mother Care services',
-            'Lactation & breastfeeding assistance',
-            'Postpartum recovery & routine planning',
-        ],
-        includedCol2: [
-            'Dual nurse care coordination',
-            'Daily vitals & progress logs',
-            '24/7 dedicated support team',
-            'Comprehensive care reports',
-        ],
-        plans: {
-            '1month': {
-                key: '1month',
-                label: '1 Month Plan',
-                subtitle: '26 visits × 3 hours (78 hours)',
-                price: 49999,
-                originalPrice: 65000,
-                savings: 'Save 23%',
-                badge: 'Most Popular',
-            },
-            '3month': {
-                key: '3month',
-                label: '2 Months Plan',
-                subtitle: '52 visits × 3 hours (156 hours)',
-                price: 89999,
-                originalPrice: 120000,
-                savings: 'Save 25%',
-            },
-            '6month': {
-                key: '6month',
-                label: '3 Months Plan',
-                subtitle: '78 visits × 3 hours (234 hours)',
-                price: 129999,
-                originalPrice: 180000,
-                savings: 'Save 28%',
-            },
-        },
-    },
+    };
 };
 
 const PackageDetailScreen: React.FC<Props> = ({ navigation, route }) => {
     const insets = useSafeAreaInsets();
     const { packageType } = route.params;
 
-    const [pkgData, setPkgData] = useState<PackageDetailInfo>(DEFAULT_PACKAGES[packageType] || DEFAULT_PACKAGES.muma);
+    const [pkgData, setPkgData] = useState<PackageDetailInfo>(() => createInitialPackageInfo(packageType));
     const [selectedPlanKey, setSelectedPlanKey] = useState<PlanKey>('1month');
     const [selectedImageIndex, setSelectedImageIndex] = useState(0);
     const [isFavorite, setIsFavorite] = useState(false);
@@ -231,37 +135,54 @@ const PackageDetailScreen: React.FC<Props> = ({ navigation, route }) => {
             const data = await res.json();
             if (res.ok && data.success && data.data) {
                 const fetched = data.data;
-                const baseDefault = DEFAULT_PACKAGES[packageType] || DEFAULT_PACKAGES.muma;
+                const baseInfo = createInitialPackageInfo(packageType);
 
-                const apiPlans: Record<PlanKey, PlanDetail> = { ...baseDefault.plans };
+                const apiPlans: Record<PlanKey, PlanDetail> = { ...baseInfo.plans };
 
                 if (fetched.plans) {
                     (['1month', '3month', '6month'] as PlanKey[]).forEach(k => {
                         if (fetched.plans[k]) {
                             const p = fetched.plans[k];
+
+                            // Dynamic visit count & hours format from backend
+                            let visitSubtitle = p.visitInfo || p.subtitle;
+                            if (!visitSubtitle || (p.visitCount && p.hoursPerVisit)) {
+                                const vCount = p.visitCount || (k === '1month' ? 26 : k === '3month' ? 52 : 78);
+                                const vHours = p.hoursPerVisit || 3;
+                                visitSubtitle = `${vCount} visits × ${vHours} hours (${vCount * vHours} hours)`;
+                            }
+
+                            const origPrice = p.originalPrice ?? apiPlans[k]?.originalPrice ?? 0;
+                            const actPrice = p.price ?? apiPlans[k]?.price ?? 0;
+                            let savingsText = p.savings || apiPlans[k]?.savings || '';
+                            if (!savingsText && origPrice > actPrice && origPrice > 0) {
+                                const pct = Math.round(((origPrice - actPrice) / origPrice) * 100);
+                                savingsText = `Save ${pct}%`;
+                            }
+
                             apiPlans[k] = {
                                 key: k,
-                                label: p.label || apiPlans[k].label,
-                                subtitle: p.visitInfo || p.subtitle || apiPlans[k].subtitle,
-                                price: p.price ?? apiPlans[k].price,
-                                originalPrice: p.originalPrice ?? apiPlans[k].originalPrice,
-                                savings: p.savings || apiPlans[k].savings,
-                                badge: p.badge !== undefined ? p.badge : apiPlans[k].badge,
+                                label: p.label || apiPlans[k]?.label || (k === '1month' ? '1 Month Plan' : k === '3month' ? '2 Months Plan' : '3 Months Plan'),
+                                subtitle: visitSubtitle || apiPlans[k]?.subtitle || '',
+                                price: actPrice,
+                                originalPrice: origPrice,
+                                savings: savingsText,
+                                badge: p.badge !== undefined ? p.badge : apiPlans[k]?.badge,
                             };
                         }
                     });
                 }
 
                 // If package has features, split into 2 columns
-                let col1 = baseDefault.includedCol1;
-                let col2 = baseDefault.includedCol2;
+                let col1: string[] = [];
+                let col2: string[] = [];
                 if (Array.isArray(fetched.features) && fetched.features.length > 0) {
                     const half = Math.ceil(fetched.features.length / 2);
                     col1 = fetched.features.slice(0, half);
                     col2 = fetched.features.slice(half);
                 }
 
-                const cleanTitle = fetched.title || baseDefault.title;
+                const cleanTitle = fetched.title || baseInfo.title;
 
                 const rawImagesList: string[] = Array.isArray(fetched.images) && fetched.images.length > 0
                     ? fetched.images
@@ -277,16 +198,16 @@ const PackageDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                 const galleryList = remoteGallery;
 
                 setPkgData({
-                    ...baseDefault,
+                    ...baseInfo,
                     title: cleanTitle,
-                    subtitle: fetched.subtitle || fetched.tagline || baseDefault.subtitle,
-                    badge: fetched.badge !== undefined ? fetched.badge : baseDefault.badge,
-                    icon: (fetched.icon ?? baseDefault.icon).replace(/^fa-/, ''),
-                    accentColor: fetched.accentColor || baseDefault.accentColor,
+                    subtitle: fetched.subtitle || fetched.tagline || baseInfo.subtitle,
+                    badge: fetched.badge !== undefined ? fetched.badge : baseInfo.badge,
+                    icon: (fetched.icon ?? baseInfo.icon).replace(/^fa-/, ''),
+                    accentColor: fetched.accentColor || baseInfo.accentColor,
                     mainImage: heroImg,
                     gallery: galleryList,
-                    includedCol1: col1,
-                    includedCol2: col2,
+                    includedCol1: col1.length ? col1 : baseInfo.includedCol1,
+                    includedCol2: col2.length ? col2 : baseInfo.includedCol2,
                     plans: apiPlans,
                 });
             }
